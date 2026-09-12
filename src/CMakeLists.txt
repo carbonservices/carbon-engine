@@ -1,17 +1,11 @@
 add_executable(carbon-engine
     main.cpp
-    db/Database.h
-    db/Database.cpp
-    inference/LlamaEngine.h
-    inference/LlamaEngine.cpp
-    vector/VectorIndex.h
-    vector/VectorIndex.cpp
-    ingestion/DocumentProcessor.h
-    ingestion/DocumentProcessor.cpp
-    queue/JobQueue.h
-    queue/JobQueue.cpp
-    api/HttpServer.h
-    api/HttpServer.cpp
+    db/Database.h db/Database.cpp
+    inference/LlamaEngine.h inference/LlamaEngine.cpp
+    vector/VectorIndex.h vector/VectorIndex.cpp
+    ingestion/DocumentProcessor.h ingestion/DocumentProcessor.cpp
+    queue/JobQueue.h queue/JobQueue.cpp
+    api/HttpServer.h api/HttpServer.cpp
 )
 
 target_include_directories(carbon-engine PRIVATE
@@ -20,14 +14,8 @@ target_include_directories(carbon-engine PRIVATE
 )
 
 target_link_libraries(carbon-engine PRIVATE
-    Qt6::Core
-    Qt6::HttpServer
-    Qt6::Sql
-    Qt6::Concurrent
-    llama
-    faiss
-    ${PDFIUM_LIBRARIES}
-    libtesseract
+    Qt6::Core Qt6::HttpServer Qt6::Sql Qt6::Concurrent
+    llama faiss ${PDFIUM_LIBRARIES} libtesseract
 )
 
 add_custom_command(TARGET carbon-engine POST_BUILD
