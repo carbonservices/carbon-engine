@@ -1,0 +1,8 @@
+.vscode/
+.qtcreator/
+
+build/
+__Builds/
+
+third-party/
+cmake/
