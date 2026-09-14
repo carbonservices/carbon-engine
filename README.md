@@ -1,3 +1,5 @@
+<img src="https://avatars.githubusercontent.com/u/309081559" align="right" height="100" alt="Carbon Services Project"/>
+
 # Carbon Engine
 
 Native C++ engine for on-device ESG / BRSR data processing and report generation.
