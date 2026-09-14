@@ -1,4 +1,4 @@
-<img src="https://avatars.githubusercontent.com/u/309081559" align="right" height="100" alt="Carbon Services Project"/>
+<img src="https://avatars.githubusercontent.com/u/309081559" align="right" height="50" alt="Carbon Services Project"/>
 
 # Carbon Engine
 
