@@ -2,47 +2,80 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QtConcurrent>
+#include <QTcpServer>
+#include <QHostAddress>
+
+IngestRoute::IngestRoute(std::shared_ptr<Database> db) : _db(db) {}
+
+QString IngestRoute::path() const { return "/api/ingest"; }
+QHttpServerRequest::Method IngestRoute::method() const { return QHttpServerRequest::Method::Post; }
+
+QFuture<QHttpServerResponse> IngestRoute::handle(const QHttpServerRequest& request) {
+    auto doc = QJsonDocument::fromJson(request.body());
+    QString filePath = doc.object().value("file_path").toString();
+    auto db = _db;
+
+    return QtConcurrent::run([db, filePath]() {
+        if (filePath.isEmpty() || !db->enqueueJob(filePath)) {
+            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
+        }
+        return QHttpServerResponse(QJsonObject{{"status", "QUEUED"}});
+    });
+}
+
+ChatRoute::ChatRoute(std::shared_ptr<LlamaEngine> llama, std::shared_ptr<VectorIndex> index)
+    : _llama(llama), _index(index) {}
+
+QString ChatRoute::path() const { return "/api/chat"; }
+QHttpServerRequest::Method ChatRoute::method() const { return QHttpServerRequest::Method::Post; }
+
+QFuture<QHttpServerResponse> ChatRoute::handle(const QHttpServerRequest& request) {
+    auto doc = QJsonDocument::fromJson(request.body());
+    QString prompt = doc.object().value("prompt").toString();
+    auto llama = _llama;
+    auto index = _index;
+
+    return QtConcurrent::run([llama, index, prompt]() {
+        if (prompt.isEmpty()) {
+            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
+        }
+
+        std::string promptStd = prompt.toStdString();
+        auto queryEmbedding = llama->generateEmbedding(promptStd);
+        auto matchedIds = index->search(queryEmbedding, 3);
+
+        std::string generatedOutput;
+        llama->streamCompletion(promptStd, [&generatedOutput](const std::string& token) {
+            generatedOutput += token;
+        });
+
+        return QHttpServerResponse(QJsonObject{
+            {"response", QString::fromStdString(generatedOutput)},
+            {"context_matches", static_cast<int>(matchedIds.size())}
+        });
+    });
+}
 
 HttpServer::HttpServer(std::shared_ptr<Database> db,
                        std::shared_ptr<LlamaEngine> llama,
                        std::shared_ptr<VectorIndex> index,
                        QObject* parent)
-    : QObject(parent), m_db(db), m_llama(llama), m_index(index) {
+    : QObject(parent) {
+    registerRoute(std::make_unique<IngestRoute>(db));
+    registerRoute(std::make_unique<ChatRoute>(llama, index));
+}
 
-    // Enqueue document parsing job
-    m_server.route("/api/ingest", QHttpServerRequest::Method::Post,
-        [this](const QHttpServerRequest& request) {
-            auto doc = QJsonDocument::fromJson(request.body());
-            QString filePath = doc.object().value("file_path").toString();
-
-            if (filePath.isEmpty() || !m_db->enqueueJob(filePath)) {
-                return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
-            }
-            return QHttpServerResponse(QJsonObject{{"status", "QUEUED"}});
+void HttpServer::registerRoute(std::unique_ptr<ApiRoute> route) {
+    ApiRoute* rawRoute = route.get();
+    _server.route(rawRoute->path(), rawRoute->method(),
+        [rawRoute](const QHttpServerRequest& request) {
+            return rawRoute->handle(request);
         });
-
-    // Chat / Retrieval RAG query
-    m_server.route("/api/chat", QHttpServerRequest::Method::Post,
-        [this](const QHttpServerRequest& request) {
-            auto doc = QJsonDocument::fromJson(request.body());
-            std::string prompt = doc.object().value("prompt").toString().toStdString();
-
-            auto queryEmbedding = m_llama->generateEmbedding(prompt);
-            auto matchedIds = m_index->search(queryEmbedding, 3);
-
-            // Synchronous completion payload (streamable via SSE / chunked responses if needed)
-            std::string generatedOutput;
-            m_llama->streamCompletion(prompt, [&generatedOutput](const std::string& token) {
-                generatedOutput += token;
-            });
-
-            return QHttpServerResponse(QJsonObject{
-                {"response", QString::fromStdString(generatedOutput)},
-                {"context_matches", static_cast<int>(matchedIds.size())}
-            });
-        });
+    _routes.push_back(std::move(route));
 }
 
 bool HttpServer::listen(quint16 port) {
-    return m_server.listen(QHostAddress::Any, port) != 0;
+    auto* tcpServer = new QTcpServer(this);
+    if (!tcpServer->listen(QHostAddress::Any, port)) return false;
+    return _server.bind(tcpServer);
 }

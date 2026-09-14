@@ -1,8 +1,14 @@
+# editor configs
 .vscode/
 .qtcreator/
 
+# build directories
 build/
 __Builds/
 
+# third-party resources (automated via cmake)
 third-party/
 cmake/
+
+# models
+models/

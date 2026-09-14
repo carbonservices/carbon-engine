@@ -8,9 +8,14 @@ add_executable(carbon-engine
     api/HttpServer.h api/HttpServer.cpp
 )
 
+target_compile_features(carbon-engine PRIVATE cxx_std_20)
+
+target_compile_definitions(carbon-engine PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+
 target_include_directories(carbon-engine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PDFIUM_INCLUDE_DIRS}
+    ${tesseract_BINARY_DIR}/include
 )
 
 target_link_libraries(carbon-engine PRIVATE

@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include <mutex>
+#include <QMutex>
 #include <faiss/IndexHNSW.h>
 #include <faiss/IndexIDMap.h>
 
@@ -13,8 +13,8 @@ public:
     std::vector<int64_t> search(const std::vector<float>& query, int k);
 
 private:
-    int m_dim;
-    std::mutex m_mutex;
-    faiss::IndexHNSWFlat m_hnsw;
-    faiss::IndexIDMap m_index;
+    int _dim;
+    QMutex _mutex;
+    faiss::IndexHNSWFlat _hnsw;
+    faiss::IndexIDMap _index;
 };

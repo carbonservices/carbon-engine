@@ -12,8 +12,9 @@ public:
     bool enqueueJob(const QString& filePath);
     bool getNextPendingJob(int& outJobId, QString& outFilePath);
     bool updateJobStatus(int jobId, const QString& status, const QString& error = "");
+    bool insertChunk(int jobId, int pageNum, const QString& chunkText, int64_t vectorId);
 
 private:
-    QString m_dbPath;
+    QString _dbPath;
     bool runMigrations();
 };

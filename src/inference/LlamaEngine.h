@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <QMutex>
+#include <QtGlobal>
 #include "llama.h"
 
 class LlamaEngine {
@@ -14,10 +16,13 @@ public:
     void streamCompletion(const std::string& prompt, std::function<void(const std::string&)> tokenCallback);
 
 private:
-    std::string m_genPath;
-    std::string m_embdPath;
-    llama_model* m_genModel = nullptr;
-    llama_context* m_genCtx = nullptr;
-    llama_model* m_embdModel = nullptr;
-    llama_context* m_embdCtx = nullptr;
+    std::string _genPath;
+    std::string _embdPath;
+    llama_model* _genModel = Q_NULLPTR;
+    llama_context* _genCtx = Q_NULLPTR;
+    llama_model* _embdModel = Q_NULLPTR;
+    llama_context* _embdCtx = Q_NULLPTR;
+    llama_sampler* _sampler = Q_NULLPTR;
+    QMutex _genMutex;
+    QMutex _embdMutex;
 };

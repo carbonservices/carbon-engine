@@ -1,4 +1,3 @@
-// src/queue/JobQueue.cpp
 #include "JobQueue.h"
 #include <QtConcurrent>
 
@@ -7,39 +6,40 @@ JobQueue::JobQueue(std::shared_ptr<Database> db,
                    std::shared_ptr<LlamaEngine> llama,
                    std::shared_ptr<VectorIndex> index,
                    QObject* parent)
-    : QObject(parent), m_db(db), m_proc(proc), m_llama(llama), m_index(index) {
-    connect(&m_timer, &QTimer::timeout, this, &JobQueue::pollNextJob);
+    : QObject(parent), _db(db), _proc(proc), _llama(llama), _index(index) {
+    connect(&_timer, &QTimer::timeout, this, &JobQueue::pollNextJob);
 }
 
 void JobQueue::start(int pollIntervalMs) {
-    m_timer.start(pollIntervalMs);
+    _timer.start(pollIntervalMs);
 }
 
 void JobQueue::pollNextJob() {
-    if (m_isProcessing) return;
+    if (_isProcessing) return;
 
     int jobId = -1;
     QString filePath;
-    if (!m_db->getNextPendingJob(jobId, filePath)) return;
+    if (!_db->getNextPendingJob(jobId, filePath)) return;
 
-    m_isProcessing = true;
-    m_db->updateJobStatus(jobId, "PROCESSING");
+    _isProcessing = true;
+    _db->updateJobStatus(jobId, "PROCESSING");
 
-    // Run extraction, chunking, and embedding off the network loop
     QtConcurrent::run([this, jobId, filePath]() {
         try {
-            auto chunks = m_proc->processPdf(filePath.toStdString());
+            auto chunks = _proc->processPdf(filePath.toStdString());
             for (size_t i = 0; i < chunks.size(); ++i) {
-                auto emb = m_llama->generateEmbedding(chunks[i].text);
+                auto emb = _llama->generateEmbedding(chunks[i].text);
                 if (!emb.empty()) {
-                    int64_t vectorId = static_cast<int64_t>(jobId) * 10000 + i;
-                    m_index->add(vectorId, emb);
+                    int64_t vectorId = static_cast<int64_t>(jobId) * 10000 + static_cast<int64_t>(i);
+                    _index->add(vectorId, emb);
+                    _db->insertChunk(jobId, chunks[i].pageNumber,
+                                     QString::fromStdString(chunks[i].text), vectorId);
                 }
             }
-            m_db->updateJobStatus(jobId, "COMPLETED");
+            _db->updateJobStatus(jobId, "COMPLETED");
         } catch (const std::exception& e) {
-            m_db->updateJobStatus(jobId, "FAILED", e.what());
+            _db->updateJobStatus(jobId, "FAILED", e.what());
         }
-        m_isProcessing = false;
+        _isProcessing = false;
     });
 }

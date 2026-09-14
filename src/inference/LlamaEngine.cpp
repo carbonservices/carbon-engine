@@ -1,78 +1,123 @@
 #include "LlamaEngine.h"
 
 #include <iostream>
+#include <QMutexLocker>
+
+constexpr int kContextSize = 4096;
+constexpr int kThreads = 4;
+constexpr int kMaxGeneratedTokens = 512;
 
 LlamaEngine::LlamaEngine(const std::string& genModelPath, const std::string& embdModelPath)
-    : m_genPath(genModelPath), m_embdPath(embdModelPath) {}
+    : _genPath(genModelPath), _embdPath(embdModelPath) {}
 
 LlamaEngine::~LlamaEngine() {
-    if (m_genCtx) llama_free(m_genCtx);
-    if (m_genModel) llama_free_model(m_genModel);
-    if (m_embdCtx) llama_free(m_embdCtx);
-    if (m_embdModel) llama_free_model(m_embdModel);
+    if (_sampler) llama_sampler_free(_sampler);
+    if (_genCtx) llama_free(_genCtx);
+    if (_genModel) llama_model_free(_genModel);
+    if (_embdCtx) llama_free(_embdCtx);
+    if (_embdModel) llama_model_free(_embdModel);
     llama_backend_free();
 }
 
 bool LlamaEngine::loadModels() {
     llama_backend_init();
 
-    // 1. Load Generation Model
-    llama_model_params model_params = llama_model_default_params();
-    m_genModel = llama_load_model_from_file(m_genPath.c_str(), model_params);
-    if (!m_genModel) return false;
+    llama_model_params modelParams = llama_model_default_params();
+    _genModel = llama_model_load_from_file(_genPath.c_str(), modelParams);
+    if (!_genModel) {
+        std::cerr << "Failed to load generation model: " << _genPath << "\n";
+        return false;
+    }
 
-    llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx = 2048;
-    ctx_params.n_threads = 4;
-    m_genCtx = llama_new_context_with_model(m_genModel, ctx_params);
+    llama_context_params ctxParams = llama_context_default_params();
+    ctxParams.n_ctx = kContextSize;
+    ctxParams.n_threads = kThreads;
+    ctxParams.n_threads_batch = kThreads;
+    _genCtx = llama_init_from_model(_genModel, ctxParams);
+    if (!_genCtx) {
+        std::cerr << "Failed to create generation context\n";
+        return false;
+    }
 
-    // 2. Load Embedding Model
-    llama_context_params embd_ctx_params = llama_context_default_params();
-    embd_ctx_params.embeddings = true;
-    embd_ctx_params.n_threads = 4;
+    llama_sampler_chain_params samplerParams = llama_sampler_chain_default_params();
+    _sampler = llama_sampler_chain_init(samplerParams);
+    llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(40));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(0.9f, 1));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_temp(0.7f));
+    llama_sampler_chain_add(_sampler, llama_sampler_init_dist(0));
 
-    m_embdModel = llama_load_model_from_file(m_embdPath.c_str(), model_params);
-    if (!m_embdModel) return false;
+    _embdModel = llama_model_load_from_file(_embdPath.c_str(), modelParams);
+    if (!_embdModel) {
+        std::cerr << "Failed to load embedding model: " << _embdPath << "\n";
+        return false;
+    }
 
-    m_embdCtx = llama_new_context_with_model(m_embdModel, embd_ctx_params);
-    return m_genCtx && m_embdCtx;
+    llama_context_params embdCtxParams = llama_context_default_params();
+    embdCtxParams.n_ctx = kContextSize;
+    embdCtxParams.n_threads = kThreads;
+    embdCtxParams.n_threads_batch = kThreads;
+    embdCtxParams.embeddings = true;
+    embdCtxParams.pooling_type = LLAMA_POOLING_TYPE_MEAN;
+    _embdCtx = llama_init_from_model(_embdModel, embdCtxParams);
+    if (!_embdCtx) {
+        std::cerr << "Failed to create embedding context\n";
+        return false;
+    }
+
+    return true;
 }
 
 std::vector<float> LlamaEngine::generateEmbedding(const std::string& text) {
-    std::vector<llama_token> tokens(text.size() + 1);
-    int n_tokens = llama_tokenize(m_embdModel, text.c_str(), text.length(), tokens.data(), tokens.size(), true, false);
-    if (n_tokens < 0) return {};
-    tokens.resize(n_tokens);
+    QMutexLocker locker(&_embdMutex);
 
-    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
-    if (llama_decode(m_embdCtx, batch) != 0) return {};
+    const llama_vocab* vocab = llama_model_get_vocab(_embdModel);
+    std::vector<llama_token> tokens(text.size() + 8);
+    int nTokens = llama_tokenize(vocab, text.c_str(), static_cast<int32_t>(text.length()),
+                                  tokens.data(), static_cast<int32_t>(tokens.size()), true, false);
+    if (nTokens < 0) return {};
+    tokens.resize(nTokens);
 
-    int n_embd = llama_n_embd(m_embdModel);
-    const float* embeddings = llama_get_embeddings(m_embdCtx);
+    llama_memory_clear(llama_get_memory(_embdCtx), true);
+
+    llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
+    if (llama_decode(_embdCtx, batch) != 0) return {};
+
+    int nEmbd = llama_model_n_embd(_embdModel);
+    const float* embeddings = llama_get_embeddings_seq(_embdCtx, 0);
     if (!embeddings) return {};
 
-    return std::vector<float>(embeddings, embeddings + n_embd);
+    return std::vector<float>(embeddings, embeddings + nEmbd);
 }
 
 void LlamaEngine::streamCompletion(const std::string& prompt, std::function<void(const std::string&)> tokenCallback) {
-    std::vector<llama_token> tokens(prompt.size() + 1);
-    int n_tokens = llama_tokenize(m_genModel, prompt.c_str(), prompt.length(), tokens.data(), tokens.size(), true, false);
-    tokens.resize(n_tokens);
+    QMutexLocker locker(&_genMutex);
 
-    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
-    llama_decode(m_genCtx, batch);
+    const llama_vocab* vocab = llama_model_get_vocab(_genModel);
+    std::vector<llama_token> tokens(prompt.size() + 8);
+    int nTokens = llama_tokenize(vocab, prompt.c_str(), static_cast<int32_t>(prompt.length()),
+                                 tokens.data(), static_cast<int32_t>(tokens.size()), true, true);
+    if (nTokens < 0) return;
+    tokens.resize(nTokens);
 
-    for (int i = 0; i < 256; ++i) { // max token generation loop
-        llama_token next_token = llama_sampler_sample(nullptr, m_genCtx, -1);
-        if (llama_token_is_eog(m_genModel, next_token)) break;
+    llama_memory_clear(llama_get_memory(_genCtx), true);
+    llama_sampler_reset(_sampler);
+
+    llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
+    if (llama_decode(_genCtx, batch) != 0) return;
+
+    for (int i = 0; i < kMaxGeneratedTokens; ++i) {
+        llama_token nextToken = llama_sampler_sample(_sampler, _genCtx, -1);
+        llama_sampler_accept(_sampler, nextToken);
+
+        if (llama_vocab_is_eog(vocab, nextToken)) break;
 
         char buf[128];
-        int n = llama_token_to_piece(m_genModel, next_token, buf, sizeof(buf), 0, false);
+        int n = llama_token_to_piece(vocab, nextToken, buf, sizeof(buf), 0, false);
         if (n > 0) {
             tokenCallback(std::string(buf, n));
         }
 
-        llama_batch next_batch = llama_batch_get_one(&next_token, 1);
-        if (llama_decode(m_genCtx, next_batch) != 0) break;
+        llama_batch nextBatch = llama_batch_get_one(&nextToken, 1);
+        if (llama_decode(_genCtx, nextBatch) != 0) break;
     }
 }

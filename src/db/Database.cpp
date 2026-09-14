@@ -5,7 +5,7 @@
 #include <QVariant>
 #include <iostream>
 
-Database::Database(const QString& dbPath) : m_dbPath(dbPath) {}
+Database::Database(const QString& dbPath) : _dbPath(dbPath) {}
 
 Database::~Database() {
     if (QSqlDatabase::contains("esg_db_conn")) {
@@ -15,7 +15,7 @@ Database::~Database() {
 
 bool Database::init() {
     auto db = QSqlDatabase::addDatabase("QSQLITE", "esg_db_conn");
-    db.setDatabaseName(m_dbPath);
+    db.setDatabaseName(_dbPath);
 
     if (!db.open()) {
         std::cerr << "SQLite connection failed: " << db.lastError().text().toStdString() << "\n";
@@ -90,5 +90,15 @@ bool Database::updateJobStatus(int jobId, const QString& status, const QString& 
     q.bindValue(":st", status);
     q.bindValue(":err", error);
     q.bindValue(":id", jobId);
+    return q.exec();
+}
+
+bool Database::insertChunk(int jobId, int pageNum, const QString& chunkText, int64_t vectorId) {
+    QSqlQuery q(QSqlDatabase::database("esg_db_conn"));
+    q.prepare("INSERT INTO document_chunks (job_id, page_num, chunk_text, vector_id) VALUES (:job, :page, :text, :vec);");
+    q.bindValue(":job", jobId);
+    q.bindValue(":page", pageNum);
+    q.bindValue(":text", chunkText);
+    q.bindValue(":vec", static_cast<qint64>(vectorId));
     return q.exec();
 }
