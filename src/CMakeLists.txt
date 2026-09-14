@@ -5,7 +5,7 @@ add_executable(carbon-engine
     vector/VectorIndex.h vector/VectorIndex.cpp
     ingestion/DocumentProcessor.h ingestion/DocumentProcessor.cpp
     queue/JobQueue.h queue/JobQueue.cpp
-    api/HttpServer.h api/HttpServer.cpp
+    api/HTTPServer.h api/HTTPServer.cpp
 )
 
 target_compile_features(carbon-engine PRIVATE cxx_std_20)

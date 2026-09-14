@@ -7,7 +7,7 @@ constexpr int kContextSize = 4096;
 constexpr int kThreads = 4;
 constexpr int kMaxGeneratedTokens = 512;
 
-LlamaEngine::LlamaEngine(const std::string& genModelPath, const std::string& embdModelPath)
+LlamaEngine::LlamaEngine(const QString &genModelPath, const QString &embdModelPath)
     : _genPath(genModelPath), _embdPath(embdModelPath) {}
 
 LlamaEngine::~LlamaEngine() {

@@ -1,7 +1,9 @@
-#pragma once
+#ifndef DATABASE_H
+#define DATABASE_H
+
+
 #include <QString>
 #include <QSqlDatabase>
-#include <vector>
 
 class Database {
 public:
@@ -18,3 +20,5 @@ private:
     QString _dbPath;
     bool runMigrations();
 };
+
+#endif // DATABASE_H

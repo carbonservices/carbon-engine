@@ -8,7 +8,7 @@
 
 class LlamaEngine {
 public:
-    LlamaEngine(const std::string& genModelPath, const std::string& embdModelPath);
+    LlamaEngine(const QString& genModelPath, const QString& embdModelPath);
     ~LlamaEngine();
 
     bool loadModels();

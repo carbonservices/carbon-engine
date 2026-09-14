@@ -1,20 +1,26 @@
 #include "Database.h"
 
+// C++
+#include <iostream>
+
+// Qt
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QVariant>
-#include <iostream>
+
+
+const QString kDefaultDBName("ce-database");
 
 Database::Database(const QString& dbPath) : _dbPath(dbPath) {}
 
 Database::~Database() {
-    if (QSqlDatabase::contains("esg_db_conn")) {
-        QSqlDatabase::removeDatabase("esg_db_conn");
+    if (QSqlDatabase::contains(kDefaultDBName)) {
+        QSqlDatabase::removeDatabase(kDefaultDBName);
     }
 }
 
 bool Database::init() {
-    auto db = QSqlDatabase::addDatabase("QSQLITE", "esg_db_conn");
+    auto db = QSqlDatabase::addDatabase("QSQLITE", kDefaultDBName);
     db.setDatabaseName(_dbPath);
 
     if (!db.open()) {
@@ -26,7 +32,7 @@ bool Database::init() {
 }
 
 bool Database::runMigrations() {
-    QSqlQuery query(QSqlDatabase::database("esg_db_conn"));
+    QSqlQuery query(QSqlDatabase::database(kDefaultDBName));
     query.exec("PRAGMA user_version;");
     int currentVersion = 0;
     if (query.next()) {
@@ -68,14 +74,14 @@ bool Database::runMigrations() {
 }
 
 bool Database::enqueueJob(const QString& filePath) {
-    QSqlQuery q(QSqlDatabase::database("esg_db_conn"));
+    QSqlQuery q(QSqlDatabase::database(kDefaultDBName));
     q.prepare("INSERT INTO ingestion_jobs (file_path, status) VALUES (:path, 'PENDING');");
     q.bindValue(":path", filePath);
     return q.exec();
 }
 
 bool Database::getNextPendingJob(int& outJobId, QString& outFilePath) {
-    QSqlQuery q(QSqlDatabase::database("esg_db_conn"));
+    QSqlQuery q(QSqlDatabase::database(kDefaultDBName));
     if (q.exec("SELECT id, file_path FROM ingestion_jobs WHERE status = 'PENDING' ORDER BY id ASC LIMIT 1;") && q.next()) {
         outJobId = q.value(0).toInt();
         outFilePath = q.value(1).toString();
@@ -85,7 +91,7 @@ bool Database::getNextPendingJob(int& outJobId, QString& outFilePath) {
 }
 
 bool Database::updateJobStatus(int jobId, const QString& status, const QString& error) {
-    QSqlQuery q(QSqlDatabase::database("esg_db_conn"));
+    QSqlQuery q(QSqlDatabase::database(kDefaultDBName));
     q.prepare("UPDATE ingestion_jobs SET status = :st, error_message = :err WHERE id = :id;");
     q.bindValue(":st", status);
     q.bindValue(":err", error);
@@ -94,7 +100,7 @@ bool Database::updateJobStatus(int jobId, const QString& status, const QString& 
 }
 
 bool Database::insertChunk(int jobId, int pageNum, const QString& chunkText, int64_t vectorId) {
-    QSqlQuery q(QSqlDatabase::database("esg_db_conn"));
+    QSqlQuery q(QSqlDatabase::database(kDefaultDBName));
     q.prepare("INSERT INTO document_chunks (job_id, page_num, chunk_text, vector_id) VALUES (:job, :page, :text, :vec);");
     q.bindValue(":job", jobId);
     q.bindValue(":page", pageNum);

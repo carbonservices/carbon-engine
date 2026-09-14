@@ -1,10 +1,17 @@
-#pragma once
-#include <QObject>
-#include <QHttpServer>
-#include <memory>
+#ifndef HTTPSERVER_H
+#define HTTPSERVER_H
+
 #include "db/Database.h"
 #include "inference/LlamaEngine.h"
 #include "vector/VectorIndex.h"
+
+// C++
+#include <memory>
+
+// Qt
+#include <QObject>
+#include <QHttpServer>
+
 
 class ApiRoute {
 public:
@@ -55,3 +62,5 @@ private:
     QHttpServer _server;
     std::vector<std::unique_ptr<ApiRoute>> _routes;
 };
+
+#endif // HTTPSERVER_H
