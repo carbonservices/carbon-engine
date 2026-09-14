@@ -1,17 +1,18 @@
 # Carbon Engine
 
-A single native C++ binary for on-device ESG/BRSR data processing: document ingestion (PDF/OCR), local LLM inference, vector search, and a small HTTP API.
+Native C++ engine for on-device ESG / BRSR data processing and report generation.
+Supports following use-cases:
+1. Document ingestion (supported extensions - pdf, jpg, png, txt, csv, xlsx)
+2. BRSR report generation
 
 ## Architecture
 
-One process, everything embedded:
-
-- **API** (`src/api`) — `QHttpServer`-based HTTP endpoints (`/api/ingest`, `/api/chat`).
-- **Queue** (`src/queue`) — in-process polling job queue backed by SQLite; runs ingestion off the network thread via `QtConcurrent`.
-- **Ingestion** (`src/ingestion`) — PDF text extraction via PDFium, falling back to Tesseract OCR for scanned/image-only pages.
-- **Inference** (`src/inference`) — `llama.cpp` embedded directly for both a generative model and a small embedding model (quantized GGUF).
-- **Vector search** (`src/vector`) — FAISS `IndexHNSW` in-process.
-- **Storage** (`src/db`) — SQLite via `QtSql`, migrated in-code (`ingestion_jobs`, `document_chunks`).
+- API: HTTP endpoints
+- Queue: in-process polling job queue backed by SQLite; runs ingestion off the network thread
+- Ingestion: PDF text extraction, Tesseract OCR for scanned / image-only pages
+- Inference: Runs a generative model and a small embedding model using llama.cpp
+- Vector search: FAISS in-process.
+- Storage: SQLite
 
 ## Dependencies
 
@@ -31,12 +32,10 @@ cmake -S . -B __Builds/x64/_build -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREF
 cmake --build __Builds/x64/_build --config Release --target carbon-engine
 ```
 
-Final artifacts land in clean sibling directories, ready for installer packaging:
+**Binaries and libraries**:
 
-- `__Builds/<arch>/bin` — executable and runtime DLLs
-- `__Builds/<arch>/lib` — import libraries
-
-Only `bin/` and `lib/` should be picked up by an installer/packaging step — never `_build/`.
+- `__Builds/<arch>/bin`: executable and runtime DLLs
+- `__Builds/<arch>/lib`: static libraries
 
 ## Running
 
@@ -46,9 +45,11 @@ CARBON_ENGINE_EMBD_MODEL=models/bge-small-en-v1.5-f16.gguf \
 __Builds/x64/bin/carbon-engine.exe
 ```
 
-Both env vars are optional and default to `models/qwen2.5-7b-instruct-q4_k_m.gguf` / `models/bge-small-en-v1.5-f16.gguf` relative to the working directory. The server listens on `http://localhost:8080`.
+Both env vars are optional and default to `models/qwen2.5-7b-instruct-q4_k_m.gguf` / `models/bge-small-en-v1.5-f16.gguf`. The server listens on `http://localhost:8080`.
 
 ### API
 
-- `POST /api/ingest` — `{"file_path": "<path to PDF>"}` → queues the document; a background worker extracts text/OCR, embeds each page, and indexes it.
-- `POST /api/chat` — `{"prompt": "<text>"}` → embeds the prompt, retrieves nearest matches from the vector index, and streams a completion from the generative model (returned as a single JSON response with `response` and `context_matches`).
+| API | Payload | Description |
+| --- | --- | --- |
+| `POST /api/ingest` | `{"file_path": "<path to PDF>"}` | Queues document; background worker extracts text / OCR, embeds each page, and indexes in database |
+| `POST /api/chat` | `{"prompt": "<text>"}` | Embeds prompt; retrieves nearest matches from the vector index, and streams a completion from the generative model |
