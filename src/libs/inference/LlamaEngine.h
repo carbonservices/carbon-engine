@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QtGlobal>
 #include "llama.h"
+#include "logging/Logger.h"
 
 class LlamaEngine {
 public:
@@ -25,4 +26,5 @@ private:
     llama_sampler* _sampler = Q_NULLPTR;
     QMutex _genMutex;
     QMutex _embdMutex;
+    Logger _log{"LlamaEngine"};
 };

@@ -23,16 +23,33 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core HttpServer Sql Concurrent)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core HttpServer Sql Concurrent Quick QuickControls2 Network)
 qt_standard_project_setup()
 
 set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/third-party" CACHE PATH "" FORCE)
 include(FetchContent)
 
-find_program(NASM_EXECUTABLE nasm)
+find_program(NASM_EXECUTABLE nasm
+    PATHS
+        "C:/Program Files/NASM"
+        "$ENV{LOCALAPPDATA}/Programs/NASM"
+)
 if(NOT NASM_EXECUTABLE)
     execute_process(COMMAND winget install --id NASM.NASM --exact --silent --accept-package-agreements --accept-source-agreements)
-    set(ENV{PATH} "$ENV{PATH};C:\\Program Files\\NASM;$ENV{LOCALAPPDATA}\\Programs\\NASM")
+
+    # Clear the failed cache result so CMake is forced to search again
+    unset(NASM_EXECUTABLE CACHE)
+
+    # Expand potential installation paths for standard winget installs
+    set(ENV{PATH} "$ENV{PATH};C:\\Program Files\\NASM;$ENV{LOCALAPPDATA}\\Programs\\NASM;$ENV{LOCALAPPDATA}\\bin\\NASM;$ENV{LOCALAPPDATA}\\NASM")
+
+    find_program(NASM_EXECUTABLE nasm REQUIRED
+        PATHS
+            "C:/Program Files/NASM"
+            "$ENV{LOCALAPPDATA}/Programs/NASM"
+            "$ENV{LOCALAPPDATA}/bin/NASM"
+            "$ENV{LOCALAPPDATA}/NASM"
+    )
 endif()
 
 # llama.cpp
@@ -92,28 +109,25 @@ if(TARGET zlibstatic AND NOT TARGET ZLIB::ZLIB)
     add_library(ZLIB::ZLIB ALIAS zlibstatic)
 endif()
 
+set(ZLIB_INCLUDE_DIRS ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE PATH "" FORCE)
+set(ZLIB_LIBRARIES zlibstatic CACHE STRING "" FORCE)
+
 FetchContent_Declare(JPEG GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo.git GIT_TAG 2.1.5.1 OVERRIDE_FIND_PACKAGE)
 set(ENABLE_SHARED OFF CACHE BOOL "" FORCE)
 set(ENABLE_STATIC ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(JPEG)
+
+set(JPEG_INCLUDE_DIR ${jpeg_SOURCE_DIR} ${jpeg_BINARY_DIR} CACHE PATH "" FORCE)
+set(JPEG_LIBRARIES jpeg-static CACHE STRING "" FORCE)
 
 FetchContent_Declare(PNG GIT_REPOSITORY https://github.com/glennrp/libpng.git GIT_TAG v1.6.43 OVERRIDE_FIND_PACKAGE)
 set(PNG_SHARED OFF CACHE BOOL "" FORCE)
 set(PNG_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(PNG)
 
-# OVERRIDE_FIND_PACKAGE redirects find_package(ZLIB/JPEG/PNG) to these FetchContent targets,
-# but doesn't populate the legacy *_INCLUDE_DIR(S)/*_LIBRARIES variables that Leptonica's
-# CMakeLists.txt links against - set them explicitly.
-set(ZLIB_INCLUDE_DIRS ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE PATH "" FORCE)
-set(ZLIB_LIBRARIES zlibstatic CACHE STRING "" FORCE)
-set(JPEG_INCLUDE_DIR ${jpeg_SOURCE_DIR} ${jpeg_BINARY_DIR} CACHE PATH "" FORCE)
-set(JPEG_LIBRARIES jpeg-static CACHE STRING "" FORCE)
 set(PNG_INCLUDE_DIRS ${png_SOURCE_DIR} ${png_BINARY_DIR} CACHE PATH "" FORCE)
 set(PNG_LIBRARIES png_static CACHE STRING "" FORCE)
 
-# Leptonica's own export(TARGETS leptonica ...) call requires every target leptonica links
-# against to already be in an export set - pre-export these so that check passes.
 export(TARGETS zlibstatic jpeg-static png_static FILE "${CMAKE_BINARY_DIR}/DepsTargets.cmake")
 
 # Leptonica & Tesseract
@@ -129,17 +143,11 @@ set(WITH_OPENJPEG OFF CACHE BOOL "" FORCE)
 set(BUILD_PROG OFF CACHE BOOL "" FORCE)
 set(Leptonica_DIR "${leptonica_SOURCE_DIR}" CACHE PATH "" FORCE)
 
-# leptonica's install(EXPORT ...) requires zlibstatic/jpeg-static/png_static to be in an
-# export set too, which the fetched zlib/jpeg/png projects don't provide - skip install
-# rules for this subproject entirely since carbon-engine only needs it at build time.
 set(CMAKE_SKIP_INSTALL_RULES ON)
 FetchContent_MakeAvailable(Leptonica)
 set(CMAKE_SKIP_INSTALL_RULES OFF)
 include_directories(${leptonica_SOURCE_DIR}/src ${leptonica_BINARY_DIR}/src)
 
-# OVERRIDE_FIND_PACKAGE redirects find_package(Leptonica CONFIG) to this FetchContent target,
-# but does not populate the legacy Leptonica_INCLUDE_DIRS/Leptonica_LIBRARIES variables that
-# tesseract's CMakeLists.txt links against - set them explicitly.
 set(Leptonica_FOUND TRUE CACHE BOOL "" FORCE)
 set(Leptonica_INCLUDE_DIRS ${leptonica_SOURCE_DIR}/src ${leptonica_BINARY_DIR}/src CACHE PATH "" FORCE)
 set(Leptonica_LIBRARIES leptonica CACHE STRING "" FORCE)
@@ -150,5 +158,15 @@ set(DISABLE_CURL ON CACHE BOOL "" FORCE)
 set(DISABLE_ARCHIVE ON CACHE BOOL "" FORCE)
 set(LEPT_TIFF_RESULT 0 CACHE INTERNAL "")
 FetchContent_MakeAvailable(tesseract)
+
+# Download the real LSTM model instead of using the dummy test data
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
+    message(STATUS "Downloading Tesseract English language model...")
+    file(DOWNLOAD 
+        "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata"
+        "${CMAKE_SOURCE_DIR}/eng.traineddata"
+        SHOW_PROGRESS
+    )
+endif()
 
 add_subdirectory(src)
