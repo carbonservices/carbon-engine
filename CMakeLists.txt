@@ -23,7 +23,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core HttpServer Sql Concurrent Quick QuickControls2 Network)
+# Updated to include WebChannel and Positioning
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core WebEngineQuick WebChannel Positioning HttpServer Sql Concurrent Quick QuickControls2 Network)
 qt_standard_project_setup()
 
 set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/third-party" CACHE PATH "" FORCE)
@@ -51,6 +52,11 @@ if(NOT NASM_EXECUTABLE)
             "$ENV{LOCALAPPDATA}/NASM"
     )
 endif()
+
+# inja
+set(INJA_USE_EMBEDDED_JSON ON CACHE BOOL "Use embedded JSON inside Inja" FORCE)
+FetchContent_Declare(inja URL https://github.com/pantor/inja/archive/refs/tags/v3.4.0.tar.gz)
+FetchContent_MakeAvailable(inja)
 
 # llama.cpp
 FetchContent_Declare(llama GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git GIT_TAG master)

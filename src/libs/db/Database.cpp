@@ -22,12 +22,31 @@ QSqlDatabase Database::getDb() {
 
     if (!db.open()) {
         _log.error(QString("SQLite connection failed on thread %1: %2").arg(connName, db.lastError().text()));
+    } else {
+        // OPTIMIZATION: Drastically improves concurrent read/write speeds
+        QSqlQuery q(db);
+        q.exec("PRAGMA journal_mode = WAL;");
+        q.exec("PRAGMA synchronous = NORMAL;");
+        q.exec("PRAGMA temp_store = MEMORY;");
+        q.exec("PRAGMA busy_timeout = 5000;"); // Wait up to 5s instead of failing instantly if locked
     }
     return db;
 }
 
 bool Database::init() {
     return runMigrations();
+}
+
+bool Database::transaction() {
+    return getDb().transaction();
+}
+
+bool Database::commit() {
+    return getDb().commit();
+}
+
+bool Database::rollback() {
+    return getDb().rollback();
 }
 
 bool Database::runMigrations() {
@@ -107,6 +126,16 @@ bool Database::insertChunk(int jobId, int pageNum, const QString& chunkText, int
     q.bindValue(":text", chunkText);
     q.bindValue(":vec", static_cast<qint64>(vectorId));
     return q.exec();
+}
+
+QString Database::getChunkByVectorId(int64_t vectorId) {
+    QSqlQuery q(getDb());
+    q.prepare("SELECT chunk_text FROM document_chunks WHERE vector_id = :vec;");
+    q.bindValue(":vec", static_cast<qint64>(vectorId));
+    if (q.exec() && q.next()) {
+        return q.value(0).toString();
+    }
+    return "";
 }
 
 QVector<QString> Database::getChunksForJob(int jobId) {

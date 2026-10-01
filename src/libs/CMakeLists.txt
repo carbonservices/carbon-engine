@@ -23,4 +23,5 @@ target_link_libraries(carbon-engine-server-libs PUBLIC
     carbon-engine-logging
     Qt6::HttpServer Qt6::Sql Qt6::Concurrent
     llama faiss ${PDFIUM_LIBRARIES} libtesseract
+    inja
 )

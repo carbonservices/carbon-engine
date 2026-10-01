@@ -49,8 +49,18 @@ bool LlamaEngine::loadModels()
         return false;
     }
 
+    // Initialize the sampler chain
     llama_sampler_chain_params samplerParams = llama_sampler_chain_default_params();
     _sampler = llama_sampler_chain_init(samplerParams);
+
+    // Fetch the vocabulary size from the loaded model
+    const llama_vocab* vocab = llama_model_get_vocab(_genModel);
+    int32_t n_vocab = llama_vocab_n_tokens(vocab);
+
+    // 1. Add penalty sampler: (n_vocab, last_n, repeat_penalty, freq_penalty, present_penalty)
+    llama_sampler_chain_add(_sampler, llama_sampler_init_penalties(n_vocab, 64, 1.15f, 0.10f, 0.10f));
+
+    // 2. Add standard sampling filters
     llama_sampler_chain_add(_sampler, llama_sampler_init_top_k(40));
     llama_sampler_chain_add(_sampler, llama_sampler_init_top_p(0.9f, 1));
     llama_sampler_chain_add(_sampler, llama_sampler_init_temp(0.7f));

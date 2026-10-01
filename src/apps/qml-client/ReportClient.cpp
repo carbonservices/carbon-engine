@@ -1,15 +1,11 @@
 #include "ReportClient.h"
 
+// Qt
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QUrl>
 
-namespace
-{
-    const QUrl kReportEndpoint("http://localhost:8080/api/report");
-}
 
 ReportClient::ReportClient(QObject *parent) : QObject(parent) {}
 
@@ -17,20 +13,18 @@ void ReportClient::fetchReport(int jobId)
 {
     _log.info(QString("Fetching report for job %1").arg(jobId));
 
-    QNetworkRequest request(kReportEndpoint);
+    QNetworkRequest request(ReportEndpoint);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
     QNetworkReply *reply = _network.post(request, body.toJson());
 
-    // Pull tokens out of the socket as soon as they arrive
     connect(reply, &QNetworkReply::readyRead, this, [this, reply]()
     {
         QByteArray chunk = reply->readAll();
         emit reportChunkReceived(QString::fromUtf8(chunk));
     });
 
-    // Handle completion or errors
     connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
     {
         reply->deleteLater();

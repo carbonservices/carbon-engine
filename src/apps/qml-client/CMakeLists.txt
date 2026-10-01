@@ -1,33 +1,35 @@
 qt_add_executable(carbon-engine-client main.cpp)
 
-# 1. LINK FIRST: qmltyperegistrar needs this to find logging/Logger.h during parsing
 target_link_libraries(carbon-engine-client PRIVATE
     Qt6::Quick
     Qt6::QuickControls2
     Qt6::Network
+    Qt6::WebEngineQuick
     carbon-engine-logging
 )
 
-# 2. SYNC OUTPUTS: Tell Qt to put the qmldir and .qmltypes alongside your custom __Builds/x64/bin .exe
 set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
-# 3. ALIAS QML FILES: Flattens the "qml/" folder so they register at the root namespace
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/template.html" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+
 set(QML_FILES
     qml/Main.qml
-    qml/FilePickerBar.qml
-    qml/PipelineStageIndicator.qml
-    qml/ReportView.qml
+    qml/LeftSidebar.qml
+    qml/CentralWorkspace.qml
+    qml/RightPanel.qml
 )
 foreach(qml_file IN LISTS QML_FILES)
     get_filename_component(filename ${qml_file} NAME)
     set_source_files_properties(${qml_file} PROPERTIES QT_RESOURCE_ALIAS ${filename})
 endforeach()
 
-# 4. ADD MODULE: Now safe to run because dependencies and paths are established
+set_source_files_properties(logo.png PROPERTIES QT_RESOURCE_ALIAS logo.png)
+
 qt_add_qml_module(carbon-engine-client
     URI CarbonEngineClient
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    RESOURCES logo.png
     SOURCES
         UploadClient.h UploadClient.cpp
         PipelineStatusPoller.h PipelineStatusPoller.cpp

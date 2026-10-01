@@ -4,12 +4,13 @@
 #include "logging/Logger.h"
 
 // Qt
-#include <QAbstractListModel>
-#include <QNetworkAccessManager>
 #include <QObject>
 #include <QQmlEngine>
+#include <QAbstractListModel>
+#include <QNetworkAccessManager>
 #include <QTimer>
 #include <QVector>
+
 
 enum class StageStatus
 {
@@ -25,20 +26,19 @@ struct PipelineStage
     StageStatus status;
 };
 
-enum Role
-{
-    NameRole = Qt::UserRole + 1,
-    StatusRole
-};
-
 class PipelineStatusPoller : public QAbstractListModel
 {
     Q_OBJECT
     QML_ELEMENT
 
 public:
-    explicit PipelineStatusPoller(QObject *parent = nullptr);
+    enum Role
+    {
+        NameRole = Qt::UserRole + 1,
+        StatusRole
+    };
 
+    explicit PipelineStatusPoller(QObject *parent = Q_NULLPTR);
     Q_INVOKABLE void startPolling(int jobId);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -53,10 +53,13 @@ private:
     void poll();
     void setStage(int index, StageStatus status);
 
+    static constexpr int PollIntervalMs = 1000;
+    static inline const QVector<QString> StageNames = {"Queued", "Processing", "Completed"};
+
     QNetworkAccessManager _network;
     QTimer _timer;
     QVector<PipelineStage> _stages;
-    int _jobId{-1};
+    int _jobId = -1;
     Logger _log{"QmlClient.PipelineStatusPoller"};
 };
 

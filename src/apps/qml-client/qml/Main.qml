@@ -2,143 +2,130 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import CarbonEngineClient
 
 ApplicationWindow {
-    id: window
-    width: 1000
-    height: 750
+    id: appWindow
+    width: 1360
+    height: 840
+    minimumWidth: 1080
+    minimumHeight: 680
     visible: true
-    title: "Carbon ESG Engine"
+    title: "Carbon ESG - AI Workspace"
 
     property bool isDarkMode: true
+    property bool sidebarExpanded: true
+    property string activeReportTitle: "TATA Steel BRSR 2026"
+    property string activeReportContent: ""
     property int currentJobId: -1
 
-    // Apply Material Styling dynamically
     Material.theme: isDarkMode ? Material.Dark : Material.Light
-    Material.accent: Material.Blue
-    color: isDarkMode ? "#111827" : "#f9fafb"
+    Material.accent: Material.Teal
+    color: isDarkMode ? "#121417" : "#f4f6f8"
 
-    header: ToolBar {
-        background: Rectangle {
-            color: isDarkMode ? "#1f2937" : "#ffffff"
-            border.color: isDarkMode ? "#374151" : "#e5e7eb"
-            border.width: 1
-        }
-        RowLayout {
-            anchors.fill: parent
-            anchors.margins: 16
-            Label {
-                text: "Carbon Engine Client"
-                font.pixelSize: 18
-                font.bold: true
-                color: isDarkMode ? "#f3f4f6" : "#1f2937"
-                Layout.fillWidth: true
-            }
-            Switch {
-                text: isDarkMode ? "Dark Mode" : "Light Mode"
-                checked: isDarkMode
-                onCheckedChanged: isDarkMode = checked
-            }
-        }
+    readonly property color bgCard: isDarkMode ? "#1a1d21" : "#ffffff"
+    readonly property color bgSubtle: isDarkMode ? "#22262b" : "#e9ecef"
+    readonly property color borderCol: isDarkMode ? "#2d3239" : "#ced4da"
+    readonly property color textMain: isDarkMode ? "#f1f3f5" : "#212529"
+    readonly property color textMuted: isDarkMode ? "#8a94a0" : "#6c757d"
+    readonly property color brandAccent: "#1baf7a"
+
+    ListModel { id: statusLogModel; ListElement { entry: "System ready. Local engine standing by." } }
+    ListModel { id: documentQueueModel }
+    ListModel { 
+        id: reportsHistoryModel
+        ListElement { title: "TATA Steel BRSR 2026"; date: "2026-09-29" }
+        ListElement { title: "JSW Steel Sustainability 2025"; date: "2026-08-14" }
+    }
+
+    function appendStatus(msg) {
+        statusLogModel.append({ "entry": msg })
+        rightPanel.scrollToBottom()
     }
 
     UploadClient {
         id: uploadClient
         onJobQueued: function(jobId) {
             currentJobId = jobId
-            statusDetailLabel.text = "Job " + jobId + " queued. Waiting for local worker..."
-            pipeline.visible = true
-            reportView.visible = false
+            appendStatus("Job " + jobId + " queued. File submitted.")
             poller.startPolling(jobId)
         }
-        onUploadFailed: function(reason) {
-            statusDetailLabel.text = "Upload failed: " + reason
-        }
+        onUploadFailed: function(reason) { appendStatus("Upload failed: " + reason) }
     }
 
     PipelineStatusPoller {
         id: poller
         onCompleted: {
-            statusDetailLabel.text = "Extraction complete. Qwen is evaluating the metrics..."
+            appendStatus("Extraction complete. Generating BRSR report...")
             reportClient.fetchReport(currentJobId)
         }
-        onFailed: function(reason) {
-            statusDetailLabel.text = "Pipeline failed: " + reason
-        }
+        onFailed: function(reason) { appendStatus("Pipeline error: " + reason) }
     }
 
     ReportClient {
         id: reportClient
         onReportReady: function(report) {
-            reportView.reportText = report
-            reportView.visible = true
-            statusDetailLabel.text = "Report generated successfully."
+            appWindow.activeReportContent = report
+            appendStatus("Report generated successfully.")
         }
         onReportChunkReceived: function(chunk) {
-            reportView.visible = true
-            reportView.reportText += chunk
+            appWindow.activeReportContent += chunk
         }
-        onReportFailed: function(reason) {
-            statusDetailLabel.text = "Report fetch failed: " + reason
+        onReportFailed: function(reason) { appendStatus("Report fetch failed: " + reason) }
+    }
+
+    FileDialog {
+        id: addDocDialog
+        title: "Select Document for Ingestion"
+        nameFilters: ["PDF Documents (*.pdf)"]
+        onAccepted: {
+            var path = selectedFile.toString().replace("file:///", "")
+            var name = path.substring(path.lastIndexOf('/') + 1)
+            documentQueueModel.append({ "fileName": name })
+            appendStatus("Added document: " + name)
+            appWindow.activeReportContent = ""
+            uploadClient.uploadDocument(selectedFile)
         }
     }
 
-    ColumnLayout {
+    header: ToolBar {
+        background: Rectangle { color: appWindow.bgCard; border.color: appWindow.borderCol; border.width: 1 }
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            spacing: 12
+
+            Image {
+                source: "qrc:/logo.png" // Ensure logo.png is registered in your QRC or relative path
+                Layout.preferredWidth: 28
+                Layout.preferredHeight: 28
+                fillMode: Image.PreserveAspectFit
+                mipmap: true
+            }
+            Label { text: "Carbon ESG - AI Workspace"; font.pixelSize: 16; font.bold: true; color: appWindow.textMain }
+            Item { Layout.fillWidth: true }
+            Label { text: isDarkMode ? "Dark" : "Light"; color: appWindow.textMuted; font.pixelSize: 12 }
+            Switch { checked: appWindow.isDarkMode; onCheckedChanged: appWindow.isDarkMode = checked }
+        }
+    }
+
+    RowLayout {
         anchors.fill: parent
-        anchors.margins: 32
-        spacing: 24
+        anchors.margins: 12
+        spacing: 12
 
-        FilePickerBar {
-            Layout.fillWidth: true
-            isDarkMode: window.isDarkMode
-            onUploadRequested: function(fileUrl) {
-                statusDetailLabel.text = "Transmitting document to server..."
-                reportView.reportText = ""
-                pipeline.visible = true
-                reportView.visible = false
-                uploadClient.uploadDocument(fileUrl)
-            }
+        LeftSidebar {
+            id: leftSidebar
         }
 
-        ColumnLayout {
-            id: pipeline
-            visible: false
-            Layout.fillWidth: true
-            spacing: 16
-
-            RowLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 0
-
-                Repeater {
-                    id: stageRepeater
-                    model: poller
-                    delegate: PipelineStageIndicator {
-                        stageName: model.name
-                        stageStatus: model.status
-                        isLast: index === stageRepeater.count - 1
-                        isDarkMode: window.isDarkMode
-                    }
-                }
-            }
-
-            Label {
-                id: statusDetailLabel
-                text: "Ready"
-                color: isDarkMode ? "#9ca3af" : "#6b7280"
-                font.italic: true
-                font.pixelSize: 14
-                Layout.alignment: Qt.AlignHCenter
-            }
+        CentralWorkspace {
+            id: centralWorkspace
         }
 
-        ReportView {
-            id: reportView
-            visible: false
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            isDarkMode: window.isDarkMode
+        RightPanel {
+            id: rightPanel
         }
     }
 }

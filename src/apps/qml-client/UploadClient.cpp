@@ -1,14 +1,11 @@
 #include "UploadClient.h"
 
+// Qt
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 
-namespace
-{
-    const QUrl kIngestEndpoint("http://localhost:8080/api/ingest");
-}
 
 UploadClient::UploadClient(QObject *parent) : QObject(parent) {}
 
@@ -17,7 +14,7 @@ void UploadClient::uploadDocument(const QUrl &filePath)
     const QString localPath = filePath.toLocalFile();
     _log.info(QString("Uploading document: %1").arg(localPath));
 
-    QNetworkRequest request(kIngestEndpoint);
+    QNetworkRequest request(IngestEndpoint);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
     QJsonDocument body(QJsonObject{{"file_path", localPath}});
