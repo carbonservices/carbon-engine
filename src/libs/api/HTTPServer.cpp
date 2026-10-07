@@ -1,6 +1,7 @@
 #include "HTTPServer.h"
 
 // Qt
+#include <QCoreApplication>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QtConcurrent>
@@ -164,7 +165,7 @@ QFuture<QHttpServerResponse> HttpServer::handleReport(const QHttpServerRequest &
         try {
             nlohmann::json data = nlohmann::json::parse(generatedJson);
             
-            QFile file("template.html");
+            QFile file(QCoreApplication::applicationDirPath() + "/template.html");
             if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 std::string tmpl = file.readAll().toStdString();
                 inja::Environment env;

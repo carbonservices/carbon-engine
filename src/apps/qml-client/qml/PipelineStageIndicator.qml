@@ -8,13 +8,12 @@ RowLayout {
     property string stageName: ""
     property int stageStatus: 0 
     property bool isLast: false
-    property bool isDarkMode: false
 
-    readonly property color activeColor: "#3b82f6" 
+    readonly property color activeColor: appWindow.brandAccent 
     readonly property color doneColor: "#10b981" 
     readonly property color failedColor: "#ef4444" 
-    readonly property color pendingBg: isDarkMode ? "#374151" : "#e5e7eb"
-    readonly property color textColor: isDarkMode ? "#f3f4f6" : "#1f2937"
+    readonly property color pendingBg: appWindow.bgSubtle
+    readonly property color textColor: appWindow.textMain
 
     ColumnLayout {
         spacing: 8
@@ -39,7 +38,7 @@ RowLayout {
             Label {
                 anchors.centerIn: parent
                 text: stageStatus === 2 ? "✓" : (stageStatus === 3 ? "!" : "")
-                color: "white"
+                color: "#0a192f" // Deep navy for high contrast against the colored circles
                 font.bold: true
                 font.pixelSize: 16
                 visible: stageStatus === 2 || stageStatus === 3

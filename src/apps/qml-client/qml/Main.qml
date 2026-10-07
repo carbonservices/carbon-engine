@@ -21,15 +21,24 @@ ApplicationWindow {
     property int currentJobId: -1
 
     Material.theme: isDarkMode ? Material.Dark : Material.Light
-    Material.accent: Material.Teal
-    color: isDarkMode ? "#121417" : "#f4f6f8"
+    Material.accent: brandAccent
 
-    readonly property color bgCard: isDarkMode ? "#1a1d21" : "#ffffff"
-    readonly property color bgSubtle: isDarkMode ? "#22262b" : "#e9ecef"
-    readonly property color borderCol: isDarkMode ? "#2d3239" : "#ced4da"
-    readonly property color textMain: isDarkMode ? "#f1f3f5" : "#212529"
-    readonly property color textMuted: isDarkMode ? "#8a94a0" : "#6c757d"
-    readonly property color brandAccent: "#1baf7a"
+    // Updated Navy Blue Theme Colors
+    readonly property color bgBaseStart: isDarkMode ? "#0a192f" : "#f0f4f8"
+    readonly property color bgBaseEnd: isDarkMode ? "#020c1b" : "#d9e2ec"
+    readonly property color bgCard: isDarkMode ? "#112240" : "#ffffff"
+    readonly property color bgSubtle: isDarkMode ? "#233554" : "#e0e6ed"
+    readonly property color borderCol: isDarkMode ? "#233554" : "#ccd6f6"
+    readonly property color textMain: isDarkMode ? "#ccd6f6" : "#0a192f"
+    readonly property color textMuted: isDarkMode ? "#8892b0" : "#495670"
+    readonly property color brandAccent: "#64ffda" // Teal accent
+
+    background: Rectangle {
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: bgBaseStart }
+            GradientStop { position: 1.0; color: bgBaseEnd }
+        }
+    }
 
     ListModel { id: statusLogModel; ListElement { entry: "System ready. Local engine standing by." } }
     ListModel { id: documentQueueModel }
@@ -98,16 +107,34 @@ ApplicationWindow {
             spacing: 12
 
             Image {
-                source: "qrc:/logo.png" // Ensure logo.png is registered in your QRC or relative path
+                source: "qrc:/logo.png"
                 Layout.preferredWidth: 28
                 Layout.preferredHeight: 28
                 fillMode: Image.PreserveAspectFit
                 mipmap: true
             }
-            Label { text: "Carbon ESG - AI Workspace"; font.pixelSize: 16; font.bold: true; color: appWindow.textMain }
+            
+            // Removed redundant window title label to prevent double title bars
             Item { Layout.fillWidth: true }
-            Label { text: isDarkMode ? "Dark" : "Light"; color: appWindow.textMuted; font.pixelSize: 12 }
-            Switch { checked: appWindow.isDarkMode; onCheckedChanged: appWindow.isDarkMode = checked }
+            
+            // Replaced large Switch with proportional themed button
+            Button {
+                text: appWindow.isDarkMode ? "🌙 Dark Mode" : "☀️ Light Mode"
+                background: Rectangle {
+                    color: appWindow.bgSubtle
+                    radius: 6
+                    border.color: appWindow.borderCol
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: appWindow.textMain
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: appWindow.isDarkMode = !appWindow.isDarkMode
+                Layout.preferredHeight: 32
+            }
         }
     }
 
@@ -115,6 +142,7 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 12
         spacing: 12
+        clip: true
 
         LeftSidebar {
             id: leftSidebar

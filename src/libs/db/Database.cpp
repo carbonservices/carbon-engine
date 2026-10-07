@@ -3,6 +3,7 @@
 // Qt
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QStringList>
 #include <QVariant>
 
 Database::Database(const QString& dbPath) : _dbPath(dbPath) {}
@@ -29,6 +30,7 @@ QSqlDatabase Database::getDb() {
         q.exec("PRAGMA synchronous = NORMAL;");
         q.exec("PRAGMA temp_store = MEMORY;");
         q.exec("PRAGMA busy_timeout = 5000;"); // Wait up to 5s instead of failing instantly if locked
+        q.exec("PRAGMA foreign_keys = ON;"); // Must be set per-connection; SQLite does not enforce FKs otherwise
     }
     return db;
 }
@@ -75,16 +77,44 @@ bool Database::runMigrations() {
             "page_num INTEGER, "
             "chunk_text TEXT, "
             "vector_id INTEGER, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id));"}
+            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id));"},
+        {3, "CREATE INDEX IF NOT EXISTS idx_document_chunks_vector_id ON document_chunks(vector_id);"
+            "CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);"
+            "CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);"
+            // SQLite can't ALTER a FOREIGN KEY clause in place, so the cascade is added by
+            // rebuilding document_chunks and copying its rows across.
+            "CREATE TABLE document_chunks_new ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "job_id INTEGER, "
+            "page_num INTEGER, "
+            "chunk_text TEXT, "
+            "vector_id INTEGER, "
+            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE);"
+            "INSERT INTO document_chunks_new (id, job_id, page_num, chunk_text, vector_id) "
+            "SELECT id, job_id, page_num, chunk_text, vector_id FROM document_chunks;"
+            "DROP TABLE document_chunks;"
+            "ALTER TABLE document_chunks_new RENAME TO document_chunks;"
+            "CREATE INDEX IF NOT EXISTS idx_document_chunks_vector_id ON document_chunks(vector_id);"
+            "CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);"}
     };
 
     for (const auto& m : migrations) {
         if (m.version > currentVersion) {
-            if (!query.exec(m.sql)) {
-                _log.error(QString("Migration failed at version %1: %2")
-                    .arg(m.version).arg(query.lastError().text()));
-                return false;
+            QStringList statements = QString(m.sql).split(';', Qt::SkipEmptyParts);
+            bool migrationOk = true;
+            for (const QString& statement : statements) {
+                const QString trimmed = statement.trimmed();
+                if (trimmed.isEmpty())
+                    continue;
+                if (!query.exec(trimmed)) {
+                    _log.error(QString("Migration failed at version %1: %2")
+                        .arg(m.version).arg(query.lastError().text()));
+                    migrationOk = false;
+                    break;
+                }
             }
+            if (!migrationOk)
+                return false;
             query.exec(QString("PRAGMA user_version = %1;").arg(m.version));
         }
     }

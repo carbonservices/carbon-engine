@@ -3,12 +3,11 @@ import QtQuick.Controls
 
 Pane {
     property string reportText: ""
-    property bool isDarkMode: false
-
+    
     background: Rectangle {
-        color: isDarkMode ? "#1f2937" : "#ffffff"
+        color: appWindow.bgCard
         radius: 12
-        border.color: isDarkMode ? "#374151" : "#e5e7eb"
+        border.color: appWindow.borderCol
         border.width: 1
     }
 
@@ -27,7 +26,7 @@ Pane {
             x: 12
             wrapMode: Text.WordWrap
             text: reportText || "Listening for generation stream..."
-            color: isDarkMode ? "#d1d5db" : "#374151"
+            color: appWindow.textMain
             font.pixelSize: 15
             lineHeight: 1.5
             textFormat: Text.MarkdownText 

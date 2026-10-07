@@ -10,13 +10,20 @@ target_link_libraries(carbon-engine-client PRIVATE
 
 set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 
-file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/template.html" DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+add_custom_command(TARGET carbon-engine-client POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/template.html"
+        $<TARGET_FILE_DIR:carbon-engine-client>/template.html
+)
 
 set(QML_FILES
     qml/Main.qml
     qml/LeftSidebar.qml
     qml/CentralWorkspace.qml
     qml/RightPanel.qml
+    qml/DocumentsPanel.qml
+    qml/SystemStatusPanel.qml
+    qml/StatusLogPanel.qml
 )
 foreach(qml_file IN LISTS QML_FILES)
     get_filename_component(filename ${qml_file} NAME)
