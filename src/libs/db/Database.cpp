@@ -191,3 +191,10 @@ QString Database::getJobStatus(int jobId) {
     }
     return QString();
 }
+int Database::getPendingJobCount() {
+    QSqlQuery q(getDb());
+    if (q.exec("SELECT COUNT(*) FROM ingestion_jobs WHERE status IN ('PENDING', 'PROCESSING');") && q.next()) {
+        return q.value(0).toInt();
+    }
+    return 0;
+}

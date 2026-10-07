@@ -41,6 +41,7 @@ qt_add_qml_module(carbon-engine-client
         UploadClient.h UploadClient.cpp
         PipelineStatusPoller.h PipelineStatusPoller.cpp
         ReportClient.h ReportClient.cpp
+        SystemStatusPoller.h SystemStatusPoller.cpp
 )
 
 if(WIN32)

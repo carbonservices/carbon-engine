@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import CarbonEngineClient
 
 Rectangle {
     Layout.fillWidth: true
@@ -11,13 +12,17 @@ Rectangle {
     border.width: 1
     clip: true
 
-    property string jobQueue: "2/4"
-    property string cpuLoad: "15%"
-    property string memoryUsage: "97%"
-    property string gpuLoad: "12%"
-    property string engineStatus: "Inferencing"
-    property string databaseStatus: "Reading"
-    property string tokenRate: "20 TOPS"
+    SystemStatusPoller {
+        id: poller
+    }
+
+    property string jobQueue: poller.jobQueue
+    property string cpuLoad: poller.cpuLoad
+    property string memoryUsage: poller.memoryUsage
+    property string gpuLoad: poller.gpuLoad
+    property string engineStatus: poller.engineStatus
+    property string databaseStatus: poller.databaseStatus
+    property string tokenRate: poller.tokenRate
 
     ColumnLayout {
         anchors.fill: parent

@@ -78,9 +78,6 @@ ApplicationWindow {
             appWindow.activeReportContent = report
             appendStatus("Report generated successfully.")
         }
-        onReportChunkReceived: function(chunk) {
-            appWindow.activeReportContent += chunk
-        }
         onReportFailed: function(reason) { appendStatus("Report fetch failed: " + reason) }
     }
 

@@ -3,7 +3,7 @@
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>{{ entity_name|default('Business Responsibility & Sustainability Report') }} - BRSR {{ reporting_financial_year|default('') }}</title>
+ <title>{{ default(entity_name, "Business Responsibility & Sustainability Report") }} - BRSR {{ default(reporting_financial_year, "") }}</title>
  <style>
  /* ======================================================================
  DATAVIZ REFERENCE PALETTE (validated: node scripts/validate_palette.js
@@ -352,14 +352,14 @@
  .footer-note { font-size: 8pt; color: var(--viz-ink-muted); margin-top: 40px; border-top: 1px solid var(--viz-gridline); padding-top: 10px; }
  </style>
 </head>
-<body data-debug="{{ debug_mode|default(false)|lower }}">
+<body data-debug="{{ default(debug_mode, "false") }}">
 
  <!-- ================================================================
  COVER PAGE
  ================================================================ -->
  <div class="cover-page viz-root">
  <div class="cover-eyebrow">Business Responsibility &amp; Sustainability Report</div>
- <h1 class="cover-title">{{ report_title|default('Business Responsibility & Sustainability Report (BRSR)') }}</h1>
+ <h1 class="cover-title">{{ default(report_title, "Business Responsibility & Sustainability Report (BRSR)") }}</h1>
  <div class="cover-entity"><span class="var">{{ entity_name }}</span></div>
  <div class="cover-fy-badge">FY <span class="var">{{ reporting_financial_year }}</span></div>
  <p class="cover-meta">
@@ -373,9 +373,9 @@
  <div class="stat-tile">
  <img class="stat-icon" loading="lazy" onerror="this.style.visibility='hidden'" alt="" src="https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=80&q=60&auto=format&fit=crop">
  <div class="stat-label">GHG Intensity (Scope 1+2)</div>
- <div class="stat-value">{{ scope_1_2_intensity_current|default('N/A') }} <span class="stat-unit">t CO2e/₹Cr</span></div>
- {% if scope_1_2_intensity_prev is defined %}
- <div class="stat-delta {% if scope_1_2_intensity_current|float(0) <= scope_1_2_intensity_prev|float(0) %}up-good{% else %}down-bad{% endif %}">
+ <div class="stat-value">{{ default(scope_1_2_intensity_current, "N/A") }} <span class="stat-unit">t CO2e/₹Cr</span></div>
+ {% if exists("scope_1_2_intensity_prev") and scope_1_2_intensity_prev != "" and scope_1_2_intensity_prev != "N/A" %}
+ <div class="stat-delta {% if float(default(scope_1_2_intensity_current, "0")) <= float(default(scope_1_2_intensity_prev, "0")) %}up-good{% else %}down-bad{% endif %}">
  vs FY {{ previous_fy }}: <span class="var">{{ scope_1_2_intensity_prev }}</span>
  </div>
  {% endif %}
@@ -383,22 +383,22 @@
  <div class="stat-tile">
  <img class="stat-icon" loading="lazy" onerror="this.style.visibility='hidden'" alt="" src="https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=80&q=60&auto=format&fit=crop">
  <div class="stat-label">Water Intensity</div>
- <div class="stat-value">{{ p6_water_intensity_turnover_current|default('N/A') }} <span class="stat-unit">KL/₹Cr</span></div>
+ <div class="stat-value">{{ default(p6_water_intensity_turnover_current, "N/A") }} <span class="stat-unit">KL/₹Cr</span></div>
  </div>
  <div class="stat-tile">
  <img class="stat-icon" loading="lazy" onerror="this.style.visibility='hidden'" alt="" src="https://images.unsplash.com/photo-1521791136064-7986c2920216?w=80&q=60&auto=format&fit=crop">
  <div class="stat-label">Women in Workforce</div>
- <div class="stat-value">{{ emp_total_female_pct|default('N/A') }}<span class="stat-unit">%</span></div>
+ <div class="stat-value">{{ default(emp_total_female_pct, "N/A") }}<span class="stat-unit">%</span></div>
  </div>
  <div class="stat-tile">
  <img class="stat-icon" loading="lazy" onerror="this.style.visibility='hidden'" alt="" src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=80&q=60&auto=format&fit=crop">
  <div class="stat-label">CSR Spend</div>
- <div class="stat-value">₹<span class="var">{{ csr_spent_amount|default('N/A') }}</span> <span class="stat-unit">Cr</span></div>
+ <div class="stat-value">₹<span class="var">{{ default(csr_spent_amount, "N/A") }}</span> <span class="stat-unit">Cr</span></div>
  </div>
  <div class="stat-tile">
  <img class="stat-icon" loading="lazy" onerror="this.style.visibility='hidden'" alt="" src="https://images.unsplash.com/photo-1509391366360-2e959784a276?w=80&q=60&auto=format&fit=crop">
  <div class="stat-label">Renewable Energy Share</div>
- <div class="stat-value">{{ current_renewable_energy_pct|default('N/A') }}<span class="stat-unit">%</span></div>
+ <div class="stat-value">{{ default(current_renewable_energy_pct, "N/A") }}<span class="stat-unit">%</span></div>
  </div>
  </div>
  </div>
@@ -659,7 +659,7 @@
  <td>{{ rate.category }}</td>
  <td class="num">{{ rate.male_current }}</td><td class="num">{{ rate.female_current }}</td><td class="num">{{ rate.total_current }}</td>
  <td class="num">{{ rate.male_prev }}</td><td class="num">{{ rate.female_prev }}</td><td class="num">{{ rate.total_prev }}</td>
- <td class="num">{{ rate.male_prior_prev|default('N/A') }}</td><td class="num">{{ rate.female_prior_prev|default('N/A') }}</td><td class="num">{{ rate.total_prior_prev|default('N/A') }}</td>
+ <td class="num">{{ default(rate.male_prior_prev, "N/A") }}</td><td class="num">{{ default(rate.female_prior_prev, "N/A") }}</td><td class="num">{{ default(rate.total_prior_prev, "N/A") }}</td>
  </tr>
  {% endfor %}
  </tbody>
@@ -760,7 +760,7 @@
  {% for pen in penalties %}
  <tr>
  <td>{{ pen.principle }}</td>
- <td>{{ pen.stakeholder|default(pen.court_tribunal) }}</td>
+ <td>{{ default(pen.stakeholder, pen.court_tribunal) }}</td>
  <td class="num">{{ pen.amount }}</td>
  <td>{{ pen.brief_case }}</td>
  <td class="text-center">{{ pen.has_appeal }}</td>
@@ -906,7 +906,7 @@
  <tbody>
  {% for p in external_assessment %}
  <tr>
- <td>P{{ loop.index }}: {{ p.principle_name|default('') }}</td>
+ <td>P{{ loop.index }}: {{ default(p.principle_name, "") }}</td>
  <td class="text-center">{{ p.assessed }}</td>
  <td>{{ p.agency }}</td>
  </tr>
@@ -937,7 +937,7 @@
  </tr>
  <tr>
  <td>Any other reason (please specify)</td>
- {% for p in gap_reasons %}<td class="text-center">{{ p.other_reason|default('N/A') }}</td>{% endfor %}
+ {% for p in gap_reasons %}<td class="text-center">{{ default(p.other_reason, "N/A") }}</td>{% endfor %}
  </tr>
  </tbody>
  </table>
@@ -1080,8 +1080,8 @@
  <td>{{ w.category }}</td><td class="num">{{ w.total }}</td>
  <td class="num">{{ w.health_male }}</td><td class="num">{{ w.health_female }}</td><td class="num">{{ w.health_pct }}%</td>
  <td class="num">{{ w.accident_male }}</td><td class="num">{{ w.accident_female }}</td><td class="num">{{ w.accident_pct }}%</td>
- <td class="num">{{ w.maternity_male|default('N/A') }}</td><td class="num">{{ w.maternity_female }}</td><td class="num">{{ w.maternity_pct }}%</td>
- <td class="num">{{ w.paternity_male }}</td><td class="num">{{ w.paternity_female|default('N/A') }}</td><td class="num">{{ w.paternity_pct }}%</td>
+ <td class="num">{{ default(w.maternity_male, "N/A") }}</td><td class="num">{{ w.maternity_female }}</td><td class="num">{{ w.maternity_pct }}%</td>
+ <td class="num">{{ w.paternity_male }}</td><td class="num">{{ default(w.paternity_female, "N/A") }}</td><td class="num">{{ w.paternity_pct }}%</td>
  <td class="num">{{ w.daycare_male }}</td><td class="num">{{ w.daycare_female }}</td><td class="num">{{ w.daycare_pct }}%</td>
  </tr>
  {% endfor %}
@@ -1544,7 +1544,7 @@
  <thead><tr><th>Parameter</th><th>Unit</th><th>Current FY</th><th>Previous FY</th></tr></thead>
  <tbody>
  {% for w in p6_waste %}
- <tr><td>{{ w.category }}</td><td>{{ w.unit|default('MT') }}</td><td class="num">{{ w.current_value }}</td><td class="num">{{ w.previous_value }}</td></tr>
+ <tr><td>{{ w.category }}</td><td>{{ default(w.unit, "MT") }}</td><td class="num">{{ w.current_value }}</td><td class="num">{{ w.previous_value }}</td></tr>
  {% endfor %}
  </tbody>
  </table>
@@ -1866,7 +1866,7 @@
 
  // Chart 1: Energy consumption (grouped bar)
  if (el('chartEnergy')) {
- var energyData = {{ p6_energy|default([])|tojson }};
+ var energyData = {{ default(p6_energy, []) }};
  new Chart(el('chartEnergy'), {
  type: 'bar',
  data: {
@@ -1882,7 +1882,7 @@
 
  // Chart 2: GHG emissions (stacked bar, Scope 1 + 2)
  if (el('chartGhg')) {
- var ghgData = {{ p6_ghg_emissions|default([])|tojson }}.filter(function (d) {
+ var ghgData = {{ default(p6_ghg_emissions, []) }}.filter(function (d) {
  return !/intensity/i.test(d.parameter);
  });
  new Chart(el('chartGhg'), {
@@ -1905,7 +1905,7 @@
 
  // Chart 3: Water withdrawal by source (doughnut)
  if (el('chartWater')) {
- var waterData = {{ p6_water_withdrawal|default([])|tojson }};
+ var waterData = {{ default(p6_water_withdrawal, []) }};
  new Chart(el('chartWater'), {
  type: 'doughnut',
  data: {
@@ -1918,7 +1918,7 @@
 
  // Water discharge by destination (doughnut)
  if (el('chartWaterDischarge')) {
- var dischargeData = {{ p6_water_discharge|default([])|tojson }};
+ var dischargeData = {{ default(p6_water_discharge, []) }};
  new Chart(el('chartWaterDischarge'), {
  type: 'doughnut',
  data: {
@@ -1931,7 +1931,7 @@
 
  // Chart 4: Waste by category (horizontal bar)
  if (el('chartWaste')) {
- var wasteData = {{ p6_waste|default([])|tojson }};
+ var wasteData = {{ default(p6_waste, []) }};
  new Chart(el('chartWaste'), {
  type: 'bar',
  data: {
@@ -1952,8 +1952,8 @@
  data: {
  labels: ['Employees', 'Workers'],
  datasets: [
- { label: 'Male', data: [{{ emp_total_male_no|default(0) }}, {{ wrk_total_male_no|default(0) }}], backgroundColor: seriesColors[0], borderRadius: 4, maxBarThickness: 24 },
- { label: 'Female', data: [{{ emp_total_female_no|default(0) }}, {{ wrk_total_female_no|default(0) }}], backgroundColor: seriesColors[4], borderRadius: 4, maxBarThickness: 24 }
+ { label: 'Male', data: [{{ default(emp_total_male_no, 0) }}, {{ default(wrk_total_male_no, 0) }}], backgroundColor: seriesColors[0], borderRadius: 4, maxBarThickness: 24 },
+ { label: 'Female', data: [{{ default(emp_total_female_no, 0) }}, {{ default(wrk_total_female_no, 0) }}], backgroundColor: seriesColors[4], borderRadius: 4, maxBarThickness: 24 }
  ]
  },
  options: baseBarOptions()
@@ -1968,7 +1968,7 @@
  labels: ['CSR Obligation', 'CSR Spent'],
  datasets: [{
  label: '₹ Crore',
- data: [{{ csr_obligation_amount|default(0) }}, {{ csr_spent_amount|default(0) }}],
+ data: [Number("{{ default(csr_obligation_amount, 0) }}") || 0, Number("{{ default(csr_spent_amount, 0) }}") || 0],
  backgroundColor: [seriesColors[0], seriesColors[2]],
  borderRadius: 4,
  maxBarThickness: 24
@@ -1980,7 +1980,7 @@
 
  // Chart 7: Consumer complaints by category (grouped bar)
  if (el('chartComplaints')) {
- var complaintsData = {{ p9_complaints|default([])|tojson }};
+ var complaintsData = {{ default(p9_complaints, []) }};
  new Chart(el('chartComplaints'), {
  type: 'bar',
  data: {
@@ -1996,7 +1996,7 @@
 
  // Scope 1/2/3 emissions comparison (bar)
  if (el('chartScope123')) {
- var scopeData = {{ p6_scope123_emissions|default([])|tojson }};
+ var scopeData = {{ default(p6_scope123_emissions, []) }};
  new Chart(el('chartScope123'), {
  type: 'bar',
  data: {
@@ -2015,7 +2015,7 @@
 
  // Safety incidents small multiples (bar)
  if (el('chartSafety')) {
- var safetyData = {{ p3_safety_incidents|default([])|tojson }}.filter(function (d) {
+ var safetyData = {{ default(p3_safety_incidents, []) }}.filter(function (d) {
  return !/fatalities/i.test(d.metric_name);
  });
  new Chart(el('chartSafety'), {

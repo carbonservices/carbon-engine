@@ -19,20 +19,36 @@ void ReportClient::fetchReport(int jobId)
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
     QNetworkReply *reply = _network.post(request, body.toJson());
 
-    connect(reply, &QNetworkReply::readyRead, this, [this, reply]()
+    QByteArray* buffer = new QByteArray();
+
+    connect(reply, &QNetworkReply::readyRead, this, [reply, buffer]()
     {
-        QByteArray chunk = reply->readAll();
-        emit reportChunkReceived(QString::fromUtf8(chunk));
+        buffer->append(reply->readAll());
     });
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
+    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId, buffer]()
     {
+        buffer->append(reply->readAll());
         reply->deleteLater();
+
         if (reply->error() != QNetworkReply::NoError) {
             _log.error(QString("Report fetch failed for job %1: %2").arg(jobId).arg(reply->errorString()));
             emit reportFailed(reply->errorString());
+            delete buffer;
             return;
         }
-        _log.info(QString("Report stream completed for job %1").arg(jobId));
+
+        auto doc = QJsonDocument::fromJson(*buffer);
+        QString htmlContent;
+        if (doc.isObject() && doc.object().contains("report")) {
+            htmlContent = doc.object().value("report").toString();
+        } else {
+            htmlContent = QString::fromUtf8(*buffer);
+        }
+
+        delete buffer;
+
+        _log.info(QString("Report fetch completed for job %1 (%2 bytes)").arg(jobId).arg(htmlContent.length()));
+        emit reportReady(htmlContent);
     });
 }

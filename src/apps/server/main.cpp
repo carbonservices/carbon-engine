@@ -6,6 +6,7 @@
 #include "ingestion/DocumentProcessor.h"
 #include "logging/Logger.h"
 #include "queue/JobQueue.h"
+#include "system/SystemMonitor.h"
 #include "vector/VectorIndex.h"
 
 #include <QCoreApplication>
@@ -19,10 +20,12 @@ int main(int argc, char *argv[])
     if (!db.init())
         return -1;
 
-    LlamaEngine llama(kGenerationModelPath, kEmbeddingModelPath);
-    if (!llama.loadModels())
+    SystemMonitor monitor;
+
+    LlamaEngine llama(kGenerationModelPath, kEmbeddingModelPath, monitor);
+    if (!llama.initBackend())
     {
-        log.critical("Failed to initialize Llama models.");
+        log.critical("Failed to initialize Llama backend.");
         return -1;
     }
 
@@ -32,7 +35,7 @@ int main(int argc, char *argv[])
     JobQueue jobQueue(db, docProcessor, llama, vectorIndex);
     jobQueue.start(1500);
 
-    HttpServer server(db, llama, vectorIndex);
+    HttpServer server(db, llama, vectorIndex, monitor);
     if (!server.listen(kDefaultPort))
     {
         log.critical(QString("Failed to bind HTTP server to port %1.").arg(kDefaultPort));

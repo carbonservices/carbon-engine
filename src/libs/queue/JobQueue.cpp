@@ -36,6 +36,10 @@ void JobQueue::pollNextJob()
         {
             auto chunks = _proc.processPdf(filePath.toStdString());
 
+            if (!_llama.loadEmbdModel()) {
+                throw std::runtime_error("Failed to load embedding model");
+            }
+
             _db.transaction();
             for (size_t i = 0; i < chunks.size(); ++i) {
                 auto emb = _llama.generateEmbedding(chunks[i].text);
@@ -48,11 +52,14 @@ void JobQueue::pollNextJob()
             }
             _db.commit();
 
+            _llama.unloadEmbdModel();
+
             _db.updateJobStatus(jobId, "COMPLETED");
             _log.info(QString("Job %1 COMPLETED (%2 chunks)").arg(jobId).arg(chunks.size()));
         }
         catch (const std::exception& e)
         {
+            _llama.unloadEmbdModel();
             _db.rollback();
             _db.updateJobStatus(jobId, "FAILED", e.what());
             _log.error(QString("Job %1 FAILED: %2").arg(jobId).arg(e.what()));

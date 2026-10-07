@@ -26,6 +26,7 @@ public:
     QString getChunkByVectorId(int64_t vectorId);
     QVector<QString> getChunksForJob(int jobId);
     QString getJobStatus(int jobId);
+    int getPendingJobCount();
 
 private:
     QString _dbPath;

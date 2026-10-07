@@ -1,5 +1,18 @@
 add_subdirectory(logging)
 
+# ── system telemetry lib (server-side only) ───────────────────
+add_library(carbon-engine-system STATIC
+    system/SystemMonitor.h system/SystemMonitor.cpp
+)
+target_compile_features(carbon-engine-system PUBLIC cxx_std_20)
+target_compile_definitions(carbon-engine-system PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
+target_include_directories(carbon-engine-system PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(carbon-engine-system PUBLIC
+    carbon-engine-logging
+    Qt6::Core
+    dxgi dxguid psapi    # GPU detection (DXGI) + process memory (PSAPI)
+)
+
 add_library(carbon-engine-server-libs STATIC
     db/Database.h db/Database.cpp
     inference/LlamaEngine.h inference/LlamaEngine.cpp
@@ -21,6 +34,7 @@ target_include_directories(carbon-engine-server-libs PUBLIC
 
 target_link_libraries(carbon-engine-server-libs PUBLIC
     carbon-engine-logging
+    carbon-engine-system
     Qt6::HttpServer Qt6::Sql Qt6::Concurrent
     llama faiss ${PDFIUM_LIBRARIES} libtesseract
     inja
