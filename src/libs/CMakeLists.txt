@@ -17,8 +17,14 @@ add_library(carbon-engine-server-libs STATIC
     db/Database.h db/Database.cpp
     inference/LlamaEngine.h inference/LlamaEngine.cpp
     vector/VectorIndex.h vector/VectorIndex.cpp
+    vector/VectorIndexRegistry.h vector/VectorIndexRegistry.cpp
     ingestion/DocumentProcessor.h ingestion/DocumentProcessor.cpp
     queue/JobQueue.h queue/JobQueue.cpp
+    report/BrsrSchema.h report/BrsrSchema.cpp
+    report/FactStore.h report/FactStore.cpp
+    report/ReportExtractionService.h report/ReportExtractionService.cpp
+    report/ReportValidator.h report/ReportValidator.cpp
+    report/ReportExporter.h report/ReportExporter.cpp
     api/HTTPServer.h api/HTTPServer.cpp
 )
 

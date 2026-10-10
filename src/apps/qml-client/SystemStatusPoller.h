@@ -20,6 +20,8 @@ class SystemStatusPoller : public QObject
     Q_PROPERTY(QString cpuLoad READ cpuLoad NOTIFY statusUpdated)
     Q_PROPERTY(QString memoryUsage READ memoryUsage NOTIFY statusUpdated)
     Q_PROPERTY(QString gpuLoad READ gpuLoad NOTIFY statusUpdated)
+    Q_PROPERTY(QString gpuOffload READ gpuOffload NOTIFY statusUpdated)
+    Q_PROPERTY(QString vramUsage READ vramUsage NOTIFY statusUpdated)
     Q_PROPERTY(QString engineStatus READ engineStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString databaseStatus READ databaseStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString tokenRate READ tokenRate NOTIFY statusUpdated)
@@ -31,6 +33,8 @@ public:
     QString cpuLoad() const { return _cpuLoad; }
     QString memoryUsage() const { return _memoryUsage; }
     QString gpuLoad() const { return _gpuLoad; }
+    QString gpuOffload() const { return _gpuOffload; }
+    QString vramUsage() const { return _vramUsage; }
     QString engineStatus() const { return _engineStatus; }
     QString databaseStatus() const { return _databaseStatus; }
     QString tokenRate() const { return _tokenRate; }
@@ -55,6 +59,8 @@ private:
     QString _cpuLoad = "0% (0% sys)";
     QString _memoryUsage = "0 MB (0 MB sys)";
     QString _gpuLoad = "N/A";
+    QString _gpuOffload = "N/A";
+    QString _vramUsage = "N/A";
     QString _engineStatus = "Idle";
     QString _databaseStatus = "Idle";
     QString _tokenRate = "0 t/s";

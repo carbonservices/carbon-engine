@@ -62,7 +62,7 @@ void SystemStatusPoller::poll()
             _memoryUsage = QString("%1 MB (%2 MB sys)").arg(QString::number(memProc), QString::number(memSys));
         }
 
-        // 4. GPU
+        // 4. GPU & Offload metrics
         bool gpuPresent = obj.value("gpu_present").toBool(false);
         QJsonValue gpuPctVal = obj.value("gpu_pct");
         if (!gpuPresent || gpuPctVal.isNull()) {
@@ -70,6 +70,10 @@ void SystemStatusPoller::poll()
         } else {
             _gpuLoad = QString("%1%").arg(QString::number(gpuPctVal.toDouble(0.0), 'f', 1));
         }
+
+        qint64 vramMb = obj.value("vram_total_mb").toInteger();
+        _vramUsage = (gpuPresent && vramMb > 0) ? QString("%1 MB").arg(vramMb) : "N/A";
+        _gpuOffload = obj.value("gpu_offload_mode").toString(gpuPresent ? "Full GPU" : "CPU");
 
         // 5. Engine status
         _engineStatus = obj.value("engine_status").toString("Idle");

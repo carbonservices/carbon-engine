@@ -8,6 +8,8 @@
 
 // Qt
 #include <QMutexLocker>
+#include <QThread>
+#include <algorithm>
 
 // ─────────────────────────────────────────────────────────────
 // Helper: convert a FILETIME to a 64-bit integer
@@ -62,6 +64,10 @@ void SystemMonitor::detectGpu()
             // VendorId 0x1414 is the Microsoft Basic Render Driver — skip it.
             if (desc.VendorId != 0x1414) {
                 _gpuPresent = true;
+                _vramTotalMb = static_cast<quint64>(desc.DedicatedVideoMemory / (1024 * 1024));
+                _log.info(QString("GPU detected: %1 (VRAM: %2 MB)")
+                              .arg(QString::fromWCharArray(desc.Description))
+                              .arg(_vramTotalMb));
                 adapter->Release();
                 break;
             }
@@ -87,7 +93,9 @@ void SystemMonitor::sample()
             _prevProcKernel = curK;
             _prevProcUser   = curU;
             // Each 100-ns tick == 1 unit; interval is kSampleIntervalMs ms.
-            quint64 intervalTicks = static_cast<quint64>(kSampleIntervalMs) * 10000ULL;
+            // Normalize across all logical cores so process CPU usage is 0-100%.
+            int numCores = std::max(1, QThread::idealThreadCount());
+            quint64 intervalTicks = static_cast<quint64>(kSampleIntervalMs) * 10000ULL * static_cast<quint64>(numCores);
             _cpuPctProcess = (intervalTicks > 0)
                 ? (static_cast<double>(dK + dU) / static_cast<double>(intervalTicks)) * 100.0
                 : 0.0;
@@ -188,6 +196,11 @@ quint64 SystemMonitor::memTotalMbSystem() const
 bool SystemMonitor::gpuPresent() const
 {
     return _gpuPresent;
+}
+
+quint64 SystemMonitor::vramTotalMb() const
+{
+    return _vramTotalMb;
 }
 
 double SystemMonitor::tokensPerSec() const

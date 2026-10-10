@@ -1863,6 +1863,10 @@
  }
 
  function el(id) { return document.getElementById(id); }
+ function parseNum(val) {
+   if (typeof val === 'number') return val;
+   return parseFloat(String(val).replace(/[^0-9.-]+/g, '')) || 0;
+ }
 
  // Chart 1: Energy consumption (grouped bar)
  if (el('chartEnergy')) {
@@ -1952,8 +1956,8 @@
  data: {
  labels: ['Employees', 'Workers'],
  datasets: [
- { label: 'Male', data: [{{ default(emp_total_male_no, 0) }}, {{ default(wrk_total_male_no, 0) }}], backgroundColor: seriesColors[0], borderRadius: 4, maxBarThickness: 24 },
- { label: 'Female', data: [{{ default(emp_total_female_no, 0) }}, {{ default(wrk_total_female_no, 0) }}], backgroundColor: seriesColors[4], borderRadius: 4, maxBarThickness: 24 }
+ { label: 'Male', data: [parseNum("{{ default(emp_total_male_no, 0) }}"), parseNum("{{ default(wrk_total_male_no, 0) }}")], backgroundColor: seriesColors[0], borderRadius: 4, maxBarThickness: 24 },
+ { label: 'Female', data: [parseNum("{{ default(emp_total_female_no, 0) }}"), parseNum("{{ default(wrk_total_female_no, 0) }}")], backgroundColor: seriesColors[4], borderRadius: 4, maxBarThickness: 24 }
  ]
  },
  options: baseBarOptions()
@@ -1968,7 +1972,7 @@
  labels: ['CSR Obligation', 'CSR Spent'],
  datasets: [{
  label: '₹ Crore',
- data: [Number("{{ default(csr_obligation_amount, 0) }}") || 0, Number("{{ default(csr_spent_amount, 0) }}") || 0],
+ data: [parseNum("{{ default(csr_obligation_amount, 0) }}"), parseNum("{{ default(csr_spent_amount, 0) }}")],
  backgroundColor: [seriesColors[0], seriesColors[2]],
  borderRadius: 4,
  maxBarThickness: 24

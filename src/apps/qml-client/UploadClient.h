@@ -8,6 +8,7 @@
 #include <QQmlEngine>
 #include <QNetworkAccessManager>
 #include <QUrl>
+#include <QList>
 
 class UploadClient : public QObject
 {
@@ -16,7 +17,7 @@ class UploadClient : public QObject
 
 public:
     explicit UploadClient(QObject* parent = Q_NULLPTR);
-    Q_INVOKABLE void uploadDocument(const QUrl& filePath);
+    Q_INVOKABLE void uploadDocuments(const QVariantList& filePaths);
 
 signals:
     void jobQueued(int jobId);

@@ -3,30 +3,20 @@
 // Qt
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QUrlQuery>
 
-
-PipelineStatusPoller::PipelineStatusPoller(QObject *parent) : QAbstractListModel(parent)
+PipelineStatusPoller::PipelineStatusPoller(QObject *parent) : QObject(parent)
 {
-    for (const auto &name : StageNames)
-    {
-        _stages.append({name, StageStatus::Pending});
-    }
     connect(&_timer, &QTimer::timeout, this, &PipelineStatusPoller::poll);
 }
 
 void PipelineStatusPoller::startPolling(int jobId)
 {
     _jobId = jobId;
-    for (auto &stage : _stages)
-    {
-        stage.status = StageStatus::Pending;
-    }
-
-    emit dataChanged(index(0), index(_stages.size() - 1));
     _log.info(QString("Started polling job %1").arg(jobId));
     poll();
     _timer.start(PollIntervalMs);
@@ -51,74 +41,20 @@ void PipelineStatusPoller::poll()
 
         auto doc = QJsonDocument::fromJson(reply->readAll());
         QString status = doc.object().value("status").toString();
-        _log.info(QString("Job %1 status: %2").arg(_jobId).arg(status));
+        QJsonArray docs = doc.object().value("documents").toArray();
+        _log.info(QString("Job %1 status: %2, %3 document(s)").arg(_jobId).arg(status).arg(docs.size()));
 
-        if (status == "PENDING")
+        emit statusUpdated(status, docs);
+
+        if (status == "COMPLETED")
         {
-            setStage(0, StageStatus::Active);
-        }
-        else if (status == "PROCESSING")
-        {
-            setStage(0, StageStatus::Done);
-            setStage(1, StageStatus::Active);
-        }
-        else if (status == "COMPLETED")
-        {
-            setStage(0, StageStatus::Done);
-            setStage(1, StageStatus::Done);
-            setStage(2, StageStatus::Done);
             _timer.stop();
             emit completed();
         }
         else if (status == "FAILED")
         {
-            for (int i = 0; i < _stages.size(); ++i)
-            {
-                if (_stages[i].status == StageStatus::Active)
-                {
-                    setStage(i, StageStatus::Failed);
-                    break;
-                }
-            }
-            
             _timer.stop();
             emit failed("Ingestion failed");
         }
     });
-}
-
-void PipelineStatusPoller::setStage(int stageIndex, StageStatus status)
-{
-    if (stageIndex < 0 || stageIndex >= _stages.size())
-        return;
-    if (_stages[stageIndex].status == status)
-        return;
-    _stages[stageIndex].status = status;
-    emit dataChanged(index(stageIndex), index(stageIndex));
-}
-
-int PipelineStatusPoller::rowCount(const QModelIndex &) const
-{
-    return _stages.size();
-}
-
-QVariant PipelineStatusPoller::data(const QModelIndex &idx, int role) const
-{
-    if (!idx.isValid() || idx.row() >= _stages.size())
-        return {};
-    const auto &stage = _stages[idx.row()];
-    switch (role)
-    {
-    case NameRole:
-        return stage.name;
-    case StatusRole:
-        return static_cast<int>(stage.status);
-    default:
-        return {};
-    }
-}
-
-QHash<int, QByteArray> PipelineStatusPoller::roleNames() const
-{
-    return {{NameRole, "name"}, {StatusRole, "status"}};
 }

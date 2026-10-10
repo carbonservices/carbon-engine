@@ -1,35 +1,75 @@
 #include "HTTPServer.h"
+#include "report/ReportValidator.h"
 
 // Qt
-#include <QCoreApplication>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QtConcurrent>
+#include <QThreadPool>
 #include <QTcpServer>
 #include <QHostAddress>
 #include <QUrlQuery>
-#include <QFile>
+#include <QFileInfo>
+#include <QHttpHeaders>
 
 // Templating
-#include <inja/inja.hpp>
 #include <nlohmann/json.hpp>
-#include <unordered_set>
 
-HttpServer::HttpServer(Database &db, LlamaEngine &llama, VectorIndex &index,
-                       SystemMonitor &monitor, QObject *parent)
-    : QObject(parent), _db(db), _llama(llama), _index(index), _monitor(monitor)
+namespace {
+QHttpServerResponse jsonError(QHttpServerResponder::StatusCode code, const QString &message)
 {
+    QJsonObject obj;
+    obj["error"] = message;
+    obj["status_code"] = static_cast<int>(code);
+    return QHttpServerResponse(obj, code);
+}
+} // namespace
+
+HttpServer::HttpServer(Database &db, LlamaEngine &llama, VectorIndexRegistry &indexRegistry,
+                       SystemMonitor &monitor, const BrsrSchemaCatalog &catalog,
+                       ReportExtractionService &extractionService, ReportExporter &exporter,
+                       JobQueue &jobQueue,
+                       QObject *parent)
+    : QObject(parent), _db(db), _llama(llama), _indexRegistry(indexRegistry), _monitor(monitor),
+      _catalog(catalog), _extractionService(extractionService), _exporter(exporter),
+      _jobQueue(jobQueue)
+{
+    // Global CORS middleware: inject Access-Control headers into all responses
+    _server.addAfterRequestHandler(this, [](const QHttpServerRequest &, QHttpServerResponse &resp) {
+        QHttpHeaders headers = resp.headers();
+        headers.replaceOrAppend("Access-Control-Allow-Origin", "*");
+        headers.replaceOrAppend("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        headers.replaceOrAppend("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        resp.setHeaders(std::move(headers));
+    });
+
+    // Global OPTIONS preflight and 404 JSON fallback handler
+    _server.setMissingHandler(this, [](const QHttpServerRequest &req, QHttpServerResponder &responder) {
+        if (req.method() == QHttpServerRequest::Method::Options) {
+            QHttpServerResponse resp(QHttpServerResponder::StatusCode::NoContent);
+            QHttpHeaders headers;
+            headers.append("Access-Control-Allow-Origin", "*");
+            headers.append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            headers.append("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            headers.append("Access-Control-Max-Age", "86400");
+            resp.setHeaders(std::move(headers));
+            responder.sendResponse(std::move(resp));
+            return;
+        }
+        QJsonObject err;
+        err["error"] = "Not Found";
+        err["status_code"] = 404;
+        QHttpServerResponse resp(err, QHttpServerResponder::StatusCode::NotFound);
+        QHttpHeaders headers = resp.headers();
+        headers.append("Access-Control-Allow-Origin", "*");
+        resp.setHeaders(std::move(headers));
+        responder.sendResponse(std::move(resp));
+    });
+
     _server.route("/api/ingest", QHttpServerRequest::Method::Post,
                   [this](const QHttpServerRequest &req)
                   { return handleIngest(req); });
-
-    _server.route("/api/chat", QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleChat(req); });
-
-    _server.route("/api/report", QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleReport(req); });
 
     _server.route("/api/jobs", QHttpServerRequest::Method::Get,
                   [this](const QHttpServerRequest &req)
@@ -38,21 +78,75 @@ HttpServer::HttpServer(Database &db, LlamaEngine &llama, VectorIndex &index,
     _server.route("/api/system", QHttpServerRequest::Method::Get,
                   [this](const QHttpServerRequest &req)
                   { return handleSystemStatus(req); });
+
+    _server.route("/api/extraction/start", QHttpServerRequest::Method::Post,
+                  [this](const QHttpServerRequest &req)
+                  { return handleExtractionStart(req); });
+
+    _server.route("/api/extraction/status", QHttpServerRequest::Method::Get,
+                  [this](const QHttpServerRequest &req)
+                  { return handleExtractionStatus(req); });
+
+    _server.route("/api/extraction/sections", QHttpServerRequest::Method::Get,
+                  [this](const QHttpServerRequest &req)
+                  { return handleExtractionSections(req); });
+
+    _server.route("/api/extraction/sections", QHttpServerRequest::Method::Put,
+                  [this](const QHttpServerRequest &req)
+                  { return handleExtractionSectionUpdate(req); });
+
+    _server.route("/api/extraction/accept", QHttpServerRequest::Method::Post,
+                  [this](const QHttpServerRequest &req)
+                  { return handleExtractionAccept(req); });
+
+    _server.route("/api/report/export", QHttpServerRequest::Method::Post,
+                  [this](const QHttpServerRequest &req)
+                  { return handleReportExport(req); });
+
+    _server.route("/api/reports", QHttpServerRequest::Method::Get,
+                  [this](const QHttpServerRequest &req)
+                  { return handleReportsList(req); });
+
+    _server.route("/api/reports", QHttpServerRequest::Method::Delete,
+                  [this](const QHttpServerRequest &req)
+                  { return handleReportDelete(req); });
+
+    _server.route("/api/documents", QHttpServerRequest::Method::Get,
+                  [this](const QHttpServerRequest &req)
+                  { return handleJobDocuments(req); });
+
+    auto serveLogo = [](const QHttpServerRequest &) {
+        QFile file("logo.png");
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray data = file.readAll();
+            QHttpServerResponse resp("image/png", data);
+            QHttpHeaders headers = resp.headers();
+            headers.append("Access-Control-Allow-Origin", "*");
+            headers.append("Cache-Control", "public, max-age=86400");
+            resp.setHeaders(std::move(headers));
+            return resp;
+        }
+        return QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound);
+    };
+    _server.route("/logo.png", QHttpServerRequest::Method::Get, serveLogo);
+    _server.route("/api/logo", QHttpServerRequest::Method::Get, serveLogo);
 }
 
 bool HttpServer::listen(quint16 port)
 {
     auto *tcpServer = new QTcpServer(this);
-    if (!tcpServer->listen(QHostAddress::Any, port))
+    bool bindAll = (qEnvironmentVariableIntValue("CARBON_ENGINE_BIND_ALL") == 1);
+    QHostAddress bindAddr = bindAll ? QHostAddress::Any : QHostAddress::LocalHost;
+    if (!tcpServer->listen(bindAddr, port))
     {
-        _log.error(QString("Failed to bind to port %1").arg(port));
+        _log.error(QString("Failed to bind to port %1 on %2").arg(port).arg(bindAddr.toString()));
         return false;
     }
 
     bool bound = _server.bind(tcpServer);
     if (bound)
     {
-        _log.info(QString("Listening on port %1").arg(port));
+        _log.info(QString("Listening on %1:%2").arg(bindAddr.toString()).arg(port));
     }
     return bound;
 }
@@ -60,316 +154,44 @@ bool HttpServer::listen(quint16 port)
 QFuture<QHttpServerResponse> HttpServer::handleIngest(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    QString filePath = doc.object().value("file_path").toString();
+    QJsonArray pathArray = doc.object().value("file_paths").toArray();
 
-    return QtConcurrent::run([this, filePath]()
-    {
-        if (filePath.isEmpty()) {
-            _log.error("Ingest request missing file_path");
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
+    QStringList filePaths;
+    for (const QJsonValue& value : pathArray) {
+        if (value.isString() && !value.toString().trimmed().isEmpty()) {
+            filePaths.append(value.toString().trimmed());
         }
+    }
 
-        int jobId = _db.enqueueJob(filePath);
-        if (jobId < 0) {
-            _log.error(QString("Failed to enqueue job for: %1").arg(filePath));
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
+    if (filePaths.isEmpty()) {
+        _log.error("Ingest request missing file_paths");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Ingest request missing valid 'file_paths' array"));
+    }
+
+    // Verify all specified files exist on the filesystem before creating the job
+    for (const QString& path : filePaths) {
+        QFileInfo fi(path);
+        if (!fi.exists() || !fi.isFile()) {
+            _log.error(QString("Ingest file not found on disk: %1").arg(path));
+            return QtFuture::makeReadyFuture(jsonError(
+                QHttpServerResponder::StatusCode::BadRequest,
+                QString("File not found on disk: %1").arg(path)));
         }
-        
-        _log.info(QString("Job %1 queued for: %2").arg(jobId).arg(filePath));
-        return QHttpServerResponse(QJsonObject{{"status", "QUEUED"}, {"job_id", jobId}});
-    });
-}
+    }
 
-QFuture<QHttpServerResponse> HttpServer::handleChat(const QHttpServerRequest &request)
-{
-    auto doc = QJsonDocument::fromJson(request.body());
-    QString prompt = doc.object().value("prompt").toString();
+    int jobId = _db.enqueueJob(filePaths);
+    if (jobId < 0) {
+        _log.error(QString("Failed to enqueue job for %1 document(s)").arg(filePaths.size()));
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::InternalServerError,
+            "Failed to persist ingestion job to database"));
+    }
 
-    return QtConcurrent::run([this, prompt]()
-    {
-        if (prompt.isEmpty()) {
-            _log.error("Chat request missing prompt");
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
-        }
-
-        _log.info("Chat request received");
-        std::string promptStd = prompt.toStdString();
-
-        // Load embedding, search, unload, then load gen for completion.
-        if (!_llama.loadEmbdModel()) {
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::InternalServerError);
-        }
-        auto queryEmbedding = _llama.generateEmbedding(promptStd);
-        auto matchedIds     = _index.search(queryEmbedding, 3);
-        _llama.unloadEmbdModel();
-
-        if (!_llama.loadGenModel()) {
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::InternalServerError);
-        }
-        std::string generatedOutput;
-        _llama.streamCompletion(promptStd, [&generatedOutput](const std::string& token) {
-            generatedOutput += token;
-            return true;
-        });
-        _llama.unloadGenModel();
-
-        _log.info("Chat response generated");
-        return QHttpServerResponse(QJsonObject{
-            {"response", QString::fromStdString(generatedOutput)},
-            {"context_matches", static_cast<int>(matchedIds.size())}
-        });
-    });
-}
-
-static const char* kDefaultBrsrSchemaJson = R"json({"brsr_core_kpis":[],"business_activities":[],"csr_projects":[],"external_assessment":[],"gap_reasons":[],"material_issues":[],"p1_concentration":[],"p1_fines":[],"p1_training":[],"p2_lca":[],"p2_reclaim":[],"p2_recycled_input":[],"p3_grievance_mechanisms":[],"p3_hs_training":[],"p3_parental_leave_retention":[],"p3_performance_reviews":[],"p3_retirement_benefits":[],"p3_safety_incidents":[],"p3_union_membership":[],"p3_wellbeing":[],"p4_stakeholder_engagement":[],"p5_hr_assessments":[],"p5_hr_complaints":[],"p5_hr_training":[],"p5_minimum_wages":[],"p5_remuneration":[],"p6_air_emissions":[],"p6_eia":[],"p6_energy":[],"p6_ghg_emissions":[],"p6_scope123_emissions":[],"p6_waste":[],"p6_water_discharge":[],"p6_water_withdrawal":[],"p7_anticompetitive_cases":[],"p7_policy_advocacy":[],"p7_trade_associations":[],"p8_csr_project_details":[],"p8_rehabilitation":[],"p8_sia":[],"p9_complaints":[],"p9_product_recalls":[],"penalties":[],"principle_policy_matrix":[],"products_sold":[],"review_by_committee":[],"stakeholder_grievances":[],"subsidiaries":[],"turnover_rates":[],"customer_types":"N/A","p6_pat_scheme_details":"N/A","da_emp_perm_female_pct":"N/A","p8_msme_sourcing_prev":"N/A","p2_adverse_impact_mitigation":"N/A","p3_wc_filed_prev":"N/A","p9_cyber_security_policy":"N/A","p5_hr_in_contracts":"N/A","wrk_other_female_no":"N/A","international_total":"N/A","wrk_perm_male_pct":"N/A","wrk_perm_female_pct":"N/A","director_esg_statement":"N/A","p6_sustainability_projects":"N/A","csr_turnover_amount":"N/A","p2_capex_improvements":"N/A","da_wrk_other_male_pct":"N/A","p6_value_chain_env_assessment_pct":"N/A","p3_transition_assistance_programs":"N/A","p9_service_disruption_mechanism":"N/A","emp_perm_male_no":"N/A","da_emp_perm_female_no":"N/A","esg_assessment_scope":"N/A","da_wrk_perm_female_pct":"N/A","p6_circular_economy_initiatives":"N/A","da_emp_other_male_pct":"N/A","da_emp_perm_total":"N/A","p6_climate_bcp":"N/A","p8_local_sourcing_current":"N/A","p3_corrective_actions":"N/A","da_wrk_perm_male_no":"N/A","p3_wc_pending_current":"N/A","p3_accessibility_details":"N/A","markets_national_states":"N/A","emp_perm_male_pct":"N/A","p8_local_supplier_wellbeing":"N/A","da_emp_other_female_no":"N/A","wrk_total_female_pct":"N/A","p4_consultation_process":"N/A","p4_stakeholder_identification_process":"N/A","p8_msme_sourcing_current":"N/A","p3_hs_pending_prev":"N/A","entity_name":"N/A","contact_email":"N/A","paid_up_capital":"N/A","da_wrk_female_no":"N/A","p9_consumer_feedback_mechanism":"N/A","p6_zld_status":"N/A","p6_value_chain_adverse_impact":"N/A","p5_anti_retaliation_mechanism":"N/A","p1_accounts_payable_days":"N/A","da_wrk_other_total":"N/A","national_total":"N/A","wrk_total_male_pct":"N/A","p9_info_channels":"N/A","csr_unspent_amount":"N/A","p6_business_continuity_plan":"N/A","da_wrk_perm_male_pct":"N/A","assurance_statement_summary":"N/A","p5_focal_point_details":"N/A","p2_rd_improvements":"N/A","da_emp_perm_male_pct":"N/A","sustainability_committee_details":"N/A","emp_total_female_no":"N/A","da_emp_female_pct":"N/A","p3_hs_pending_current":"N/A","p6_certifications_audits":"N/A","da_emp_male_no":"N/A","contact_telephone":"N/A","p2_rd_pct_current":"N/A","contact_person_details":"N/A","da_wrk_other_female_pct":"N/A","da_wrk_male_no":"N/A","p3_safe_workplace_measures":"N/A","da_wrk_perm_female_no":"N/A","p2_epr_status":"N/A","da_emp_perm_male_no":"N/A","p3_equal_opportunity_policy":"N/A","p5_value_chain_hr_assessment":"N/A","da_emp_other_total":"N/A","wrk_perm_total":"N/A","p3_wc_filed_current":"N/A","prior_to_previous_fy":"N/A","p3_hs_filed_prev":"N/A","p3_wc_pending_prev":"N/A","p1_conflict_of_interest_process":"N/A","wrk_total_male_no":"N/A","markets_international_countries":"N/A","p1_value_chain_awareness":"N/A","emp_total_male_no":"N/A","year_of_incorporation":"N/A","previous_renewable_energy_pct":"N/A","entity_cin":"N/A","p4_vulnerable_groups_consultation":"N/A","wrk_perm_female_no":"N/A","esg_assessment_done":"N/A","wrk_perm_male_no":"N/A","p4_consultation_outcomes":"N/A","p3_death_compensation_details":"N/A","p9_additional_product_info":"N/A","emp_other_male_pct":"N/A","p6_water_stress_area_discharge":"N/A","p6_ghg_reduction_projects":"N/A","current_renewable_energy_pct":"N/A","csr_spent_amount":"N/A","website_url":"N/A","da_emp_male_pct":"N/A","p8_local_sourcing_prev":"N/A","csr_applicable":"N/A","p3_value_chain_grievance_mechanism":"N/A","kmp_total":"N/A","p6_water_intensity_turnover_current":"N/A","da_wrk_total":"N/A","emp_total_male_pct":"N/A","da_emp_other_male_no":"N/A","emp_other_female_pct":"N/A","emp_perm_female_pct":"N/A","reporting_boundary":"N/A","p3_value_chain_assessment":"N/A","p5_grievance_mechanism":"N/A","p8_community_grievance_mechanism":"N/A","csr_net_worth":"N/A","da_wrk_perm_total":"N/A","assurance_provider_name":"N/A","emp_perm_total":"N/A","p8_negative_impact_mitigation":"N/A","governance_oversight_statement":"N/A","da_emp_total":"N/A","wrk_other_total":"N/A","emp_total_total":"N/A","p2_capex_pct_current":"N/A","p3_ohs_system_implemented":"N/A","da_wrk_other_female_no":"N/A","emp_other_total":"N/A","emp_other_male_no":"N/A","national_plants":"N/A","esg_assessment_agency":"N/A","board_female_pct":"N/A","kmp_female_no":"N/A","wrk_other_male_pct":"N/A","da_emp_female_no":"N/A","reporting_financial_year":"N/A","p9_corrective_actions":"N/A","board_female_no":"N/A","p9_data_privacy_survey_results":"N/A","international_plants":"N/A","previous_fy":"N/A","emp_other_female_no":"N/A","emp_perm_female_no":"N/A","p5_process_modification":"N/A","p3_hazard_reporting_process":"N/A","highest_authority_details":"N/A","assurance_type":"N/A","p3_value_chain_parental_leave":"N/A","p6_value_chain_corrective_actions":"N/A","p3_hazard_identification_process":"N/A","p6_environmental_compliance":"N/A","corporate_address":"N/A","p9_consumer_education_steps":"N/A","kmp_female_pct":"N/A","p2_sustainable_sourcing_process":"N/A","csr_obligation_amount":"N/A","da_wrk_male_pct":"N/A","wrk_other_female_pct":"N/A","wrk_total_female_no":"N/A","p2_rd_pct_prev":"N/A","registered_address":"N/A","p3_hs_filed_current":"N/A","p3_disability_inclusion_measures":"N/A","stock_exchanges":"N/A","p3_healthcare_access":"N/A","scope_1_2_intensity_prev":"N/A","p9_labelled_products_turnover_pct":"N/A","international_offices":"N/A","da_wrk_female_pct":"N/A","national_offices":"N/A","p2_sustainable_sourcing_pct":"N/A","da_emp_other_female_pct":"N/A","p5_corrective_actions":"N/A","export_contribution_pct":"N/A","board_total":"N/A","p6_low_carbon_transition_plan":"N/A","emp_total_female_pct":"N/A","wrk_total_total":"N/A","sustainability_decision_committee_details":"N/A","p6_water_intensity_turnover_prev":"N/A","wrk_other_male_no":"N/A","current_fy":"N/A","da_wrk_other_male_no":"N/A","p2_capex_pct_prev":"N/A"})json";
-
-static nlohmann::json getDefaultBrsrSchema()
-{
-    static const nlohmann::json kSchema = nlohmann::json::parse(kDefaultBrsrSchemaJson);
-    return kSchema;
-}
-
-QFuture<QHttpServerResponse> HttpServer::handleReport(const QHttpServerRequest &request)
-{
-    auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
-
-    return QtConcurrent::run([this, jobId]()
-    {
-        if (jobId < 0) {
-            _log.error("Report request missing job_id");
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest);
-        }
-
-        {
-            QMutexLocker lock(&_reportCacheMutex);
-            if (_cachedReports.contains(jobId)) {
-                _log.info(QString("Serving cached report for job %1").arg(jobId));
-                return QHttpServerResponse(QJsonObject{
-                    {"report", _cachedReports[jobId]}
-                });
-            }
-        }
-
-        _log.info(QString("Targeted multi-query RAG search initiated for job %1").arg(jobId));
-
-        // 1. Load embedding model for targeted RAG queries
-        if (!_llama.loadEmbdModel()) {
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::InternalServerError);
-        }
-
-        std::vector<std::string> queryTexts = {
-            "General Disclosures corporate name entity name financial year reporting period",
-            "Scope 1 Scope 2 GHG greenhouse gas emissions turnover intensity",
-            "water intensity water consumption turnover renewable energy percentage",
-            "employees female percentage representation women CSR spent expenditure"
-        };
-
-        std::vector<int64_t> combinedVectorIds;
-        std::unordered_set<int64_t> seenVectorIds;
-
-        for (const auto& qText : queryTexts) {
-            std::vector<float> queryEmb = _llama.generateEmbedding(qText);
-            std::vector<int64_t> ids = _index.search(queryEmb, 3);
-            for (int64_t vid : ids) {
-                if (vid >= 0 && seenVectorIds.insert(vid).second) {
-                    combinedVectorIds.push_back(vid);
-                }
-            }
-        }
-
-        // 2. Unload embedding model before loading generation model
-        _llama.unloadEmbdModel();
-
-        // 3. Retrieve relevant chunks from SQLite
-        _monitor.setEnginePhase(EnginePhase::DbReading);
-        QString assembledContext;
-        for (int64_t vid : combinedVectorIds) {
-            QString chunk = _db.getChunkByVectorId(vid);
-            if (!chunk.isEmpty()) {
-                assembledContext += chunk + "\n\n";
-            }
-        }
-        // If vector index search returned sparse context (e.g. after server restart when in-memory index was cleared),
-        // fallback to targeted keyword chunk retrieval directly from the database for the given job.
-        if (assembledContext.length() < 500) {
-            QVector<QString> allChunks = _db.getChunksForJob(jobId);
-            if (!allChunks.isEmpty()) {
-                _log.info(QString("Vector search context sparse (%1 bytes), using targeted DB chunk retrieval (%2 total chunks)")
-                          .arg(assembledContext.length()).arg(allChunks.size()));
-
-                std::vector<std::string> targetedTerms = {
-                    "Corporate Identity Number",
-                    "greenhouse gas emissions (Scope 1 and Scope 2",
-                    "Water withdrawal, consumption and discharge",
-                    "Employees and workers (including differently abled)",
-                    "Details of total energy consumption (in Peta Joule)",
-                    "CSR projects undertaken by your entity"
-                };
-
-                QSet<int> selectedIndices;
-                for (const auto& term : targetedTerms) {
-                    QString qTerm = QString::fromStdString(term);
-                    for (int i = 0; i < allChunks.size(); ++i) {
-                        if (allChunks[i].contains(qTerm, Qt::CaseInsensitive)) {
-                            selectedIndices.insert(i);
-                            break; // 1 precise chunk per category
-                        }
-                    }
-                }
-
-                assembledContext.clear();
-                for (int idx : selectedIndices) {
-                    assembledContext += allChunks[idx] + "\n\n";
-                }
-                _log.info(QString("Selected %1 focused context chunks (%2 characters)")
-                          .arg(selectedIndices.size()).arg(assembledContext.length()));
-            }
-        }
-        _monitor.setEnginePhase(EnginePhase::Idle);
-
-        if (assembledContext.isEmpty()) {
-            _log.error(QString("No vector context found for job %1").arg(jobId));
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound);
-        }
-
-        // 4. Format prompt in Qwen Instruct format
-        std::string finalPrompt =
-            "<|im_start|>system\n"
-            "You are a strict data extraction AI for Business Responsibility and Sustainability Reporting (BRSR). Extract the following metrics from the context into a flat JSON object with exact numeric values (as plain numbers or numeric strings without unit text):\n"
-            "- entity_name: Exact company name (e.g. \"Tata Steel Limited\")\n"
-            "- reporting_financial_year: Reporting financial year (e.g. \"FY 2025-26\")\n"
-            "- scope_1_2_intensity_current: Total Scope 1 and Scope 2 emission intensity per rupee of turnover or crude steel (e.g. \"0.0004\")\n"
-            "- p6_water_intensity_turnover_current: Water intensity per rupee of turnover (e.g. \"0.000026\")\n"
-            "- emp_total_female_pct: Female employees or workers percentage without % symbol (e.g. \"10.6\" or \"8.4\")\n"
-            "- csr_spent_amount: CSR spent amount in INR crores without currency symbol (e.g. \"1197\" or \"142.7\")\n"
-            "- current_renewable_energy_pct: Percentage or amount of energy from renewable sources (e.g. \"1.66\" or percentage if given)\n\n"
-            "Rules:\n"
-            "1. Output ONLY a valid JSON object starting with { and ending with }.\n"
-            "2. If any metric cannot be found in the context, set its value to null.\n"
-            "3. Do NOT include markdown code fences, notes, or explanations.<|im_end|>\n"
-            "<|im_start|>user\n"
-            "Context:\n" + assembledContext.toStdString() + "\n\nExtract JSON.<|im_end|>\n"
-            "<|im_start|>assistant\n";
-
-        _log.info(QString("Generating JSON extract for job %1...").arg(jobId));
-
-        // 5. Load generation model and generate
-        if (!_llama.loadGenModel()) {
-            return QHttpServerResponse(QHttpServerResponder::StatusCode::InternalServerError);
-        }
-
-        std::string generatedJson;
-        int braceCount = 0;
-        bool jsonStarted = false;
-        _llama.streamCompletion(finalPrompt, [&](const std::string& token) -> bool {
-            generatedJson += token;
-            for (char c : token) {
-                if (c == '{') {
-                    braceCount++;
-                    jsonStarted = true;
-                } else if (c == '}') {
-                    braceCount--;
-                }
-            }
-            if (jsonStarted && braceCount == 0) {
-                return false; // Stop immediately once complete JSON object is closed
-            }
-            return true;
-        });
-        _llama.unloadGenModel();
-
-        _log.info(QString("Generated BRSR extract:\n%1").arg(QString::fromStdString(generatedJson)));
-
-        // Strip any trailing ChatML tags
-        size_t endPos = generatedJson.find("<|im_end|>");
-        if (endPos != std::string::npos) {
-            generatedJson = generatedJson.substr(0, endPos);
-        }
-
-        // Extract JSON substring between first { and last }
-        size_t firstBrace = generatedJson.find('{');
-        size_t lastBrace = generatedJson.rfind('}');
-        if (firstBrace != std::string::npos && lastBrace != std::string::npos && lastBrace >= firstBrace) {
-            generatedJson = generatedJson.substr(firstBrace, lastBrace - firstBrace + 1);
-        }
-
-        // 6. Parse JSON from LLM output
-        nlohmann::json extractedData;
-        try {
-            extractedData = nlohmann::json::parse(generatedJson);
-        } catch (const std::exception& e) {
-            _log.error(QString("JSON Parse Error: %1. Raw text: %2").arg(e.what(), QString::fromStdString(generatedJson)));
-            return QHttpServerResponse(QJsonObject{
-                {"report", QString("<h1>Failed to parse LLM JSON output</h1><p><b>Error:</b> %1</p><pre>%2</pre>")
-                    .arg(e.what(), QString::fromStdString(generatedJson))}
-            });
-        }
-
-        // Sanitize extracted data: clean numbers, strip symbols, replace null with "N/A"
-        for (auto& [k, v] : extractedData.items()) {
-            if (v.is_null()) {
-                v = "N/A";
-            } else if (v.is_string()) {
-                std::string s = v.get<std::string>();
-                if (k == "csr_spent_amount" || k == "emp_total_female_pct" ||
-                    k == "scope_1_2_intensity_current" || k == "p6_water_intensity_turnover_current" ||
-                    k == "current_renewable_energy_pct") {
-                    std::string clean;
-                    for (char c : s) {
-                        if ((c >= '0' && c <= '9') || c == '.') clean += c;
-                    }
-                    if (!clean.empty()) {
-                        v = clean;
-                    }
-                }
-            }
-        }
-
-        // 7. Render HTML via Inja
-        std::string renderedHtml;
-        try {
-            QFile file(QCoreApplication::applicationDirPath() + "/template.html");
-            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                _log.error("template.html not found on disk");
-                return QHttpServerResponse(QJsonObject{
-                    {"report", "<h1>Error: template.html not found on disk</h1>"}
-                });
-            }
-
-            std::string tmpl = file.readAll().toStdString();
-            inja::Environment env;
-
-            env.add_callback("range", 2, [](inja::Arguments& args) {
-                int start = args.at(0)->get<int>();
-                int end = args.at(1)->get<int>();
-                nlohmann::json res = nlohmann::json::array();
-                for (int i = start; i < end; ++i) {
-                    res.push_back(i);
-                }
-                return res;
-            });
-
-            // Populate base schema to ensure all 200+ template keys exist
-            nlohmann::json reportData = getDefaultBrsrSchema();
-            reportData.merge_patch(extractedData);
-
-            renderedHtml = env.render(tmpl, reportData);
-        } catch (const std::exception& e) {
-            _log.error(QString("Template Render Error: %1").arg(e.what()));
-            renderedHtml = "<h1>Template Rendering Error</h1><p>" + std::string(e.what()) + "</p>";
-        }
-
-        {
-            QMutexLocker lock(&_reportCacheMutex);
-            _cachedReports[jobId] = QString::fromStdString(renderedHtml);
-        }
-
-        _log.info(QString("Report generated for job %1").arg(jobId));
-        return QHttpServerResponse(QJsonObject{
-            {"report", QString::fromStdString(renderedHtml)}
-        });
-    });
+    _log.info(QString("Job %1 queued for %2 document(s)").arg(jobId).arg(filePaths.size()));
+    _jobQueue.notifyNewJob();
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "QUEUED"}, {"job_id", jobId}}));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleJobStatus(const QHttpServerRequest &request)
@@ -380,17 +202,40 @@ QFuture<QHttpServerResponse> HttpServer::handleJobStatus(const QHttpServerReques
     if (!ok || jobId < 0)
     {
         _log.error("Job status request missing job_id query parameter");
-        return QtFuture::makeReadyFuture(QHttpServerResponse(QHttpServerResponder::StatusCode::BadRequest));
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing or invalid 'job_id' query parameter"));
     }
 
     QString status = _db.getJobStatus(jobId);
     if (status.isEmpty())
     {
         _log.error(QString("Job status requested for unknown job %1").arg(jobId));
-        return QtFuture::makeReadyFuture(QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound));
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::NotFound,
+            QString("Job %1 not found").arg(jobId)));
     }
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", status}}));
+    QJsonObject obj;
+    obj["job_id"] = jobId;
+    obj["status"] = status;
+    obj["extraction_status"] = _db.getExtractionStatus(jobId);
+    obj["report_locked"] = _db.isReportLocked(jobId);
+
+    auto jobDocs = _db.getJobDocuments(jobId);
+    QJsonArray docsArr;
+    for (const auto& d : jobDocs) {
+        QJsonObject dObj;
+        dObj["id"] = d.id;
+        dObj["file_path"] = d.filePath;
+        dObj["file_name"] = d.fileName;
+        dObj["chunk_count"] = d.chunkCount;
+        dObj["page_count"] = d.pageCount;
+        docsArr.append(dObj);
+    }
+    obj["documents"] = docsArr;
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerRequest& /*request*/)
@@ -412,11 +257,336 @@ QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerReq
     obj["memory_used_mb_system"]  = static_cast<qint64>(memSys);
     obj["memory_total_mb_system"] = static_cast<qint64>(memTotal);
     obj["gpu_present"]            = gpuPres;
+    obj["vram_total_mb"]          = static_cast<qint64>(_monitor.vramTotalMb());
+    obj["gpu_offload_mode"]       = _llama.offloadModeString();
+    obj["gpu_layers_offloaded"]   = _llama.activeGenGpuLayers();
     obj["gpu_pct"]                = gpuPres ? QJsonValue(0.0) : QJsonValue(QJsonValue::Null);
     obj["job_queue_depth"]        = queueDepth;
     obj["engine_status"]          = phase;
-    obj["db_status"]              = "Idle";
+
+    quint64 dbBytes               = _db.diskSizeBytes();
+    double dbMb                   = static_cast<double>(dbBytes) / (1024.0 * 1024.0);
+    int totalChunks               = _db.totalChunkCount();
+    obj["db_status"]              = totalChunks > 0
+                                    ? QString("%1 MB (%2 chunks)").arg(QString::number(dbMb, 'f', 1)).arg(totalChunks)
+                                    : QString("%1 MB").arg(QString::number(dbMb, 'f', 1));
+
     obj["tokens_per_sec"]         = qRound(tps * 10.0) / 10.0;
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
 }
+
+QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServerRequest &request)
+{
+    auto doc = QJsonDocument::fromJson(request.body());
+    int jobId = doc.object().value("job_id").toInt(-1);
+
+    if (jobId < 0) {
+        _log.error("Extraction start request missing valid job_id");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Extraction start request missing valid 'job_id'"));
+    }
+
+    QString jobStatus = _db.getJobStatus(jobId);
+    if (jobStatus.isEmpty()) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::NotFound,
+            QString("Job %1 not found").arg(jobId)));
+    }
+
+    if (jobStatus != "COMPLETED") {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            QString("Cannot extract job %1 with status '%2' (ingestion must be COMPLETED)").arg(jobId).arg(jobStatus)));
+    }
+
+    if (_extractionService.isExtracting()) {
+        _log.warn(QString("Extraction already in progress for job %1. Rejecting request for job %2.")
+                      .arg(_extractionService.activeJobId()).arg(jobId));
+        QJsonObject errObj;
+        errObj["error"] = "Extraction already in progress";
+        errObj["active_job_id"] = _extractionService.activeJobId();
+        errObj["status_code"] = static_cast<int>(QHttpServerResponder::StatusCode::Conflict);
+        return QtFuture::makeReadyFuture(QHttpServerResponse(errObj, QHttpServerResponder::StatusCode::Conflict));
+    }
+
+    _log.info(QString("Starting extraction for job %1").arg(jobId));
+    QThreadPool::globalInstance()->start([this, jobId]() { _extractionService.extractJob(jobId); });
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "EXTRACTING"}, {"job_id", jobId}}));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServerRequest &request)
+{
+    bool ok = false;
+    int jobId = request.query().queryItemValue("job_id").toInt(&ok);
+
+    if (!ok || jobId < 0) {
+        _log.error("Extraction status request missing job_id query parameter");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing or invalid 'job_id' query parameter"));
+    }
+
+    QString status = _db.getExtractionStatus(jobId);
+    if (status.isEmpty()) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::NotFound,
+            QString("Job %1 not found").arg(jobId)));
+    }
+
+    QJsonObject resp;
+    resp["job_id"] = jobId;
+    resp["status"] = status;
+
+    auto progress = _extractionService.currentProgress();
+    if (_extractionService.activeJobId() == jobId || progress.currentStep > 0) {
+        resp["current_step"] = progress.currentStep;
+        resp["total_steps"] = progress.totalSteps;
+        resp["current_group"] = progress.currentGroupLabel;
+        resp["current_group_id"] = progress.currentGroupId;
+        double pct = (progress.totalSteps > 0)
+            ? (static_cast<double>(progress.currentStep) / progress.totalSteps * 100.0)
+            : 0.0;
+        resp["progress_pct"] = qRound(pct * 10.0) / 10.0;
+
+        QJsonArray missingArr;
+        for (const auto& sec : progress.missingSections) {
+            QJsonObject sObj;
+            sObj["group_id"] = sec.groupId;
+            sObj["group_label"] = sec.groupLabel;
+            sObj["missing_keys"] = QJsonArray::fromStringList(sec.missingKeys);
+            missingArr.append(sObj);
+        }
+        resp["missing_metrics"] = missingArr;
+    }
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleExtractionSections(const QHttpServerRequest &request)
+{
+    bool ok = false;
+    int jobId = request.query().queryItemValue("job_id").toInt(&ok);
+
+    if (!ok || jobId < 0) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing or invalid 'job_id' query parameter"));
+    }
+
+    if (_db.getJobStatus(jobId).isEmpty()) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::NotFound,
+            QString("Job %1 not found").arg(jobId)));
+    }
+
+    QVector<ReportSection> sections = _db.getReportSections(jobId);
+
+    QJsonArray sectionsJson;
+    for (const ReportSection& section : sections) {
+        const FieldGroup* group = _catalog.findGroup(section.groupId);
+        QJsonObject obj;
+        obj["group_id"] = section.groupId;
+        obj["label"] = group ? group->label : section.groupId;
+        obj["section"] = group ? group->section : QString();
+        obj["status"] = section.status;
+        obj["data"] = QJsonDocument::fromJson(section.dataJson.toUtf8()).object();
+        if (group) {
+            obj["data_keys"] = QJsonArray::fromStringList(group->dataFieldKeys);
+            obj["narrative_keys"] = QJsonArray::fromStringList(group->narrativeFieldKeys);
+            obj["loop_keys"] = QJsonArray::fromStringList(group->loopFieldKeys);
+        }
+        sectionsJson.append(obj);
+    }
+
+    QStringList warnings = ReportValidator::validate(sections);
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{
+        {"sections", sectionsJson},
+        {"warnings", QJsonArray::fromStringList(warnings)},
+        {"job_id", jobId}
+    }));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleExtractionSectionUpdate(const QHttpServerRequest &request)
+{
+    auto doc = QJsonDocument::fromJson(request.body());
+    int jobId = doc.object().value("job_id").toInt(-1);
+    QString groupId = doc.object().value("group_id").toString();
+    QJsonObject data = doc.object().value("data").toObject();
+
+    if (jobId < 0 || groupId.isEmpty()) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing valid 'job_id' or 'group_id' in request body"));
+    }
+    if (_db.isReportLocked(jobId)) {
+        _log.error(QString("Rejected section edit for locked job %1").arg(jobId));
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::Forbidden,
+            QString("Report for job %1 is locked and cannot be edited").arg(jobId)));
+    }
+
+    QString dataJson = QString::fromUtf8(QJsonDocument(data).toJson(QJsonDocument::Compact));
+    if (!_db.upsertReportSection(jobId, groupId, dataJson, "DRAFT")) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::InternalServerError,
+            "Failed to update report section in database"));
+    }
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "UPDATED"}, {"group_id", groupId}}));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleExtractionAccept(const QHttpServerRequest &request)
+{
+    auto doc = QJsonDocument::fromJson(request.body());
+    int jobId = doc.object().value("job_id").toInt(-1);
+
+    if (jobId < 0) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Extraction accept request missing valid 'job_id'"));
+    }
+    if (!_db.lockReport(jobId)) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::InternalServerError,
+            "Failed to lock report in database"));
+    }
+    _log.info(QString("Report accepted and locked for job %1").arg(jobId));
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "ACCEPTED"}, {"job_id", jobId}}));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleReportExport(const QHttpServerRequest &request)
+{
+    auto doc = QJsonDocument::fromJson(request.body());
+    int jobId = doc.object().value("job_id").toInt(-1);
+    bool allowDraft = doc.object().value("draft").toBool(true);
+
+    if (jobId < 0) {
+        _log.error("Report export request missing job_id");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Report export request missing valid 'job_id'"));
+    }
+
+    bool isLocked = _db.isReportLocked(jobId);
+    QString html = _exporter.exportJob(jobId, allowDraft || isLocked);
+    QJsonObject resp;
+    resp["report"] = html;
+    resp["job_id"] = jobId;
+    resp["is_locked"] = isLocked;
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleReportsList(const QHttpServerRequest &request)
+{
+    bool ok = false;
+    int limit = request.query().queryItemValue("limit").toInt(&ok);
+    int offset = request.query().queryItemValue("offset").toInt();
+
+    auto reports = _db.getAllReports();
+    QJsonArray arr;
+    int count = 0;
+    int skipped = 0;
+
+    for (const auto& r : reports) {
+        if (offset > 0 && skipped < offset) {
+            skipped++;
+            continue;
+        }
+        if (ok && limit > 0 && count >= limit) {
+            break;
+        }
+
+        QJsonObject obj;
+        obj["job_id"] = r.jobId;
+        obj["title"] = r.title;
+        obj["status"] = r.status;
+        obj["extraction_status"] = r.extractionStatus;
+        obj["report_locked"] = _db.isReportLocked(r.jobId);
+        obj["date"] = r.createdAt.section(' ', 0, 0);
+
+        auto jobDocs = _db.getJobDocuments(r.jobId);
+        QJsonArray docs;
+        for (const auto& d : jobDocs) {
+            QJsonObject dObj;
+            dObj["id"] = d.id;
+            dObj["file_path"] = d.filePath;
+            dObj["file_name"] = d.fileName;
+            dObj["chunk_count"] = d.chunkCount;
+            dObj["page_count"] = d.pageCount;
+            docs.append(dObj);
+        }
+        obj["documents"] = docs;
+        arr.append(obj);
+        count++;
+    }
+    return QtFuture::makeReadyFuture(QHttpServerResponse(arr));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleReportDelete(const QHttpServerRequest &request)
+{
+    bool ok = false;
+    int jobId = request.query().queryItemValue("job_id").toInt(&ok);
+    if (!ok || jobId < 0) {
+        _log.error("Report delete request missing valid job_id");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing or invalid 'job_id' query parameter"));
+    }
+
+    // Cancel active ingestion or extraction before deletion
+    _jobQueue.cancelJob(jobId);
+    _extractionService.cancelJob(jobId);
+    _extractionService.factStore().clearForJob(jobId);
+
+    bool deleted = _db.deleteJob(jobId);
+    if (!deleted) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::InternalServerError,
+            QString("Failed to delete job %1 from database").arg(jobId)));
+    }
+    _indexRegistry.remove(jobId);
+    _log.info(QString("Successfully deleted report / job %1").arg(jobId));
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "DELETED"}, {"job_id", jobId}}));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleJobDocuments(const QHttpServerRequest &request)
+{
+    bool ok = false;
+    int jobId = request.query().queryItemValue("job_id").toInt(&ok);
+
+    if (!ok || jobId < 0) {
+        _log.error("Job documents request missing job_id query parameter");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Missing or invalid 'job_id' query parameter"));
+    }
+
+    if (_db.getJobStatus(jobId).isEmpty()) {
+        _log.error(QString("Job documents requested for unknown job %1").arg(jobId));
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::NotFound,
+            QString("Job %1 not found").arg(jobId)));
+    }
+
+    auto docs = _db.getJobDocuments(jobId);
+    QJsonArray docsArr;
+    for (const auto& d : docs) {
+        QJsonObject dObj;
+        dObj["id"] = d.id;
+        dObj["job_id"] = d.jobId;
+        dObj["file_path"] = d.filePath;
+        dObj["file_name"] = d.fileName;
+        dObj["chunk_count"] = d.chunkCount;
+        dObj["page_count"] = d.pageCount;
+        docsArr.append(dObj);
+    }
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{
+        {"job_id", jobId},
+        {"documents", docsArr}
+    }));
+}
+

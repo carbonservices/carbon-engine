@@ -49,6 +49,7 @@ public:
     quint64 memUsedMbSystem()  const;
     quint64 memTotalMbSystem() const;
     bool    gpuPresent()      const;
+    quint64 vramTotalMb()     const;
     double  tokensPerSec()    const;
 
     // Human-readable engine phase string for JSON.
@@ -75,7 +76,8 @@ private:
     std::atomic<double>      _tokensPerSec{0.0};
 
     // Detected once
-    bool _gpuPresent = false;
+    bool    _gpuPresent  = false;
+    quint64 _vramTotalMb = 0;
 
     // Windows CPU-time bookkeeping (FILETIME stored as ULONGLONG)
     quint64 _prevSysIdle   = 0;

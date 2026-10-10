@@ -62,6 +62,17 @@ FetchContent_MakeAvailable(inja)
 FetchContent_Declare(llama GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git GIT_TAG master)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+# Optional GPU acceleration for llama.cpp (CUDA)
+find_package(CUDAToolkit QUIET)
+if(CUDAToolkit_FOUND)
+    message(STATUS "CUDA Toolkit found (${CUDAToolkit_VERSION}). Enabling GGML_CUDA hardware acceleration.")
+    set(GGML_CUDA ON CACHE BOOL "Enable CUDA in ggml/llama.cpp" FORCE)
+else()
+    message(STATUS "CUDA Toolkit not found. Building llama.cpp with CPU backend.")
+    set(GGML_CUDA OFF CACHE BOOL "Enable CUDA in ggml/llama.cpp" FORCE)
+endif()
+
 FetchContent_MakeAvailable(llama)
 
 # Intel MKL & FAISS

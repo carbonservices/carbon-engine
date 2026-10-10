@@ -12,6 +12,7 @@ public:
 
     void debug(const QString& message) const;
     void info(const QString& message) const;
+    void warn(const QString& message) const;
     void warning(const QString& message) const;
     void error(const QString& message) const;
     void critical(const QString& message) const;

@@ -4,9 +4,9 @@ import QtQuick.Layouts
 
 Rectangle {
     Layout.fillHeight: true
-    Layout.preferredWidth: appWindow.sidebarExpanded ? 240 : 60
-    color: appWindow.bgCard
-    radius: 8
+    Layout.preferredWidth: appWindow.sidebarExpanded ? 260 : 44
+    color: appWindow.bgSidebar
+    radius: 4
     border.color: appWindow.borderCol
     border.width: 1
     clip: true
@@ -15,80 +15,209 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
+        anchors.margins: 8
+        spacing: 8
 
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
+            Layout.preferredHeight: 28
 
-            Label {
-                text: "Reports history"
-                font.bold: true
-                font.pixelSize: 14
-                color: appWindow.textMain
-                visible: appWindow.sidebarExpanded
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
+            // Toggle button fixed on the LEFT - position does NOT change on collapse
             Rectangle {
-                width: 32; height: 32; radius: 6
-                color: arrowMouse.containsMouse ? appWindow.bgSubtle : "transparent"
-                border.color: arrowMouse.containsMouse ? appWindow.borderCol : "transparent"
-                border.width: 1
-                
-                // Anchors update dynamically to keep arrow centered when collapsed
-                anchors.right: appWindow.sidebarExpanded ? parent.right : undefined
-                anchors.horizontalCenter: appWindow.sidebarExpanded ? undefined : parent.horizontalCenter
+                id: arrowBtn
+                width: 26; height: 26; radius: 3
+                color: arrowMouse.containsMouse ? appWindow.bgHover : "transparent"
+                anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     anchors.centerIn: parent
-                    text: appWindow.sidebarExpanded ? "◀" : "▶"
-                    color: appWindow.brandAccent
-                    font.pixelSize: 14
+                    text: appWindow.sidebarExpanded ? "‹" : "›"
+                    color: arrowMouse.containsMouse ? appWindow.textBright : appWindow.brandAccent
+                    font.pixelSize: 16
+                    font.bold: true
                 }
-                
+
                 MouseArea {
                     id: arrowMouse
                     anchors.fill: parent
                     hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     onClicked: appWindow.sidebarExpanded = !appWindow.sidebarExpanded
+                }
+            }
+
+            Label {
+                text: "REPORTS HISTORY"
+                font.bold: true
+                font.pixelSize: 11
+                color: appWindow.textMuted
+                visible: appWindow.sidebarExpanded
+                anchors.left: arrowBtn.right
+                anchors.leftMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+                id: refreshBtn
+                width: 24; height: 24; radius: 3
+                visible: appWindow.sidebarExpanded
+                color: refreshMouse.containsMouse ? appWindow.bgHover : "transparent"
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "↻"
+                    color: refreshMouse.containsMouse ? appWindow.textBright : appWindow.textMuted
+                    font.pixelSize: 14
+                }
+
+                MouseArea {
+                    id: refreshMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: reportClient.fetchReports()
                 }
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: appWindow.borderCol; visible: appWindow.sidebarExpanded }
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: appWindow.borderCol
+            visible: appWindow.sidebarExpanded
+        }
 
-        ListView {
-            id: historyList
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: appWindow.sidebarExpanded
-            model: reportsHistoryModel
-            spacing: 6
-            boundsBehavior: Flickable.StopAtBounds
-            delegate: Rectangle {
-                width: historyList.width
-                height: 40
-                radius: 6
-                color: appWindow.activeReportTitle === model.title ? appWindow.bgSubtle : "transparent"
-                border.color: appWindow.activeReportTitle === model.title ? appWindow.brandAccent : "transparent"
-                border.width: 1
+
+            ListView {
+                id: historyList
+                anchors.fill: parent
+                visible: reportsHistoryModel.count > 0
+                model: reportsHistoryModel
+                spacing: 4
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+
+                delegate: Rectangle {
+                    id: delegateItem
+                    width: historyList.width
+                    height: 44
+                    radius: 3
+                    color: (appWindow.currentJobId === model.jobId)
+                           ? appWindow.bgActive
+                           : (itemMouse.containsMouse ? appWindow.bgSubtle : "transparent")
+
+                    // Selection accent bar
+                    Rectangle {
+                        width: 2
+                        height: parent.height
+                        color: appWindow.brandAccent
+                        anchors.left: parent.left
+                        visible: appWindow.currentJobId === model.jobId
+                    }
+
+                    ColumnLayout {
+                        anchors.left: parent.left
+                        anchors.right: deleteBtn.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: (appWindow.currentJobId === model.jobId) ? 10 : 8
+                        anchors.rightMargin: 4
+                        spacing: 2
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: model.title
+                            elide: Text.ElideRight
+                            font.pixelSize: 12
+                            color: (appWindow.currentJobId === model.jobId) ? appWindow.textBright : appWindow.textMain
+                            font.bold: appWindow.currentJobId === model.jobId
+                        }
+
+                        RowLayout {
+                            spacing: 6
+                            Label {
+                                text: (model.docCount > 0 ? (model.docCount + " doc" + (model.docCount > 1 ? "s" : "") + " • ") : "") + (model.date || "")
+                                font.pixelSize: 10
+                                color: appWindow.textMuted
+                            }
+                            Label {
+                                text: model.status || ""
+                                font.pixelSize: 9
+                                font.bold: true
+                                color: model.status === "COMPLETED" ? appWindow.successColor : appWindow.textMuted
+                            }
+                        }
+                    }
+
+                    // Delete button (visible on hover or active)
+                    Rectangle {
+                        id: deleteBtn
+                        width: 22
+                        height: 22
+                        radius: 3
+                        anchors.right: parent.right
+                        anchors.rightMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: deleteMouse.containsMouse ? appWindow.bgHover : "transparent"
+                        visible: itemMouse.containsMouse || deleteMouse.containsMouse
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: deleteMouse.containsMouse ? appWindow.dangerColor : appWindow.textMuted
+                            font.pixelSize: 11
+                        }
+
+                        MouseArea {
+                            id: deleteMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                reportClient.deleteReport(model.jobId)
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: itemMouse
+                        anchors.fill: parent
+                        anchors.rightMargin: 28
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            appWindow.selectReport(model.jobId)
+                            rightPanel.showAttachedTab()
+                        }
+                    }
+                }
+            }
+
+            // Empty state when no reports exist in database
+            ColumnLayout {
+                anchors.centerIn: parent
+                visible: reportsHistoryModel.count === 0
+                spacing: 6
 
                 Label {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 12
-                    text: model.title
-                    elide: Text.ElideRight
-                    font.pixelSize: 13
-                    color: appWindow.activeReportTitle === model.title ? appWindow.brandAccent : appWindow.textMain
-                    font.bold: appWindow.activeReportTitle === model.title
+                    text: "No reports yet"
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: appWindow.textMuted
+                    Layout.alignment: Qt.AlignHCenter
                 }
-                MouseArea { anchors.fill: parent; onClicked: appWindow.activeReportTitle = model.title }
+                Label {
+                    text: "Add documents to start"
+                    font.pixelSize: 11
+                    color: appWindow.textMuted
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
         }
     }

@@ -10,7 +10,9 @@ public:
     ~VectorIndex() = default;
 
     void add(int64_t id, const std::vector<float>& embedding);
+    void addBatch(const std::vector<int64_t>& ids, const std::vector<float>& embeddings);
     std::vector<int64_t> search(const std::vector<float>& query, int k);
+    int count() const;
 
 private:
     int _dim;

@@ -10,6 +10,13 @@ void VectorIndex::add(int64_t id, const std::vector<float>& embedding) {
     _index.add_with_ids(1, embedding.data(), &idxId);
 }
 
+void VectorIndex::addBatch(const std::vector<int64_t>& ids, const std::vector<float>& embeddings) {
+    if (ids.empty() || embeddings.empty()) return;
+    QMutexLocker locker(&_mutex);
+    std::vector<faiss::idx_t> faissIds(ids.begin(), ids.end());
+    _index.add_with_ids(static_cast<faiss::idx_t>(ids.size()), embeddings.data(), faissIds.data());
+}
+
 std::vector<int64_t> VectorIndex::search(const std::vector<float>& query, int k) {
     if (k <= 0) return {};
 
@@ -26,4 +33,9 @@ std::vector<int64_t> VectorIndex::search(const std::vector<float>& query, int k)
         }
     }
     return results;
+}
+
+int VectorIndex::count() const {
+    QMutexLocker locker(&const_cast<QMutex&>(_mutex));
+    return static_cast<int>(_index.ntotal);
 }

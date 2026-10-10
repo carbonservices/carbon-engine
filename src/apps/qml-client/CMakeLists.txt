@@ -1,4 +1,9 @@
-qt_add_executable(carbon-engine-client main.cpp)
+set(CLIENT_SOURCES main.cpp)
+if(WIN32)
+    list(APPEND CLIENT_SOURCES app.rc)
+endif()
+
+qt_add_executable(carbon-engine-client ${CLIENT_SOURCES})
 
 target_link_libraries(carbon-engine-client PRIVATE
     Qt6::Quick
@@ -16,6 +21,12 @@ add_custom_command(TARGET carbon-engine-client POST_BUILD
         $<TARGET_FILE_DIR:carbon-engine-client>/template.html
 )
 
+add_custom_command(TARGET carbon-engine-client POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/logo.png"
+        $<TARGET_FILE_DIR:carbon-engine-client>/logo.png
+)
+
 set(QML_FILES
     qml/Main.qml
     qml/LeftSidebar.qml
@@ -24,6 +35,9 @@ set(QML_FILES
     qml/DocumentsPanel.qml
     qml/SystemStatusPanel.qml
     qml/StatusLogPanel.qml
+    qml/ReportReviewScreen.qml
+    qml/FieldGroupCard.qml
+    qml/LoopFieldEditor.qml
 )
 foreach(qml_file IN LISTS QML_FILES)
     get_filename_component(filename ${qml_file} NAME)
@@ -42,6 +56,8 @@ qt_add_qml_module(carbon-engine-client
         PipelineStatusPoller.h PipelineStatusPoller.cpp
         ReportClient.h ReportClient.cpp
         SystemStatusPoller.h SystemStatusPoller.cpp
+        ExtractionClient.h ExtractionClient.cpp
+        ExtractionStatusPoller.h ExtractionStatusPoller.cpp
 )
 
 if(WIN32)

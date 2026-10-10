@@ -1,7 +1,12 @@
-add_executable(carbon-engine
+set(SERVER_SOURCES
     ServerConfig.h
     main.cpp
 )
+if(WIN32)
+    list(APPEND SERVER_SOURCES app.rc)
+endif()
+
+add_executable(carbon-engine ${SERVER_SOURCES})
 
 # Force console subsystem so Qt Logger outputs print to the command prompt
 set_target_properties(carbon-engine PROPERTIES WIN32_EXECUTABLE OFF)
@@ -18,6 +23,18 @@ add_custom_command(TARGET carbon-engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/src/apps/qml-client/template.html"
         $<TARGET_FILE_DIR:carbon-engine>/template.html
+)
+
+add_custom_command(TARGET carbon-engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/src/apps/qml-client/logo.png"
+        $<TARGET_FILE_DIR:carbon-engine>/logo.png
+)
+
+add_custom_command(TARGET carbon-engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/app.ico"
+        $<TARGET_FILE_DIR:carbon-engine>/app.ico
 )
 
 if(WIN32)

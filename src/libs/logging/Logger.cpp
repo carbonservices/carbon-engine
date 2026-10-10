@@ -101,6 +101,7 @@ Logger::Logger(const QString& moduleName) : _moduleName(moduleName) {}
 
 void Logger::debug(const QString& message) const { log(LogLevel::Debug, message); }
 void Logger::info(const QString& message) const { log(LogLevel::Info, message); }
+void Logger::warn(const QString& message) const { log(LogLevel::Warning, message); }
 void Logger::warning(const QString& message) const { log(LogLevel::Warning, message); }
 void Logger::error(const QString& message) const { log(LogLevel::Error, message); }
 void Logger::critical(const QString& message) const { log(LogLevel::Critical, message); }

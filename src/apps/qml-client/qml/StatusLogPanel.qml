@@ -5,8 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     Layout.fillWidth: true
     Layout.fillHeight: true
-    color: appWindow.bgCard
-    radius: 8
+    color: appWindow.bgSidebar
+    radius: 4
     border.color: appWindow.borderCol
     border.width: 1
     clip: true
@@ -15,10 +15,15 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
+        anchors.margins: 10
         spacing: 8
 
-        Label { text: "STATUS LOG"; font.bold: true; font.pixelSize: 12; color: appWindow.brandAccent }
+        Label {
+            text: "STATUS LOG"
+            font.bold: true
+            font.pixelSize: 11
+            color: appWindow.textMuted
+        }
         Rectangle { Layout.fillWidth: true; height: 1; color: appWindow.borderCol }
 
         ListView {
@@ -27,13 +32,14 @@ Rectangle {
             Layout.fillHeight: true
             clip: true
             model: statusLogModel
-            spacing: 6
+            spacing: 4
             boundsBehavior: Flickable.StopAtBounds
             delegate: Label {
                 width: statusLogList.width
                 wrapMode: Text.WordWrap
                 text: model.entry
-                font.pixelSize: 12
+                font.pixelSize: 11
+                font.family: "Consolas, monospace"
                 color: appWindow.textMuted
             }
         }

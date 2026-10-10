@@ -6,14 +6,19 @@
 #include "ingestion/DocumentProcessor.h"
 #include "logging/Logger.h"
 #include "queue/JobQueue.h"
+#include "report/BrsrSchema.h"
+#include "report/ReportExtractionService.h"
+#include "report/ReportExporter.h"
 #include "system/SystemMonitor.h"
-#include "vector/VectorIndex.h"
+#include "vector/VectorIndexRegistry.h"
 
 #include <QCoreApplication>
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
+    app.setApplicationName("Carbon Engine Service");
+    app.setApplicationVersion("1.0.0");
     Logger log("Server-Main");
 
     Database db(kDatabaseFilePath);
@@ -29,13 +34,22 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    VectorIndex vectorIndex(kEmbeddingDim);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&llama, &log]() {
+        log.info("Server shutting down, releasing inference resources...");
+        llama.shutdown();
+    });
+
+    VectorIndexRegistry indexRegistry(kEmbeddingDim, &db);
     DocumentProcessor docProcessor;
 
-    JobQueue jobQueue(db, docProcessor, llama, vectorIndex);
+    JobQueue jobQueue(db, docProcessor, llama, indexRegistry);
     jobQueue.start(1500);
 
-    HttpServer server(db, llama, vectorIndex, monitor);
+    BrsrSchemaCatalog schemaCatalog;
+    ReportExtractionService extractionService(db, llama, indexRegistry, schemaCatalog, monitor);
+    ReportExporter exporter(db, schemaCatalog);
+
+    HttpServer server(db, llama, indexRegistry, monitor, schemaCatalog, extractionService, exporter, jobQueue);
     if (!server.listen(kDefaultPort))
     {
         log.critical(QString("Failed to bind HTTP server to port %1.").arg(kDefaultPort));

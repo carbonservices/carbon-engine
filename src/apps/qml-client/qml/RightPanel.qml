@@ -9,6 +9,8 @@ ColumnLayout {
     clip: true
 
     function scrollToBottom() { statusLog.scrollToBottom() }
+    function showQueueTab() { documentsPanel.showQueueTab() }
+    function showAttachedTab() { documentsPanel.showAttachedTab() }
 
     DocumentsPanel { id: documentsPanel }
     SystemStatusPanel { id: systemStatusPanel }

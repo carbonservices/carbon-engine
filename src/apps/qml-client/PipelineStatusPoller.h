@@ -6,59 +6,31 @@
 // Qt
 #include <QObject>
 #include <QQmlEngine>
-#include <QAbstractListModel>
 #include <QNetworkAccessManager>
 #include <QTimer>
-#include <QVector>
+#include <QJsonArray>
 
-
-enum class StageStatus
-{
-    Pending,
-    Active,
-    Done,
-    Failed
-};
-
-struct PipelineStage
-{
-    QString name;
-    StageStatus status;
-};
-
-class PipelineStatusPoller : public QAbstractListModel
+class PipelineStatusPoller : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
 
 public:
-    enum Role
-    {
-        NameRole = Qt::UserRole + 1,
-        StatusRole
-    };
-
     explicit PipelineStatusPoller(QObject *parent = Q_NULLPTR);
     Q_INVOKABLE void startPolling(int jobId);
-
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role) const override;
-    QHash<int, QByteArray> roleNames() const override;
 
 signals:
     void completed();
     void failed(const QString &reason);
+    void statusUpdated(const QString &status, const QJsonArray &documents);
 
 private:
     void poll();
-    void setStage(int index, StageStatus status);
 
     static constexpr int PollIntervalMs = 1000;
-    static inline const QVector<QString> StageNames = {"Queued", "Processing", "Completed"};
 
     QNetworkAccessManager _network;
     QTimer _timer;
-    QVector<PipelineStage> _stages;
     int _jobId = -1;
     Logger _log{"QmlClient.PipelineStatusPoller"};
 };

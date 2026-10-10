@@ -5,6 +5,10 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QUrlQuery>
+#include <QFile>
+#include <QTextStream>
+#include <memory>
 
 
 ReportClient::ReportClient(QObject *parent) : QObject(parent) {}
@@ -19,7 +23,7 @@ void ReportClient::fetchReport(int jobId)
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
     QNetworkReply *reply = _network.post(request, body.toJson());
 
-    QByteArray* buffer = new QByteArray();
+    auto buffer = std::make_shared<QByteArray>();
 
     connect(reply, &QNetworkReply::readyRead, this, [reply, buffer]()
     {
@@ -34,7 +38,6 @@ void ReportClient::fetchReport(int jobId)
         if (reply->error() != QNetworkReply::NoError) {
             _log.error(QString("Report fetch failed for job %1: %2").arg(jobId).arg(reply->errorString()));
             emit reportFailed(reply->errorString());
-            delete buffer;
             return;
         }
 
@@ -46,9 +49,100 @@ void ReportClient::fetchReport(int jobId)
             htmlContent = QString::fromUtf8(*buffer);
         }
 
-        delete buffer;
-
         _log.info(QString("Report fetch completed for job %1 (%2 bytes)").arg(jobId).arg(htmlContent.length()));
         emit reportReady(htmlContent);
     });
 }
+
+void ReportClient::fetchReports()
+{
+    _log.info("Fetching reports list from server");
+
+    QNetworkRequest request(ReportsEndpoint);
+    QNetworkReply *reply = _network.get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]()
+    {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            _log.error(QString("Failed to fetch reports list: %1").arg(reply->errorString()));
+            return;
+        }
+
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isArray()) {
+            _log.info(QString("Fetched %1 reports from database").arg(doc.array().size()));
+            emit reportsReceived(doc.array());
+        }
+    });
+}
+
+void ReportClient::deleteReport(int jobId)
+{
+    _log.info(QString("Requesting deletion of report / job %1").arg(jobId));
+
+    QUrl url = ReportsEndpoint;
+    QUrlQuery query;
+    query.addQueryItem("job_id", QString::number(jobId));
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    QNetworkReply *reply = _network.deleteResource(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
+    {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            _log.error(QString("Failed to delete report %1: %2").arg(jobId).arg(reply->errorString()));
+            emit reportDeleteFailed(reply->errorString());
+            return;
+        }
+
+        _log.info(QString("Successfully deleted report %1").arg(jobId));
+        emit reportDeleted(jobId);
+    });
+}
+
+void ReportClient::fetchDocuments(int jobId)
+{
+    _log.info(QString("Fetching documents for job %1").arg(jobId));
+
+    QUrl url = DocumentsEndpoint;
+    QUrlQuery query;
+    query.addQueryItem("job_id", QString::number(jobId));
+    url.setQuery(query);
+
+    QNetworkRequest request(url);
+    QNetworkReply *reply = _network.get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
+    {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            _log.error(QString("Failed to fetch documents for job %1: %2").arg(jobId).arg(reply->errorString()));
+            return;
+        }
+
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isObject()) {
+            QJsonArray docs = doc.object().value("documents").toArray();
+            _log.info(QString("Fetched %1 documents for job %2").arg(docs.size()).arg(jobId));
+            emit documentsReceived(jobId, docs);
+        }
+    });
+}
+
+bool ReportClient::saveHtmlToFile(const QString& filePath, const QString& content)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        _log.error(QString("Failed to open file for writing at %1: %2").arg(filePath, file.errorString()));
+        return false;
+    }
+    QTextStream out(&file);
+    out << content;
+    file.close();
+    _log.info(QString("Successfully exported report HTML to %1").arg(filePath));
+    return true;
+}
+
