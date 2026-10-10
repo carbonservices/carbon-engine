@@ -38,6 +38,7 @@ set(QML_FILES
     qml/ReportReviewScreen.qml
     qml/FieldGroupCard.qml
     qml/LoopFieldEditor.qml
+    qml/BrsrMetadata.js
 )
 foreach(qml_file IN LISTS QML_FILES)
     get_filename_component(filename ${qml_file} NAME)

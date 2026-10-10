@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <QQuickStyle>
 #include <QtWebEngineQuick>
 
 int main(int argc, char *argv[])
@@ -11,7 +12,13 @@ int main(int argc, char *argv[])
     app.setApplicationName("Carbon Engine");
     app.setApplicationDisplayName("Carbon Engine - BRSR ESG Analytics");
 
-    QIcon appIcon(":/qt/qml/CarbonEngineClient/logo.png");
+    QQuickStyle::setStyle("Basic");
+
+    QIcon appIcon(":/CarbonEngineClient/logo.png");
+    if (appIcon.isNull())
+    {
+        appIcon = QIcon(":/qt/qml/CarbonEngineClient/logo.png");
+    }
     if (appIcon.isNull())
     {
         appIcon = QIcon("logo.png");

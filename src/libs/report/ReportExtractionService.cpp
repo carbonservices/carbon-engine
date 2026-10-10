@@ -7,6 +7,7 @@
 // Templating
 #include <nlohmann/json.hpp>
 #include <unordered_set>
+#include <regex>
 
 namespace {
 
@@ -71,12 +72,80 @@ std::string autoRepairJson(const std::string& raw) {
     }
 
     std::string s = raw.substr(firstBrace);
-    std::vector<char> stack;
+    size_t fence = s.find("```");
+    if (fence != std::string::npos) {
+        s = s.substr(0, fence);
+    }
+
+    // Pass 1: Clean syntax anomalies inside non-string regions:
+    // - ": ," -> ": null,"
+    // - ": -" (dash used in table cell as null/empty) -> ": null"
+    // - ": NA" or ": N/A" -> ": null"
+    // - Trailing commas before '}' or ']'
+    std::string cleaned;
+    cleaned.reserve(s.size() + 64);
     bool inString = false;
     bool escapeNext = false;
 
     for (size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
+        if (inString) {
+            if (escapeNext) {
+                escapeNext = false;
+            } else if (c == '\\') {
+                escapeNext = true;
+            } else if (c == '"') {
+                inString = false;
+            }
+            cleaned += c;
+        } else {
+            if (c == '"') {
+                inString = true;
+                cleaned += c;
+            } else if (c == ':') {
+                cleaned += c;
+                size_t j = i + 1;
+                while (j < s.size() && (s[j] == ' ' || s[j] == '\t' || s[j] == '\r' || s[j] == '\n')) {
+                    j++;
+                }
+                if (j < s.size()) {
+                    if (s[j] == ',') {
+                        cleaned += " null";
+                    } else if (s[j] == '-' && (j + 1 >= s.size() || s[j+1] == ',' || s[j+1] == '}' || s[j+1] == ']' || s[j+1] == ' ' || s[j+1] == '\r' || s[j+1] == '\n')) {
+                        cleaned += " null";
+                        i = j;
+                        continue;
+                    } else if ((s[j] == 'N' || s[j] == 'n') && j + 1 < s.size() && (s[j+1] == 'A' || s[j+1] == 'a' || s[j+1] == '/')) {
+                        cleaned += " null";
+                        while (j < s.size() && (s[j] == 'N' || s[j] == 'n' || s[j] == 'A' || s[j] == 'a' || s[j] == '/')) {
+                            j++;
+                        }
+                        i = j - 1;
+                        continue;
+                    }
+                }
+            } else if (c == ',') {
+                size_t j = i + 1;
+                while (j < s.size() && (s[j] == ' ' || s[j] == '\t' || s[j] == '\r' || s[j] == '\n')) {
+                    j++;
+                }
+                if (j < s.size() && (s[j] == '}' || s[j] == ']')) {
+                    continue; // Skip illegal trailing comma before } or ]
+                }
+                cleaned += c;
+            } else {
+                cleaned += c;
+            }
+        }
+    }
+
+    // Pass 2: Stack-based brace & bracket balancer
+    std::vector<char> stack;
+    inString = false;
+    escapeNext = false;
+
+    for (size_t i = 0; i < cleaned.size(); ++i) {
+        char c = cleaned[i];
         if (inString) {
             if (escapeNext) {
                 escapeNext = false;
@@ -105,25 +174,79 @@ std::string autoRepairJson(const std::string& raw) {
     }
 
     if (inString) {
-        s += '"';
+        cleaned += '"';
     }
 
     // Clean up trailing comma or dangling colon before closing brackets
-    size_t lastNonWs = s.find_last_not_of(" \t\r\n");
+    size_t lastNonWs = cleaned.find_last_not_of(" \t\r\n");
     if (lastNonWs != std::string::npos) {
-        if (s[lastNonWs] == ',') {
-            s.erase(lastNonWs);
-        } else if (s[lastNonWs] == ':') {
-            s += " null";
+        if (cleaned[lastNonWs] == ',') {
+            cleaned.erase(lastNonWs);
+        } else if (cleaned[lastNonWs] == ':') {
+            cleaned += " null";
         }
     }
 
     while (!stack.empty()) {
-        s += stack.back();
+        cleaned += stack.back();
         stack.pop_back();
     }
 
-    return s;
+    return cleaned;
+}
+
+nlohmann::json parseOrRecoverJson(const std::string& raw) {
+    if (raw.empty()) {
+        return nlohmann::json::object();
+    }
+    // 1. Try standard JSON parse on auto-repaired string
+    std::string repaired = autoRepairJson(raw);
+    try {
+        return nlohmann::json::parse(repaired);
+    } catch (...) {
+        // Fall through to regex-based field recovery
+    }
+
+    // 2. High-resilience regex fallback: salvage all valid "key": value pairs
+    nlohmann::json obj = nlohmann::json::object();
+    static const std::regex fieldPattern(
+        R"pattern("([a-zA-Z0-9_]+)"\s*:\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|([0-9\.\-]+)|(true|false|null)|(\[[^\]]*\])))pattern"
+    );
+
+    auto words_begin = std::sregex_iterator(raw.begin(), raw.end(), fieldPattern);
+    auto words_end = std::sregex_iterator();
+
+    for (std::sregex_iterator it = words_begin; it != words_end; ++it) {
+        std::smatch match = *it;
+        std::string key = match[1].str();
+        if (match[2].matched) {
+            obj[key] = match[2].str();
+        } else if (match[3].matched) {
+            std::string numStr = match[3].str();
+            try {
+                if (numStr.find('.') != std::string::npos) {
+                    obj[key] = std::stod(numStr);
+                } else {
+                    obj[key] = std::stoll(numStr);
+                }
+            } catch (...) {
+                obj[key] = numStr;
+            }
+        } else if (match[4].matched) {
+            std::string boolStr = match[4].str();
+            if (boolStr == "true") obj[key] = true;
+            else if (boolStr == "false") obj[key] = false;
+            else obj[key] = nullptr;
+        } else if (match[5].matched) {
+            try {
+                obj[key] = nlohmann::json::parse(match[5].str());
+            } catch (...) {
+                obj[key] = nlohmann::json::array();
+            }
+        }
+    }
+
+    return obj;
 }
 
 } // namespace
@@ -310,13 +433,7 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
     outDecodeMs = totalGenMs - prefillTime;
     outTokensGenerated = tokenCount;
 
-    // Parse JSON & memoize facts into FactStore
-    size_t firstBrace = generatedJson.find('{');
-    size_t lastBrace = generatedJson.rfind('}');
-    if (firstBrace != std::string::npos && lastBrace != std::string::npos && lastBrace >= firstBrace) {
-        generatedJson = generatedJson.substr(firstBrace, lastBrace - firstBrace + 1);
-    }
-
+    // Parse JSON & memoize facts into FactStore using high-resilience parser and field salvaging
     QStringList sourceIdStrings;
     for (int64_t id : ctx.sourceChunkIds) {
         sourceIdStrings.append(QString::number(id));
@@ -324,14 +441,9 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
     QString sourceChunksStr = sourceIdStrings.join(",");
 
     try {
-        nlohmann::json extracted;
-        try {
-            extracted = nlohmann::json::parse(generatedJson);
-        } catch (...) {
-            // Attempt auto-repair on clipped/truncated JSON output
-            std::string repaired = autoRepairJson(generatedJson);
-            extracted = nlohmann::json::parse(repaired);
-            _log.info(QString("Successfully salvaged and parsed auto-repaired JSON for section '%1'").arg(group.id));
+        nlohmann::json extracted = parseOrRecoverJson(generatedJson);
+        if (extracted.empty() && tokenCount > 0) {
+            throw std::runtime_error("No valid JSON fields could be parsed or recovered from output");
         }
 
         _db.upsertReportSection(jobId, group.id, QString::fromStdString(extracted.dump()), "DRAFT", sourceChunksStr);

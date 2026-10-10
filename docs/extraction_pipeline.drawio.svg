@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1560px" height="640px" viewBox="0 0 1560 640" content="&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2026-10-10T20:50:00.000Z&quot; agent=&quot;CarbonEngine&quot; version=&quot;24.0.0&quot; type=&quot;device&quot;&gt;
+  &lt;diagram id=&quot;carbon-engine-ExtractionPipeline&quot; name=&quot;ExtractionPipeline&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1600&quot; dy=&quot;1000&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1600&quot; pageHeight=&quot;1100&quot; background=&quot;#ffffff&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;title_pipe&quot; value=&quot;Carbon Engine — Targeted Statutory Extraction &amp;amp; Recovery Pipeline&amp;lt;br&amp;gt;Two-Tier Scoped RAG | FactStore Memoization | Context Budget Guard | Multi-Pass JSON Sanitizer&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#0f172a;fontColor=#ffffff;fontStyle=1;fontSize=14;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;40&quot; y=&quot;20&quot; width=&quot;1480&quot; height=&quot;50&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s1&quot; value=&quot;Step 1: FactStore Memoization&amp;lt;br&amp;gt;- Check known company anchors:&amp;lt;br&amp;gt;  Turnover, FY, Employee Headcount, CIN&amp;lt;br&amp;gt;- Pre-inject into prompt header&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;110&quot; width=&quot;280&quot; height=&quot;85&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s2&quot; value=&quot;Step 2: Two-Tier Scoped Retrieval&amp;lt;br&amp;gt;- Tier A: Page Locality Window (±2 chunks around anchor page)&amp;lt;br&amp;gt;- Tier B: FAISS HNSW Vector Search (k=6 semantic match)&amp;lt;br&amp;gt;- Deduplicate candidate chunk IDs in RAM&amp;lt;br&amp;gt;- Single batched SQLite fetch: getChunksByIds(ids)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#8b5cf6;fontColor=#4c1d95;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;380&quot; y=&quot;100&quot; width=&quot;360&quot; height=&quot;105&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s3&quot; value=&quot;Step 3: Context Budget Guard&amp;lt;br&amp;gt;- Hard limit context text to 2,400 tokens / 9,000 chars&amp;lt;br&amp;gt;- Middle-Out Trimming: Never truncate tail of prompt&amp;lt;br&amp;gt;- Preserves JSON schema instructions &amp;amp; assistant role turn&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;790&quot; y=&quot;100&quot; width=&quot;340&quot; height=&quot;105&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s4&quot; value=&quot;Step 4: Local LLM Generation&amp;lt;br&amp;gt;- LlamaEngine (Qwen 2.5 7B Instruct GGUF)&amp;lt;br&amp;gt;- Accelerated by NVIDIA CUDA or Intel MKL AVX2&amp;lt;br&amp;gt;- Autoregressive JSON completion generation&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#dcfce7;strokeColor=#15803d;fontColor=#14532d;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1180&quot; y=&quot;100&quot; width=&quot;320&quot; height=&quot;105&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s5&quot; value=&quot;Step 5: Multi-Pass JSON Sanitizer (autoRepairJson)&amp;lt;br&amp;gt;- Strips markdown code fences (```json ... ```)&amp;lt;br&amp;gt;- Repairs syntax errors inside non-string tokens:&amp;lt;br&amp;gt;  &amp;amp;bull; &amp;#x27;: ,&amp;#x27; &amp;amp;rarr; &amp;#x27;: null,&amp;#x27;&amp;lt;br&amp;gt;  &amp;amp;bull; &amp;#x27;: -&amp;#x27; &amp;amp;rarr; &amp;#x27;: null,&amp;#x27; (dashes in table cells)&amp;lt;br&amp;gt;  &amp;amp;bull; &amp;#x27;: N/A&amp;#x27; &amp;amp;rarr; &amp;#x27;: null,&amp;#x27;&amp;lt;br&amp;gt;  &amp;amp;bull; Dangling colons: &amp;#x27;&amp;quot;key&amp;quot;:&amp;#x27; &amp;amp;rarr; &amp;#x27;&amp;quot;key&amp;quot;: null&amp;#x27;&amp;lt;br&amp;gt;  &amp;amp;bull; Balances open braces and brackets stack&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#dc2626;fontColor=#7f1d1d;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1180&quot; y=&quot;260&quot; width=&quot;320&quot; height=&quot;140&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s6&quot; value=&quot;Step 6: Regex Fallback Harvester (parseOrRecoverJson)&amp;lt;br&amp;gt;- If standard nlohmann::json parse fails:&amp;lt;br&amp;gt;- Scans raw buffer with resilient regex for all valid key-value pairs:&amp;lt;br&amp;gt;  &amp;amp;bull; Numeric values, strings, booleans, and sub-arrays&amp;lt;br&amp;gt;- Salvages extracted metrics without dropping the section&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;790&quot; y=&quot;260&quot; width=&quot;340&quot; height=&quot;140&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s7&quot; value=&quot;Step 7: Persistence &amp;amp; FactStore Update&amp;lt;br&amp;gt;- Saves cleaned section JSON to SQLite (report_sections)&amp;lt;br&amp;gt;- Updates FactStore with newly discovered base facts&amp;lt;br&amp;gt;- Records source page provenance for auditability&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;fontColor=#064e3b;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;380&quot; y=&quot;275&quot; width=&quot;360&quot; height=&quot;110&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s8&quot; value=&quot;Step 8: Consultant Review &amp;amp; Verification&amp;lt;br&amp;gt;- Qt Quick Desktop Client (ReportReviewScreen)&amp;lt;br&amp;gt;- Scalar Metrics: 2-column form grid with human SEBI titles&amp;lt;br&amp;gt;- Tabular Loops: Spreadsheet-style data grid (LoopFieldEditor)&amp;lt;br&amp;gt;- Inline cell editing, [+ Add Row], [✕ Delete]&amp;lt;br&amp;gt;- Collapsible missing-field warning badges&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0c4a6e;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;450&quot; width=&quot;480&quot; height=&quot;130&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;s9&quot; value=&quot;Step 9: Report Acceptance &amp;amp; Export&amp;lt;br&amp;gt;- Consultant clicks [Accept &amp;amp; Lock]&amp;lt;br&amp;gt;- Status set to &amp;#x27;ACCEPTED&amp;#x27; in database&amp;lt;br&amp;gt;- Inja merges verified JSON into template.html&amp;lt;br&amp;gt;- Exports responsive offline HTML / PDF with Chart.js analytics&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#be185d;fontColor=#701a75;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;580&quot; y=&quot;450&quot; width=&quot;480&quot; height=&quot;130&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e1&quot; value=&quot;Anchors&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s1&quot; target=&quot;s2&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e2&quot; value=&quot;Candidate Chunks&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s2&quot; target=&quot;s3&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e3&quot; value=&quot;Bounded Prompt&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s3&quot; target=&quot;s4&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e4&quot; value=&quot;Raw Output&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s4&quot; target=&quot;s5&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e5&quot; value=&quot;On Parse Error&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s5&quot; target=&quot;s6&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e6&quot; value=&quot;Clean JSON&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s5&quot; target=&quot;s7&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e7&quot; value=&quot;Recovered Fields&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s6&quot; target=&quot;s7&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e8&quot; value=&quot;Fetch Sections&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s7&quot; target=&quot;s8&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;p_e9&quot; value=&quot;Accept &amp;amp; Lock&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;s8&quot; target=&quot;s9&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+      text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <rect x="40" y="20" width="1480" height="50" rx="6" fill="#1e293b" stroke="#0f172a" stroke-width="2"/>
+  <text x="780.0" y="42" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">Carbon Engine — Targeted Statutory Extraction &amp; Recovery Pipeline</text>
+  <text x="780.0" y="60" fill="#cbd5e1" font-size="11" text-anchor="middle">Two-Tier Scoped RAG | FactStore Memoization | Context Budget Guard | Multi-Pass JSON Sanitizer</text>
+  <rect x="50" y="110" width="280" height="95" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="62" y="130" fill="#0f172a" font-size="12" font-weight="bold">Step 1: FactStore Memoization</text>
+  <text x="62" y="148" fill="#1e293b" font-size="11">• Check known company anchors:</text>
+  <text x="62" y="164" fill="#1e293b" font-size="11">  Turnover, FY, Headcount, CIN</text>
+  <text x="62" y="180" fill="#1e293b" font-size="11">• Pre-inject into prompt header</text>
+  <text x="62" y="196" fill="#1e293b" font-size="11">• Eliminates redundant LLM passes</text>
+  <rect x="380" y="100" width="360" height="115" rx="6" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="392" y="120" fill="#0f172a" font-size="12" font-weight="bold">Step 2: Two-Tier Scoped Retrieval</text>
+  <text x="392" y="138" fill="#1e293b" font-size="11">• Tier A: Page Locality Window (±2 chunks on anchor page)</text>
+  <text x="392" y="154" fill="#1e293b" font-size="11">• Tier B: FAISS HNSW Vector Search (k=6 semantic match)</text>
+  <text x="392" y="170" fill="#1e293b" font-size="11">• Deduplicate candidate chunk IDs in RAM</text>
+  <text x="392" y="186" fill="#1e293b" font-size="11">• Single batched SQLite fetch: getChunksByIds(ids)</text>
+  <rect x="790" y="100" width="340" height="115" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="802" y="120" fill="#0f172a" font-size="12" font-weight="bold">Step 3: Context Budget Guard</text>
+  <text x="802" y="138" fill="#1e293b" font-size="11">• Hard limit context to 2,400 tokens / 9,000 chars</text>
+  <text x="802" y="154" fill="#1e293b" font-size="11">• Middle-Out Trimming: Never truncate prompt tail</text>
+  <text x="802" y="170" fill="#1e293b" font-size="11">• Preserves JSON schema instructions and assistant</text>
+  <text x="802" y="186" fill="#1e293b" font-size="11">  role turn to prevent malformed completion</text>
+  <rect x="1180" y="100" width="320" height="115" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+  <text x="1192" y="120" fill="#0f172a" font-size="12" font-weight="bold">Step 4: Local LLM Generation</text>
+  <text x="1192" y="138" fill="#1e293b" font-size="11">• LlamaEngine (Qwen 2.5 7B Instruct GGUF)</text>
+  <text x="1192" y="154" fill="#1e293b" font-size="11">• Accelerated by NVIDIA CUDA or Intel MKL AVX2</text>
+  <text x="1192" y="170" fill="#1e293b" font-size="11">• Autoregressive JSON completion generation</text>
+  <rect x="1180" y="260" width="320" height="150" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="1192" y="280" fill="#0f172a" font-size="12" font-weight="bold">Step 5: Multi-Pass JSON Sanitizer</text>
+  <text x="1192" y="298" fill="#1e293b" font-size="11">• autoRepairJson:</text>
+  <text x="1192" y="314" fill="#1e293b" font-size="11">  - Strips markdown code fences (```json ... ```)</text>
+  <text x="1192" y="330" fill="#1e293b" font-size="11">  - Repairs syntax errors: &#x27;: ,&#x27; → &#x27;: null,&#x27;</text>
+  <text x="1192" y="346" fill="#1e293b" font-size="11">  - Cleans dashes: &#x27;: -&#x27; → &#x27;: null,&#x27;</text>
+  <text x="1192" y="362" fill="#1e293b" font-size="11">  - Cleans &#x27;: N/A&#x27; → &#x27;: null,&#x27;</text>
+  <text x="1192" y="378" fill="#1e293b" font-size="11">  - Fixes dangling colons: &#x27;&quot;key&quot;:&#x27; → &#x27;&quot;key&quot;: null&#x27;</text>
+  <text x="1192" y="394" fill="#1e293b" font-size="11">  - Balances unclosed braces and brackets stack</text>
+  <rect x="790" y="260" width="340" height="150" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="802" y="280" fill="#0f172a" font-size="12" font-weight="bold">Step 6: Regex Fallback Harvester</text>
+  <text x="802" y="298" fill="#1e293b" font-size="11">• parseOrRecoverJson:</text>
+  <text x="802" y="314" fill="#1e293b" font-size="11">  - Triggers if standard nlohmann::json parse fails</text>
+  <text x="802" y="330" fill="#1e293b" font-size="11">  - Scans raw buffer with resilient regex for all valid</text>
+  <text x="802" y="346" fill="#1e293b" font-size="11">    key-value pairs (numbers, strings, booleans, arrays)</text>
+  <text x="802" y="362" fill="#1e293b" font-size="11">  - Salvages extracted metrics without discarding section</text>
+  <rect x="380" y="275" width="360" height="120" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="392" y="295" fill="#0f172a" font-size="12" font-weight="bold">Step 7: Persistence &amp; FactStore Update</text>
+  <text x="392" y="313" fill="#1e293b" font-size="11">• Saves cleaned section JSON to SQLite (report_sections)</text>
+  <text x="392" y="329" fill="#1e293b" font-size="11">• Updates FactStore with newly discovered base facts</text>
+  <text x="392" y="345" fill="#1e293b" font-size="11">• Records source page provenance for auditability</text>
+  <text x="392" y="361" fill="#1e293b" font-size="11">• Updates section status to EXTRACTED</text>
+  <rect x="50" y="460" width="480" height="140" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+  <text x="62" y="480" fill="#0f172a" font-size="12" font-weight="bold">Step 8: Consultant Review &amp; Verification</text>
+  <text x="62" y="498" fill="#1e293b" font-size="11">• Qt Quick Desktop Client (ReportReviewScreen)</text>
+  <text x="62" y="514" fill="#1e293b" font-size="11">• Scalar Metrics: 2-column form grid with human SEBI titles</text>
+  <text x="62" y="530" fill="#1e293b" font-size="11">• Tabular Loops: Spreadsheet-style data grid (LoopFieldEditor)</text>
+  <text x="62" y="546" fill="#1e293b" font-size="11">• In-place cell editing, [+ Add Row], and [✕ Delete] controls</text>
+  <text x="62" y="562" fill="#1e293b" font-size="11">• Collapsible missing-field warning badges</text>
+  <rect x="580" y="460" width="480" height="140" rx="6" fill="#fce7f3" stroke="#be185d" stroke-width="2"/>
+  <text x="592" y="480" fill="#0f172a" font-size="12" font-weight="bold">Step 9: Report Acceptance &amp; Export</text>
+  <text x="592" y="498" fill="#1e293b" font-size="11">• Consultant clicks [Accept &amp; Lock]</text>
+  <text x="592" y="514" fill="#1e293b" font-size="11">• Status updated to &#x27;ACCEPTED&#x27; in database</text>
+  <text x="592" y="530" fill="#1e293b" font-size="11">• Inja merges verified JSON into template.html</text>
+  <text x="592" y="546" fill="#1e293b" font-size="11">• Exports responsive offline HTML / PDF with Chart.js analytics</text>
+  <path d="M 330 157 L 380 157" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="355.0" y="151.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Anchors</text>
+  <path d="M 740 157 L 790 157" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="765.0" y="151.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Chunks</text>
+  <path d="M 1130 157 L 1180 157" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="1155.0" y="151.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Bounded Prompt</text>
+  <path d="M 1340 215 L 1340 260" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="1340.0" y="231.5" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Raw Text</text>
+  <path d="M 1180 335 L 1130 335" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="1155.0" y="329.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">On Syntax Error</text>
+  <path d="M 790 335 L 740 335" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="765.0" y="329.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Clean / Recovered</text>
+  <path d="M 560 395 L 290 460" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="425.0" y="421.5" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Review</text>
+  <path d="M 530 530 L 580 530" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="555.0" y="524.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Lock</text>
+</svg>

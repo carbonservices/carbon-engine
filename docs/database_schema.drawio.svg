@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1560px" height="680px" viewBox="0 0 1560 680" content="&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2026-10-10T20:50:00.000Z&quot; agent=&quot;CarbonEngine&quot; version=&quot;24.0.0&quot; type=&quot;device&quot;&gt;
+  &lt;diagram id=&quot;carbon-engine-DatabaseSchema&quot; name=&quot;DatabaseSchema&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1600&quot; dy=&quot;1000&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1600&quot; pageHeight=&quot;1100&quot; background=&quot;#ffffff&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;title_db&quot; value=&quot;Carbon Engine — SQLite Database Schema &amp;amp; Entity Relationships&amp;lt;br&amp;gt;Configured with PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; Full ON DELETE CASCADE Durability&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#0f172a;fontColor=#ffffff;fontStyle=1;fontSize=14;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;40&quot; y=&quot;20&quot; width=&quot;1480&quot; height=&quot;50&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;t_jobs&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;ingestion_jobs&amp;amp;lt;/b&amp;amp;gt; (Root Batch Job Table)&amp;amp;lt;hr&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;id&amp;amp;lt;/b&amp;amp;gt;: INTEGER PRIMARY KEY AUTOINCREMENT&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;status&amp;amp;lt;/b&amp;amp;gt;: TEXT NOT NULL (PENDING | PROCESSING | COMPLETED | FAILED)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;error_message&amp;amp;lt;/b&amp;amp;gt;: TEXT&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;created_at&amp;amp;lt;/b&amp;amp;gt;: DATETIME DEFAULT CURRENT_TIMESTAMP&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;extraction_status&amp;amp;lt;/b&amp;amp;gt;: TEXT DEFAULT &amp;#x27;NOT_STARTED&amp;#x27; (EXTRACTING | EXTRACTED | ACCEPTED)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;report_locked_at&amp;amp;lt;/b&amp;amp;gt;: DATETIME&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;Orchestrates multi-file batch ingestion &amp;amp;amp; statutory extraction lifecycle&amp;amp;lt;/i&amp;amp;gt;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e3a8a;fontSize=12;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;100&quot; width=&quot;420&quot; height=&quot;200&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;t_docs&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;job_documents&amp;amp;lt;/b&amp;amp;gt; (Staged Source Documents)&amp;amp;lt;hr&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;id&amp;amp;lt;/b&amp;amp;gt;: INTEGER PRIMARY KEY AUTOINCREMENT&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;job_id&amp;amp;lt;/b&amp;amp;gt;: INTEGER NOT NULL [FK &amp;amp;amp;rarr; ingestion_jobs(id) ON DELETE CASCADE]&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;file_path&amp;amp;lt;/b&amp;amp;gt;: TEXT NOT NULL&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;document_index&amp;amp;lt;/b&amp;amp;gt;: INTEGER DEFAULT 0&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;INDEX idx_job_docs_job ON job_documents(job_id)&amp;amp;lt;/i&amp;amp;gt;&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;Supports 1..N documents per report job (Standalone + Consolidated files)&amp;amp;lt;/i&amp;amp;gt;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontColor=#4c1d95;fontSize=12;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;60&quot; y=&quot;380&quot; width=&quot;420&quot; height=&quot;190&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;t_chunks&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;document_chunks&amp;amp;lt;/b&amp;amp;gt; (Parsed Text &amp;amp;amp; Vector Embeddings)&amp;amp;lt;hr&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;id&amp;amp;lt;/b&amp;amp;gt;: INTEGER PRIMARY KEY AUTOINCREMENT [Maps 1:1 to FAISS Vector ID]&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;job_id&amp;amp;lt;/b&amp;amp;gt;: INTEGER NOT NULL [FK &amp;amp;amp;rarr; ingestion_jobs(id) ON DELETE CASCADE]&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;document_id&amp;amp;lt;/b&amp;amp;gt;: INTEGER [FK &amp;amp;amp;rarr; job_documents(id) ON DELETE CASCADE]&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;page_num&amp;amp;lt;/b&amp;amp;gt;: INTEGER NOT NULL (1-based physical page number)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;chunk_text&amp;amp;lt;/b&amp;amp;gt;: TEXT NOT NULL (1500 chars with 300 char overlap)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;vector_id&amp;amp;lt;/b&amp;amp;gt;: INTEGER (Legacy alias, aligned with id)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;topic_labels&amp;amp;lt;/b&amp;amp;gt;: TEXT (Optional keyword tags)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;embedding&amp;amp;lt;/b&amp;amp;gt;: BLOB (Raw 384-dim Float32 vector, 1536 bytes)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;embedding_model&amp;amp;lt;/b&amp;amp;gt;: TEXT DEFAULT &amp;#x27;bge-small-en-v1.5&amp;#x27;&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;INDEX idx_chunks_job_page ON document_chunks(job_id, page_num)&amp;amp;lt;/i&amp;amp;gt;&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;Permits instantaneous FAISS index re-population without re-embedding&amp;amp;lt;/i&amp;amp;gt;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;fontColor=#064e3b;fontSize=12;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;570&quot; y=&quot;100&quot; width=&quot;460&quot; height=&quot;270&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;t_sections&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;report_sections&amp;amp;lt;/b&amp;amp;gt; (Extracted Statutory Disclosures)&amp;amp;lt;hr&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;id&amp;amp;lt;/b&amp;amp;gt;: INTEGER PRIMARY KEY AUTOINCREMENT&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;job_id&amp;amp;lt;/b&amp;amp;gt;: INTEGER NOT NULL [FK &amp;amp;amp;rarr; ingestion_jobs(id) ON DELETE CASCADE]&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;group_id&amp;amp;lt;/b&amp;amp;gt;: TEXT NOT NULL (e.g., &amp;#x27;section_a_corporate&amp;#x27;, &amp;#x27;principle_6&amp;#x27;)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;data_json&amp;amp;lt;/b&amp;amp;gt;: TEXT NOT NULL (JSON payload of extracted metrics &amp;amp;amp; tables)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;status&amp;amp;lt;/b&amp;amp;gt;: TEXT DEFAULT &amp;#x27;EXTRACTED&amp;#x27; (EXTRACTED | ACCEPTED | FAILED)&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;updated_at&amp;amp;lt;/b&amp;amp;gt;: DATETIME DEFAULT CURRENT_TIMESTAMP&amp;amp;lt;br&amp;amp;gt;+ &amp;amp;lt;b&amp;amp;gt;UNIQUE(job_id, group_id)&amp;amp;lt;/b&amp;amp;gt; [Enforces idempotent updates]&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;INDEX idx_sections_job_group ON report_sections(job_id, group_id)&amp;amp;lt;/i&amp;amp;gt;&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;i&amp;amp;gt;Maintains verified review state before final Inja HTML merge&amp;amp;lt;/i&amp;amp;gt;&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;fontColor=#78350f;fontSize=12;align=left;spacingLeft=12;spacingTop=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;570&quot; y=&quot;420&quot; width=&quot;460&quot; height=&quot;220&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_db_notes&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;Data Durability &amp;amp;amp; Integrity Principles&amp;amp;lt;/b&amp;amp;gt;&amp;amp;lt;hr&amp;amp;gt;&amp;amp;lt;b&amp;amp;gt;1. Full Cascade Cleanup:&amp;amp;lt;/b&amp;amp;gt; Deleting a job (`DELETE /api/reports?job_id=X`) cleans up all associated documents, chunks, embeddings, and sections.&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;b&amp;amp;gt;2. Zero-Loss Vector Caching:&amp;amp;lt;/b&amp;amp;gt; Storing embeddings in `document_chunks.embedding` allows FAISS HNSW indexes to be rehydrated in RAM on server startup without calling the embedding model.&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;b&amp;amp;gt;3. Idempotent Section Updates:&amp;amp;lt;/b&amp;amp;gt; The `UNIQUE(job_id, group_id)` constraint ensures consultants can edit and re-save sections safely.&amp;amp;lt;br&amp;amp;gt;&amp;amp;lt;b&amp;amp;gt;4. Zero-Contamination Retrieval:&amp;amp;lt;/b&amp;amp;gt; All SQL lookups require `WHERE job_id = :id` preventing cross-enterprise data leakage.&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1;fontColor=#334155;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1080&quot; y=&quot;100&quot; width=&quot;440&quot; height=&quot;240&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_db_perf&quot; value=&quot;&amp;amp;lt;b&amp;amp;gt;Storage Performance &amp;amp;amp; Hardware Telemetry&amp;amp;lt;/b&amp;amp;gt;&amp;amp;lt;hr&amp;amp;gt;&amp;amp;bull; WAL Mode ensures concurrent read queries do not block background ingestion writes.&amp;amp;lt;br&amp;amp;gt;&amp;amp;bull; Batch chunk inserts use prepared statements inside a single transaction: `BEGIN IMMEDIATE ... COMMIT`.&amp;amp;lt;br&amp;amp;gt;&amp;amp;bull; Real-time database disk size (DB file + WAL journal) is streamed via `/api/system` and displayed in the QML client.&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1;fontColor=#334155;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1080&quot; y=&quot;380&quot; width=&quot;440&quot; height=&quot;160&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e_job_docs&quot; value=&quot;1 : N (CASCADE)&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#2563eb;strokeWidth=2;fontColor=#1e40af;fontStyle=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;t_jobs&quot; target=&quot;t_docs&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e_job_chunks&quot; value=&quot;1 : N (CASCADE)&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#059669;strokeWidth=2;fontColor=#064e3b;fontStyle=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;t_jobs&quot; target=&quot;t_chunks&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e_doc_chunks&quot; value=&quot;1 : N (CASCADE)&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#7c3aed;strokeWidth=2;fontColor=#4c1d95;fontStyle=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;t_docs&quot; target=&quot;t_chunks&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e_job_sections&quot; value=&quot;1 : N (CASCADE)&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d97706;strokeWidth=2;fontColor=#78350f;fontStyle=1;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;t_jobs&quot; target=&quot;t_sections&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+      text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <rect x="40" y="20" width="1480" height="50" rx="6" fill="#1e293b" stroke="#0f172a" stroke-width="2"/>
+  <text x="780.0" y="42" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">Carbon Engine — SQLite Database Schema &amp; Entity Relationships</text>
+  <text x="780.0" y="60" fill="#cbd5e1" font-size="11" text-anchor="middle">Configured with PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; Full ON DELETE CASCADE Durability</text>
+  <rect x="60" y="100" width="420" height="210" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="72" y="120" fill="#0f172a" font-size="12" font-weight="bold">ingestion_jobs (Root Batch Job Table)</text>
+  <text x="72" y="138" fill="#1e293b" font-size="11">+ id: INTEGER PRIMARY KEY AUTOINCREMENT</text>
+  <text x="72" y="154" fill="#1e293b" font-size="11">+ status: TEXT NOT NULL (PENDING | PROCESSING | COMPLETED | FAILED)</text>
+  <text x="72" y="170" fill="#1e293b" font-size="11">+ error_message: TEXT</text>
+  <text x="72" y="186" fill="#1e293b" font-size="11">+ created_at: DATETIME DEFAULT CURRENT_TIMESTAMP</text>
+  <text x="72" y="202" fill="#1e293b" font-size="11">+ extraction_status: TEXT (NOT_STARTED | EXTRACTING | EXTRACTED | ACCEPTED)</text>
+  <text x="72" y="218" fill="#1e293b" font-size="11">+ report_locked_at: DATETIME</text>
+  <text x="72" y="234" fill="#1e293b" font-size="11">Orchestrates multi-file batch ingestion &amp; statutory extraction lifecycle</text>
+  <rect x="60" y="390" width="420" height="200" rx="6" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="72" y="410" fill="#0f172a" font-size="12" font-weight="bold">job_documents (Staged Source Documents)</text>
+  <text x="72" y="428" fill="#1e293b" font-size="11">+ id: INTEGER PRIMARY KEY AUTOINCREMENT</text>
+  <text x="72" y="444" fill="#1e293b" font-size="11">+ job_id: INTEGER NOT NULL [FK → ingestion_jobs(id) ON DELETE CASCADE]</text>
+  <text x="72" y="460" fill="#1e293b" font-size="11">+ file_path: TEXT NOT NULL</text>
+  <text x="72" y="476" fill="#1e293b" font-size="11">+ document_index: INTEGER DEFAULT 0</text>
+  <text x="72" y="492" fill="#1e293b" font-size="11">INDEX idx_job_docs_job ON job_documents(job_id)</text>
+  <text x="72" y="508" fill="#1e293b" font-size="11">Supports 1..N documents per report job (Standalone + Consolidated files)</text>
+  <rect x="560" y="100" width="470" height="280" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="572" y="120" fill="#0f172a" font-size="12" font-weight="bold">document_chunks (Parsed Text &amp; Vector Embeddings)</text>
+  <text x="572" y="138" fill="#1e293b" font-size="11">+ id: INTEGER PRIMARY KEY AUTOINCREMENT [Maps 1:1 to FAISS Vector ID]</text>
+  <text x="572" y="154" fill="#1e293b" font-size="11">+ job_id: INTEGER NOT NULL [FK → ingestion_jobs(id) ON DELETE CASCADE]</text>
+  <text x="572" y="170" fill="#1e293b" font-size="11">+ document_id: INTEGER [FK → job_documents(id) ON DELETE CASCADE]</text>
+  <text x="572" y="186" fill="#1e293b" font-size="11">+ page_num: INTEGER NOT NULL (1-based physical page number)</text>
+  <text x="572" y="202" fill="#1e293b" font-size="11">+ chunk_text: TEXT NOT NULL (1500 chars with 300 char overlap)</text>
+  <text x="572" y="218" fill="#1e293b" font-size="11">+ vector_id: INTEGER (Legacy alias, aligned with id)</text>
+  <text x="572" y="234" fill="#1e293b" font-size="11">+ topic_labels: TEXT (Optional keyword tags)</text>
+  <text x="572" y="250" fill="#1e293b" font-size="11">+ embedding: BLOB (Raw 384-dim Float32 vector, 1536 bytes)</text>
+  <text x="572" y="266" fill="#1e293b" font-size="11">+ embedding_model: TEXT DEFAULT &#x27;bge-small-en-v1.5&#x27;</text>
+  <text x="572" y="282" fill="#1e293b" font-size="11">INDEX idx_chunks_job_page ON document_chunks(job_id, page_num)</text>
+  <text x="572" y="298" fill="#1e293b" font-size="11">Permits instantaneous FAISS index re-population without re-embedding</text>
+  <rect x="560" y="430" width="470" height="230" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <text x="572" y="450" fill="#0f172a" font-size="12" font-weight="bold">report_sections (Extracted Statutory Disclosures)</text>
+  <text x="572" y="468" fill="#1e293b" font-size="11">+ id: INTEGER PRIMARY KEY AUTOINCREMENT</text>
+  <text x="572" y="484" fill="#1e293b" font-size="11">+ job_id: INTEGER NOT NULL [FK → ingestion_jobs(id) ON DELETE CASCADE]</text>
+  <text x="572" y="500" fill="#1e293b" font-size="11">+ group_id: TEXT NOT NULL (e.g., &#x27;section_a_corporate&#x27;, &#x27;principle_6&#x27;)</text>
+  <text x="572" y="516" fill="#1e293b" font-size="11">+ data_json: TEXT NOT NULL (JSON payload of extracted metrics &amp; tables)</text>
+  <text x="572" y="532" fill="#1e293b" font-size="11">+ status: TEXT DEFAULT &#x27;EXTRACTED&#x27; (EXTRACTED | ACCEPTED | FAILED)</text>
+  <text x="572" y="548" fill="#1e293b" font-size="11">+ updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP</text>
+  <text x="572" y="564" fill="#1e293b" font-size="11">+ UNIQUE(job_id, group_id) [Enforces idempotent updates]</text>
+  <text x="572" y="580" fill="#1e293b" font-size="11">INDEX idx_sections_job_group ON report_sections(job_id, group_id)</text>
+  <text x="572" y="596" fill="#1e293b" font-size="11">Maintains verified review state before final Inja HTML merge</text>
+  <rect x="1080" y="100" width="440" height="250" rx="6" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <text x="1092" y="120" fill="#0f172a" font-size="12" font-weight="bold">Data Durability &amp; Integrity Principles</text>
+  <text x="1092" y="138" fill="#1e293b" font-size="11">1. Full Cascade Cleanup: Deleting a job (DELETE /api/reports?job_id=X)</text>
+  <text x="1092" y="154" fill="#1e293b" font-size="11">   cleans up all associated documents, chunks, embeddings, and sections.</text>
+  <text x="1092" y="170" fill="#1e293b" font-size="11">2. Zero-Loss Vector Caching: Storing embeddings in document_chunks.embedding</text>
+  <text x="1092" y="186" fill="#1e293b" font-size="11">   allows FAISS HNSW indexes to be rehydrated in RAM on server boot.</text>
+  <text x="1092" y="202" fill="#1e293b" font-size="11">3. Idempotent Section Updates: UNIQUE(job_id, group_id) ensures</text>
+  <text x="1092" y="218" fill="#1e293b" font-size="11">   consultants can edit and re-save sections safely.</text>
+  <text x="1092" y="234" fill="#1e293b" font-size="11">4. Zero-Contamination Retrieval: All SQL lookups require WHERE job_id = :id</text>
+  <text x="1092" y="250" fill="#1e293b" font-size="11">   preventing cross-enterprise data leakage.</text>
+  <rect x="1080" y="390" width="440" height="170" rx="6" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+  <text x="1092" y="410" fill="#0f172a" font-size="12" font-weight="bold">Storage Performance &amp; Telemetry</text>
+  <text x="1092" y="428" fill="#1e293b" font-size="11">• WAL Mode ensures concurrent read queries do not block background ingestion.</text>
+  <text x="1092" y="444" fill="#1e293b" font-size="11">• Batch chunk inserts use prepared statements inside a single transaction:</text>
+  <text x="1092" y="460" fill="#1e293b" font-size="11">  BEGIN IMMEDIATE ... COMMIT.</text>
+  <text x="1092" y="476" fill="#1e293b" font-size="11">• Real-time database disk size (DB file + WAL journal) is streamed via</text>
+  <text x="1092" y="492" fill="#1e293b" font-size="11">  /api/system and displayed in the QML client.</text>
+  <path d="M 270 310 L 270 390" stroke="#2563eb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="270.0" y="344.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">1 : N (CASCADE)</text>
+  <path d="M 480 205 L 560 205" stroke="#059669" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="520.0" y="199.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">1 : N (CASCADE)</text>
+  <path d="M 480 490 L 560 240" stroke="#7c3aed" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="520.0" y="359.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">1 : N (CASCADE)</text>
+  <path d="M 480 250 L 560 490" stroke="#d97706" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="520.0" y="364.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">1 : N (CASCADE)</text>
+</svg>

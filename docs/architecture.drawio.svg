@@ -1,0 +1,300 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1560px" height="810px" viewBox="0 0 1560 810" content="&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2026-10-10T20:50:00.000Z&quot; agent=&quot;CarbonEngine&quot; version=&quot;24.0.0&quot; type=&quot;device&quot;&gt;
+  &lt;diagram id=&quot;carbon-engine-SystemArchitecture&quot; name=&quot;SystemArchitecture&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1600&quot; dy=&quot;1000&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1600&quot; pageHeight=&quot;1100&quot; background=&quot;#ffffff&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;title&quot; value=&quot;Carbon Engine — High-Performance On-Device ESG/BRSR System Architecture&amp;lt;br&amp;gt;Air-Gapped Native C++20 | llama.cpp (CUDA/CPU) | FAISS Vector Search | SQLite WAL | Qt 6 Quick Desktop Client&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#0f172a;fontColor=#ffffff;fontStyle=1;fontSize=14;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;40&quot; y=&quot;20&quot; width=&quot;1480&quot; height=&quot;50&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;c_ingest&quot; value=&quot;1. Document Ingestion &amp;amp; Text Processing (src/libs/ingestion)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#3b82f6;strokeWidth=2;fontColor=#1e40af;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;40&quot; y=&quot;90&quot; width=&quot;460&quot; height=&quot;430&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_input_docs&quot; value=&quot;Input Documents&amp;lt;br&amp;gt;(PDF, Scanned Binders,&amp;lt;br&amp;gt;Annual Reports)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontStyle=1;fontSize=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;70&quot; y=&quot;140&quot; width=&quot;180&quot; height=&quot;60&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_doc_proc&quot; value=&quot;DocumentProcessor&amp;lt;br&amp;gt;- PDFium Native Text Extraction&amp;lt;br&amp;gt;- Tesseract OCR + Leptonica&amp;lt;br&amp;gt;- UTF-8 Normalization&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;280&quot; y=&quot;130&quot; width=&quot;200&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_chunker&quot; value=&quot;Sliding-Window Chunking&amp;lt;br&amp;gt;- 1,500 chars/chunk&amp;lt;br&amp;gt;- 300 char overlap window&amp;lt;br&amp;gt;- 1-based page attribution&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;280&quot; y=&quot;240&quot; width=&quot;200&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_job_queue&quot; value=&quot;JobQueue (src/libs/queue)&amp;lt;br&amp;gt;- Async background worker&amp;lt;br&amp;gt;- SQLite backed job status&amp;lt;br&amp;gt;- Non-blocking network I/O&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;70&quot; y=&quot;240&quot; width=&quot;180&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_chunks_out&quot; value=&quot;Structured Chunks&amp;lt;br&amp;gt;[chunk_id, doc_id, page_num, text]&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#1d4ed8;fontColor=#1e3a8a;fontStyle=1;fontSize=11;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;150&quot; y=&quot;350&quot; width=&quot;250&quot; height=&quot;45&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_embed_worker&quot; value=&quot;LlamaEngine Embedding Worker&amp;lt;br&amp;gt;- BGE-Small-EN-v1.5 (GGUF)&amp;lt;br&amp;gt;- 384-dimensional dense vectors&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;fontSize=11;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;150&quot; y=&quot;425&quot; width=&quot;250&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;c_storage&quot; value=&quot;2. Storage &amp;amp; Vector Indexing (src/libs/db &amp;amp; src/libs/vector)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#5b21b6;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;530&quot; y=&quot;90&quot; width=&quot;470&quot; height=&quot;430&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_sqlite_db&quot; value=&quot;SQLite WAL Storage (Database.cpp)&amp;lt;br&amp;gt;- PRAGMA journal_mode = WAL&amp;lt;br&amp;gt;- PRAGMA foreign_keys = ON&amp;lt;br&amp;gt;- Tables: ingestion_jobs, job_documents,&amp;lt;br&amp;gt;  document_chunks, report_sections&amp;lt;br&amp;gt;- Embeddings stored as binary BLOBs&amp;lt;br&amp;gt;- ON DELETE CASCADE for report isolation&quot; style=&quot;shape=cylinder;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontStyle=1;fontSize=11;align=left;spacingLeft=15;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;560&quot; y=&quot;140&quot; width=&quot;410&quot; height=&quot;110&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_faiss_registry&quot; value=&quot;VectorIndexRegistry (src/libs/vector)&amp;lt;br&amp;gt;- Job-Scoped Partitioning (No cross-doc contamination)&amp;lt;br&amp;gt;- FAISS HNSW Index per job (IndexHNSWFlat)&amp;lt;br&amp;gt;- Intel MKL AVX2 Hardware Acceleration&amp;lt;br&amp;gt;- Sub-second index rebuild from SQLite BLOBs on boot&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9333ea;fontColor=#581c87;fontSize=11;align=left;spacingLeft=12;fontStyle=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;560&quot; y=&quot;280&quot; width=&quot;410&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_retrieval_engine&quot; value=&quot;Two-Tier Scoped Retrieval&amp;lt;br&amp;gt;1. Locality Window Check (Chunk ID ± 2 on same page)&amp;lt;br&amp;gt;2. FAISS Vector Search (k=6 similarity candidates)&amp;lt;br&amp;gt;3. Single-batch SQL deduplicated fetch&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;560&quot; y=&quot;410&quot; width=&quot;410&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;c_extract&quot; value=&quot;3. Targeted Statutory Extraction &amp;amp; Inference (src/libs/report &amp;amp; inference)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#10b981;strokeWidth=2;fontColor=#047857;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1030&quot; y=&quot;90&quot; width=&quot;490&quot; height=&quot;430&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_factstore&quot; value=&quot;FactStore (FactStore.cpp)&amp;lt;br&amp;gt;- In-memory corporate anchor memoization&amp;lt;br&amp;gt;- Caches: FY, CIN, Turnover, Headcount, Net Worth&amp;lt;br&amp;gt;- Eliminates redundant LLM calls across principles&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#064e3b;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1060&quot; y=&quot;140&quot; width=&quot;430&quot; height=&quot;75&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_brsr_schema&quot; value=&quot;BrsrSchema Catalog (BrsrSchema.cpp)&amp;lt;br&amp;gt;- 12 Canonical SEBI Statutory Groups (A, B, P1-P9, Core)&amp;lt;br&amp;gt;- Targeted RAG Queries per section&amp;lt;br&amp;gt;- ~150 Field definitions &amp;amp; 48 loop/table schemas&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#10b981;fontColor=#064e3b;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1060&quot; y=&quot;230&quot; width=&quot;430&quot; height=&quot;75&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_llama_gen&quot; value=&quot;LlamaEngine (Qwen 2.5 7B Instruct GGUF)&amp;lt;br&amp;gt;- llama.cpp backend (GGML_CUDA or CPU AVX2)&amp;lt;br&amp;gt;- Middle-out context budget guard (preserves schema)&amp;lt;br&amp;gt;- KV Cache reuse across section generation&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1060&quot; y=&quot;320&quot; width=&quot;430&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_json_repair&quot; value=&quot;Resilient Multi-Pass JSON Parser&amp;lt;br&amp;gt;- autoRepairJson: cleans &amp;#x27;: ,&amp;#x27;, &amp;#x27;: -&amp;#x27;, &amp;#x27;: N/A&amp;#x27;, unclosed braces&amp;lt;br&amp;gt;- parseOrRecoverJson: regex fallback field salvager&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#064e3b;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1060&quot; y=&quot;420&quot; width=&quot;430&quot; height=&quot;75&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;c_api&quot; value=&quot;4. Server Daemon &amp;amp; REST API (src/apps/server &amp;amp; src/libs/api)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#f59e0b;strokeWidth=2;fontColor=#b45309;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;40&quot; y=&quot;545&quot; width=&quot;710&quot; height=&quot;240&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_http_server&quot; value=&quot;HTTPServer (src/libs/api/HTTPServer.cpp)&amp;lt;br&amp;gt;Qt HttpServer Daemon listening on http://localhost:8080&amp;lt;br&amp;gt;Endpoints:&amp;lt;br&amp;gt;- POST /api/ingest (Batch staging &amp;amp; enqueuing)&amp;lt;br&amp;gt;- GET  /api/jobs (Ingestion progress polling)&amp;lt;br&amp;gt;- POST /api/extraction/start, GET /api/extraction/status&amp;lt;br&amp;gt;- GET/PUT /api/extraction/sections (Review &amp;amp; edit)&amp;lt;br&amp;gt;- POST /api/extraction/accept (Lock report)&amp;lt;br&amp;gt;- POST /api/report/export (Inja HTML render)&amp;lt;br&amp;gt;- POST /api/chat (Job-scoped RAG assistant)&amp;lt;br&amp;gt;- GET  /api/system (Live hardware metrics)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#78350f;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;70&quot; y=&quot;585&quot; width=&quot;420&quot; height=&quot;185&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_sys_mon&quot; value=&quot;SystemMonitor (src/libs/system)&amp;lt;br&amp;gt;- Physical RAM &amp;amp; CPU % load&amp;lt;br&amp;gt;- VRAM &amp;amp; GPU availability&amp;lt;br&amp;gt;- Inference tokens/second&amp;lt;br&amp;gt;- Live SQLite database disk size&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;510&quot; y=&quot;585&quot; width=&quot;220&quot; height=&quot;185&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;c_client&quot; value=&quot;5. ESG Consultant Desktop Application (src/apps/qml-client)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#0284c7;strokeWidth=2;fontColor=#0369a1;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;770&quot; y=&quot;545&quot; width=&quot;750&quot; height=&quot;240&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_qml_workspace&quot; value=&quot;carbon-engine-client (Qt 6 Quick / QML)&amp;lt;br&amp;gt;- Modern VS Code Dark Modern Theme Palette&amp;lt;br&amp;gt;- DocumentsPanel: Multi-document queue &amp;amp; stage&amp;lt;br&amp;gt;- CentralWorkspace: Live stage trackers &amp;amp; HTML viewer&amp;lt;br&amp;gt;- RightPanel: Hardware status &amp;amp; live activity log&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;800&quot; y=&quot;585&quot; width=&quot;330&quot; height=&quot;90&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_qml_review&quot; value=&quot;ReportReviewScreen &amp;amp; FieldGroupCard&amp;lt;br&amp;gt;- Official SEBI BRSR terminology (BrsrMetadata.js)&amp;lt;br&amp;gt;- 2-Column responsive form grid for scalar numbers&amp;lt;br&amp;gt;- Collapsible missing-metrics notice badges&amp;lt;br&amp;gt;- Dark styled text inputs with focus highlighting&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;800&quot; y=&quot;685&quot; width=&quot;330&quot; height=&quot;85&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_loop_grid&quot; value=&quot;LoopFieldEditor (Tabular Data Grid)&amp;lt;br&amp;gt;- In-place editable spreadsheet-like table&amp;lt;br&amp;gt;- Human column headers (Product, NIC, Turnover %)&amp;lt;br&amp;gt;- Dynamic [+ Add Row] and [✕ Delete] controls&amp;lt;br&amp;gt;- Eliminates raw JSON editing for non-technical users&amp;lt;br&amp;gt;- Discreet collapsible { } Raw JSON toggle&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#bae6fd;strokeColor=#0284c7;fontColor=#0c4a6e;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1150&quot; y=&quot;585&quot; width=&quot;350&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;n_report_exporter&quot; value=&quot;ReportExporter (ReportExporter.cpp)&amp;lt;br&amp;gt;- Inja C++ Template Engine&amp;lt;br&amp;gt;- template.html with embedded Chart.js graphs&amp;lt;br&amp;gt;- Generates print-ready, offline-first HTML/PDF&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;fontColor=#831843;fontStyle=1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;1150&quot; y=&quot;700&quot; width=&quot;350&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e1&quot; value=&quot;Ingest File&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_input_docs&quot; target=&quot;n_doc_proc&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e2&quot; value=&quot;Extracted Text&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_doc_proc&quot; target=&quot;n_chunker&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e3&quot; value=&quot;Worker Trigger&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_job_queue&quot; target=&quot;n_doc_proc&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e4&quot; value=&quot;Chunks + Overlap&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_chunker&quot; target=&quot;n_chunks_out&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e5&quot; value=&quot;Tokenize&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_chunks_out&quot; target=&quot;n_embed_worker&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e6&quot; value=&quot;Persist Text &amp;amp; BLOBs&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_embed_worker&quot; target=&quot;n_sqlite_db&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e7&quot; value=&quot;Add Vectors&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_embed_worker&quot; target=&quot;n_faiss_registry&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e8&quot; value=&quot;Top-k Vectors&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_faiss_registry&quot; target=&quot;n_retrieval_engine&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e9&quot; value=&quot;Batch Chunk Lookup&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_sqlite_db&quot; target=&quot;n_retrieval_engine&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e10&quot; value=&quot;Grounded Context&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_retrieval_engine&quot; target=&quot;n_llama_gen&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e11&quot; value=&quot;Inject Anchors&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_factstore&quot; target=&quot;n_llama_gen&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e12&quot; value=&quot;Target Schema&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_brsr_schema&quot; target=&quot;n_llama_gen&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e13&quot; value=&quot;Raw Generation&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_llama_gen&quot; target=&quot;n_json_repair&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e14&quot; value=&quot;Memoize Base Facts&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_json_repair&quot; target=&quot;n_factstore&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e15&quot; value=&quot;Save Sections&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_json_repair&quot; target=&quot;n_sqlite_db&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e16&quot; value=&quot;Query / Persist&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_sqlite_db&quot; target=&quot;n_http_server&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e17&quot; value=&quot;Live Stats&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_sys_mon&quot; target=&quot;n_http_server&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e18&quot; value=&quot;REST / SSE / Poll&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_http_server&quot; target=&quot;n_qml_workspace&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e19&quot; value=&quot;Review Trigger&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_qml_workspace&quot; target=&quot;n_qml_review&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e20&quot; value=&quot;Table Fields&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_qml_review&quot; target=&quot;n_loop_grid&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e21&quot; value=&quot;Lock &amp;amp; Export&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_qml_review&quot; target=&quot;n_report_exporter&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;e22&quot; value=&quot;Merged Disclosures&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=11;fontColor=#334155;&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;n_sqlite_db&quot; target=&quot;n_report_exporter&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;">
+  <defs>
+    <style type="text/css">
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+      text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <rect x="40" y="20" width="1480" height="50" rx="6" fill="#1e293b" stroke="#0f172a" stroke-width="2"/>
+  <text x="780.0" y="42" fill="#ffffff" font-size="14" font-weight="bold" text-anchor="middle">Carbon Engine — High-Performance On-Device ESG/BRSR System Architecture</text>
+  <text x="780.0" y="60" fill="#cbd5e1" font-size="11" text-anchor="middle">Air-Gapped Native C++20 | llama.cpp (CUDA/CPU) | FAISS Vector Search | SQLite WAL | Qt 6 Quick Desktop Client</text>
+  <rect x="40" y="90" width="460" height="430" rx="6" fill="#f8fafc" stroke="#3b82f6" stroke-width="2"/>
+  <text x="52" y="110" fill="#1e40af" font-size="12" font-weight="bold">1. Document Ingestion &amp; Text Processing (src/libs/ingestion)</text>
+  <rect x="70" y="140" width="180" height="60" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="82" y="160" fill="#0f172a" font-size="12" font-weight="bold">Input Documents</text>
+  <text x="82" y="178" fill="#1e293b" font-size="11">PDF, Scanned Binders,</text>
+  <text x="82" y="194" fill="#1e293b" font-size="11">Annual Reports</text>
+  <rect x="280" y="130" width="200" height="80" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="292" y="150" fill="#0f172a" font-size="12" font-weight="bold">DocumentProcessor</text>
+  <text x="292" y="168" fill="#1e293b" font-size="11">• PDFium Native Parser</text>
+  <text x="292" y="184" fill="#1e293b" font-size="11">• Tesseract OCR Fallback</text>
+  <text x="292" y="200" fill="#1e293b" font-size="11">• UTF-8 Normalization</text>
+  <rect x="70" y="240" width="180" height="70" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="82" y="260" fill="#0f172a" font-size="12" font-weight="bold">JobQueue (src/libs/queue)</text>
+  <text x="82" y="278" fill="#1e293b" font-size="11">• Async background worker</text>
+  <text x="82" y="294" fill="#1e293b" font-size="11">• SQLite job status</text>
+  <text x="82" y="310" fill="#1e293b" font-size="11">• Non-blocking network I/O</text>
+  <rect x="280" y="240" width="200" height="70" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="292" y="260" fill="#0f172a" font-size="12" font-weight="bold">Sliding-Window Chunking</text>
+  <text x="292" y="278" fill="#1e293b" font-size="11">• 1,500 chars/chunk</text>
+  <text x="292" y="294" fill="#1e293b" font-size="11">• 300 char overlap</text>
+  <text x="292" y="310" fill="#1e293b" font-size="11">• 1-based page attribution</text>
+  <rect x="150" y="350" width="250" height="45" rx="6" fill="#bfdbfe" stroke="#1d4ed8" stroke-width="2"/>
+  <text x="162" y="370" fill="#0f172a" font-size="12" font-weight="bold">Structured Chunks</text>
+  <text x="162" y="388" fill="#1e293b" font-size="11">[chunk_id, doc_id, page_num, text]</text>
+  <rect x="150" y="425" width="250" height="65" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="2"/>
+  <text x="162" y="445" fill="#0f172a" font-size="12" font-weight="bold">LlamaEngine Embedding</text>
+  <text x="162" y="463" fill="#1e293b" font-size="11">• BGE-Small-EN-v1.5 (GGUF)</text>
+  <text x="162" y="479" fill="#1e293b" font-size="11">• 384-dim dense vectors</text>
+  <rect x="530" y="90" width="470" height="430" rx="6" fill="#f8fafc" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="542" y="110" fill="#5b21b6" font-size="12" font-weight="bold">2. Storage &amp; Vector Indexing (src/libs/db &amp; vector)</text>
+  <rect x="560" y="140" width="410" height="110" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="572" y="160" fill="#0f172a" font-size="12" font-weight="bold">SQLite WAL Storage (Database.cpp)</text>
+  <text x="572" y="178" fill="#1e293b" font-size="11">• PRAGMA journal_mode = WAL &amp; foreign_keys = ON</text>
+  <text x="572" y="194" fill="#1e293b" font-size="11">• Tables: ingestion_jobs, job_documents,</text>
+  <text x="572" y="210" fill="#1e293b" font-size="11">  document_chunks, report_sections</text>
+  <text x="572" y="226" fill="#1e293b" font-size="11">• Embeddings stored as binary BLOBs</text>
+  <text x="572" y="242" fill="#1e293b" font-size="11">• Full ON DELETE CASCADE for report isolation</text>
+  <rect x="560" y="280" width="410" height="100" rx="6" fill="#f3e8ff" stroke="#9333ea" stroke-width="2"/>
+  <text x="572" y="300" fill="#0f172a" font-size="12" font-weight="bold">VectorIndexRegistry (src/libs/vector)</text>
+  <text x="572" y="318" fill="#1e293b" font-size="11">• Job-Scoped Partitioning (No cross-doc leaks)</text>
+  <text x="572" y="334" fill="#1e293b" font-size="11">• FAISS HNSW Index per job (IndexHNSWFlat)</text>
+  <text x="572" y="350" fill="#1e293b" font-size="11">• Intel MKL AVX2 Hardware Acceleration</text>
+  <text x="572" y="366" fill="#1e293b" font-size="11">• Sub-second index rebuild from SQLite BLOBs</text>
+  <rect x="560" y="410" width="410" height="80" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="572" y="430" fill="#0f172a" font-size="12" font-weight="bold">Two-Tier Scoped Retrieval</text>
+  <text x="572" y="448" fill="#1e293b" font-size="11">1. Locality Window Check (Chunk ID ± 2 on same page)</text>
+  <text x="572" y="464" fill="#1e293b" font-size="11">2. FAISS Vector Search (k=6 similarity matches)</text>
+  <text x="572" y="480" fill="#1e293b" font-size="11">3. Single-batch SQL deduplicated fetch</text>
+  <rect x="1030" y="90" width="490" height="430" rx="6" fill="#f8fafc" stroke="#10b981" stroke-width="2"/>
+  <text x="1042" y="110" fill="#047857" font-size="12" font-weight="bold">3. Targeted Statutory Extraction &amp; Inference</text>
+  <rect x="1060" y="140" width="430" height="75" rx="6" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+  <text x="1072" y="160" fill="#0f172a" font-size="12" font-weight="bold">FactStore (FactStore.cpp)</text>
+  <text x="1072" y="178" fill="#1e293b" font-size="11">• In-memory corporate anchor memoization</text>
+  <text x="1072" y="194" fill="#1e293b" font-size="11">• Caches: FY, CIN, Turnover, Headcount, Net Worth</text>
+  <text x="1072" y="210" fill="#1e293b" font-size="11">• Eliminates redundant LLM calls across principles</text>
+  <rect x="1060" y="230" width="430" height="75" rx="6" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+  <text x="1072" y="250" fill="#0f172a" font-size="12" font-weight="bold">BrsrSchema Catalog (BrsrSchema.cpp)</text>
+  <text x="1072" y="268" fill="#1e293b" font-size="11">• 12 Canonical SEBI Statutory Groups (A, B, P1-P9, Core)</text>
+  <text x="1072" y="284" fill="#1e293b" font-size="11">• Targeted RAG Queries per section</text>
+  <text x="1072" y="300" fill="#1e293b" font-size="11">• ~150 Field definitions &amp; 48 loop/table schemas</text>
+  <rect x="1060" y="320" width="430" height="80" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="1072" y="340" fill="#0f172a" font-size="12" font-weight="bold">LlamaEngine (Qwen 2.5 7B Instruct)</text>
+  <text x="1072" y="358" fill="#1e293b" font-size="11">• llama.cpp backend (GGML_CUDA or CPU AVX2)</text>
+  <text x="1072" y="374" fill="#1e293b" font-size="11">• Middle-out context budget guard (preserves schema)</text>
+  <text x="1072" y="390" fill="#1e293b" font-size="11">• KV Cache reuse across section generation</text>
+  <rect x="1060" y="420" width="430" height="75" rx="6" fill="#d1fae5" stroke="#059669" stroke-width="2"/>
+  <text x="1072" y="440" fill="#0f172a" font-size="12" font-weight="bold">Resilient Multi-Pass JSON Parser</text>
+  <text x="1072" y="458" fill="#1e293b" font-size="11">• autoRepairJson: cleans &#x27;: ,&#x27;, &#x27;: -&#x27;, &#x27;: N/A&#x27;, braces</text>
+  <text x="1072" y="474" fill="#1e293b" font-size="11">• parseOrRecoverJson: regex fallback field salvager</text>
+  <rect x="40" y="545" width="710" height="240" rx="6" fill="#f8fafc" stroke="#f59e0b" stroke-width="2"/>
+  <text x="52" y="565" fill="#b45309" font-size="12" font-weight="bold">4. Server Daemon &amp; REST API (src/apps/server)</text>
+  <rect x="70" y="585" width="420" height="185" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="82" y="605" fill="#0f172a" font-size="12" font-weight="bold">HTTPServer (Daemon listening on :8080)</text>
+  <text x="82" y="623" fill="#1e293b" font-size="11">POST /api/ingest (Batch staging &amp; enqueuing)</text>
+  <text x="82" y="639" fill="#1e293b" font-size="11">GET  /api/jobs (Ingestion progress polling)</text>
+  <text x="82" y="655" fill="#1e293b" font-size="11">POST /api/extraction/start, GET /api/extraction/status</text>
+  <text x="82" y="671" fill="#1e293b" font-size="11">GET/PUT /api/extraction/sections (Review &amp; edit)</text>
+  <text x="82" y="687" fill="#1e293b" font-size="11">POST /api/extraction/accept (Lock report)</text>
+  <text x="82" y="703" fill="#1e293b" font-size="11">POST /api/report/export (Inja HTML render)</text>
+  <text x="82" y="719" fill="#1e293b" font-size="11">POST /api/chat (Job-scoped RAG assistant)</text>
+  <text x="82" y="735" fill="#1e293b" font-size="11">GET  /api/system (Live hardware metrics)</text>
+  <rect x="510" y="585" width="220" height="185" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="522" y="605" fill="#0f172a" font-size="12" font-weight="bold">SystemMonitor</text>
+  <text x="522" y="623" fill="#1e293b" font-size="11">• Physical RAM &amp; CPU % load</text>
+  <text x="522" y="639" fill="#1e293b" font-size="11">• VRAM &amp; GPU availability</text>
+  <text x="522" y="655" fill="#1e293b" font-size="11">• Inference tokens/second</text>
+  <text x="522" y="671" fill="#1e293b" font-size="11">• Live SQLite disk footprint</text>
+  <rect x="770" y="545" width="750" height="240" rx="6" fill="#f8fafc" stroke="#0284c7" stroke-width="2"/>
+  <text x="782" y="565" fill="#0369a1" font-size="12" font-weight="bold">5. ESG Consultant Desktop Application (src/apps/qml-client)</text>
+  <rect x="800" y="585" width="330" height="90" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+  <text x="812" y="605" fill="#0f172a" font-size="12" font-weight="bold">carbon-engine-client (Qt 6 Quick)</text>
+  <text x="812" y="623" fill="#1e293b" font-size="11">• VS Code Dark Modern Theme Palette</text>
+  <text x="812" y="639" fill="#1e293b" font-size="11">• DocumentsPanel: Multi-document queue &amp; stage</text>
+  <text x="812" y="655" fill="#1e293b" font-size="11">• CentralWorkspace: Stage trackers &amp; HTML viewer</text>
+  <text x="812" y="671" fill="#1e293b" font-size="11">• RightPanel: Hardware status &amp; live activity log</text>
+  <rect x="800" y="685" width="330" height="85" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+  <text x="812" y="705" fill="#0f172a" font-size="12" font-weight="bold">ReportReviewScreen &amp; FieldGroupCard</text>
+  <text x="812" y="723" fill="#1e293b" font-size="11">• Official SEBI BRSR terminology (BrsrMetadata.js)</text>
+  <text x="812" y="739" fill="#1e293b" font-size="11">• 2-Column responsive form grid for scalar numbers</text>
+  <text x="812" y="755" fill="#1e293b" font-size="11">• Collapsible missing-metrics notice badges</text>
+  <text x="812" y="771" fill="#1e293b" font-size="11">• Dark styled text inputs with focus highlighting</text>
+  <rect x="1150" y="585" width="350" height="100" rx="6" fill="#bae6fd" stroke="#0284c7" stroke-width="2"/>
+  <text x="1162" y="605" fill="#0f172a" font-size="12" font-weight="bold">LoopFieldEditor (Tabular Data Grid)</text>
+  <text x="1162" y="623" fill="#1e293b" font-size="11">• In-place editable spreadsheet-like table</text>
+  <text x="1162" y="639" fill="#1e293b" font-size="11">• Human column headers (Product, NIC, Turnover %)</text>
+  <text x="1162" y="655" fill="#1e293b" font-size="11">• Dynamic [+ Add Row] and [✕ Delete] controls</text>
+  <text x="1162" y="671" fill="#1e293b" font-size="11">• Eliminates raw JSON editing for consultants</text>
+  <text x="1162" y="687" fill="#1e293b" font-size="11">• Discreet collapsible { } Raw JSON toggle</text>
+  <rect x="1150" y="700" width="350" height="70" rx="6" fill="#fce7f3" stroke="#db2777" stroke-width="2"/>
+  <text x="1162" y="720" fill="#0f172a" font-size="12" font-weight="bold">ReportExporter (Inja Engine)</text>
+  <text x="1162" y="738" fill="#1e293b" font-size="11">• Inja C++ Template Engine</text>
+  <text x="1162" y="754" fill="#1e293b" font-size="11">• template.html with embedded Chart.js graphs</text>
+  <text x="1162" y="770" fill="#1e293b" font-size="11">• Generates print-ready, offline-first HTML/PDF</text>
+  <path d="M 250 170 L 280 170" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="265.0" y="164.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Text</text>
+  <path d="M 380 210 L 380 240" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 160 240 L 280 240" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 380 310 L 275 350" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 275 395 L 275 425" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 400 455 L 560 200" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="480.0" y="321.5" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Persist BLOBs</text>
+  <path d="M 400 465 L 560 330" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="480.0" y="391.5" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Add Vectors</text>
+  <path d="M 765 380 L 765 410" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 970 450 L 1060 360" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="1015.0" y="399.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Context</text>
+  <path d="M 1275 215 L 1275 230" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 1275 305 L 1275 320" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 1275 400 L 1275 420" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 1060 460 L 970 240" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="1015.0" y="344.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">Persist</text>
+  <path d="M 730 680 L 800 640" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="765.0" y="654.0" fill="#64748b" font-size="10" font-weight="500" text-anchor="middle">HTTP REST</text>
+  <path d="M 1130 630 L 1150 630" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 1130 730 L 1150 730" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+</svg>

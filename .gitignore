@@ -15,5 +15,5 @@ models/
 !models/.gitkeep
 eng.traineddata
 
-# database file
-ce-database
+# database files
+ce-database*

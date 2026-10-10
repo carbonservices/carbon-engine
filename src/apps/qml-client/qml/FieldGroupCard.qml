@@ -1,28 +1,34 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "BrsrMetadata.js" as BrsrMeta
 
-// One field-group's extracted draft: data fields as text inputs, narrative fields as text
-// areas, loop/table fields as a read-only preview with a raw-JSON editing fallback. Edits are
-// reported upward via fieldEdited so the review screen can persist them through ExtractionClient.
+// Modern ESG Field Group Card:
+// - Professional SEBI BRSR human-friendly labels for ESG consultants
+// - Responsive multi-column form grid for scalar data fields
+// - Clean value formatting (preventing "null", "N/A", or [object V4ReferenceObject])
+// - Collapsible missing-field warning badge to keep the UI uncluttered
+// - Elegant dark-themed inputs and narrative text areas
+// - Embedded spreadsheet-style LoopFieldEditor for all tabular disclosures
 Rectangle {
     id: card
 
     property var groupData
     property var warnings: []
     property bool locked: false
+    property bool showWarningsDetail: false
 
     signal fieldEdited(string groupId, var data)
 
-    Layout.preferredHeight: contentColumn.implicitHeight + 24
+    Layout.preferredHeight: contentColumn.implicitHeight + 28
     color: appWindow.bgSidebar
-    radius: 4
+    radius: 6
     border.color: appWindow.borderCol
     border.width: 1
 
     function currentData() {
         var copy = {}
-        var source = groupData.data || {}
+        var source = (groupData && groupData.data) ? groupData.data : {}
         for (var key in source) copy[key] = source[key]
         return copy
     }
@@ -34,75 +40,258 @@ Rectangle {
         fieldEdited(groupData.group_id, data)
     }
 
+    function cleanFieldWarning(rawWarning) {
+        // Transform "group_id: field "name" has no extracted value" to clean human text
+        var match = rawWarning.match(/field\s*["']([^"']+)["']/i)
+        if (match && match[1]) {
+            return "\"" + BrsrMeta.formatLabel(match[1]) + "\" was not found in the source document"
+        }
+        return rawWarning
+    }
+
     ColumnLayout {
         id: contentColumn
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 12
-        spacing: 8
+        anchors.margins: 16
+        spacing: 12
 
+        // Card Header Bar
         RowLayout {
             Layout.fillWidth: true
-            Label { text: card.groupData.label; font.bold: true; font.pixelSize: 14; color: appWindow.textMain }
-            Item { Layout.fillWidth: true }
+            spacing: 10
+
+            Rectangle {
+                Layout.preferredWidth: 4
+                Layout.preferredHeight: 18
+                color: appWindow.brandAccent
+                radius: 2
+            }
+
             Label {
-                visible: card.groupData.status === "FAILED"
-                text: "Extraction failed"
-                color: "#ff6b6b"
+                text: (card.groupData && card.groupData.label) ? card.groupData.label : "Disclosure Group"
+                font.bold: true
+                font.pixelSize: 15
+                color: appWindow.textBright
+            }
+
+            Item { Layout.fillWidth: true }
+
+            // Collapsible missing-metrics pill button
+            Button {
+                visible: card.warnings && card.warnings.length > 0
+                Layout.preferredHeight: 24
+                background: Rectangle {
+                    color: card.showWarningsDetail ? "#78350f" : "#451a03"
+                    border.color: "#b45309"
+                    border.width: 1
+                    radius: 12
+                }
+                contentItem: RowLayout {
+                    spacing: 4
+                    Text {
+                        text: "⚠️ " + card.warnings.length + " unpopulated"
+                        color: "#fde68a"
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                    }
+                    Text {
+                        text: card.showWarningsDetail ? "▲" : "▼"
+                        color: "#fde68a"
+                        font.pixelSize: 9
+                    }
+                }
+                onClicked: card.showWarningsDetail = !card.showWarningsDetail
+            }
+
+            Label {
+                visible: card.groupData && card.groupData.status === "FAILED"
+                text: "Extraction Failed"
+                color: appWindow.dangerColor
                 font.pixelSize: 11
+                font.bold: true
             }
         }
 
-        Repeater {
-            model: card.warnings
-            delegate: Label {
-                Layout.fillWidth: true
-                text: modelData
-                color: "#f0a500"
-                font.pixelSize: 11
-                wrapMode: Text.WordWrap
-            }
-        }
+        // Expanded Warnings Details (collapsible)
+        Rectangle {
+            visible: card.showWarningsDetail && card.warnings && card.warnings.length > 0
+            Layout.fillWidth: true
+            Layout.preferredHeight: warningsColumn.implicitHeight + 16
+            color: "#291b00"
+            border.color: "#b45309"
+            border.width: 1
+            radius: 4
 
-        Repeater {
-            model: card.groupData.data_keys || []
-            delegate: RowLayout {
-                Layout.fillWidth: true
-                Label { text: modelData; Layout.preferredWidth: 220; color: appWindow.textMuted; font.pixelSize: 12 }
-                TextField {
-                    Layout.fillWidth: true
-                    enabled: !card.locked
-                    text: (card.groupData.data && card.groupData.data[modelData] !== undefined) ? String(card.groupData.data[modelData]) : ""
-                    onEditingFinished: card.commitField(modelData, text)
+            ColumnLayout {
+                id: warningsColumn
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 4
+
+                Label {
+                    text: "Unpopulated fields in this section (ESG consultant notice):"
+                    font.bold: true
+                    font.pixelSize: 11
+                    color: "#fde047"
+                }
+
+                Repeater {
+                    model: card.warnings
+                    delegate: Label {
+                        Layout.fillWidth: true
+                        text: "• " + card.cleanFieldWarning(modelData)
+                        color: "#fef08a"
+                        font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
         }
 
+        // Section Separator
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: appWindow.borderCol
+        }
+
+        // Scalar Data Fields: Modern 2-Column Responsive Form Grid
+        GridLayout {
+            Layout.fillWidth: true
+            columns: width > 750 ? 2 : 1
+            columnSpacing: 16
+            rowSpacing: 10
+
+            Repeater {
+                model: (card.groupData && card.groupData.data_keys) ? card.groupData.data_keys : []
+                delegate: ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Label {
+                        Layout.fillWidth: true
+                        text: BrsrMeta.formatLabel(modelData)
+                        color: appWindow.textMain
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                    }
+
+                    TextField {
+                        id: scalarInput
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 32
+                        enabled: !card.locked
+                        font.pixelSize: 12
+                        color: appWindow.textBright
+                        selectedTextColor: "#ffffff"
+                        selectionColor: appWindow.brandAccent
+                        selectByMouse: true
+                        placeholderText: "— Not extracted / Click to enter"
+                        placeholderTextColor: appWindow.textMuted
+
+                        background: Rectangle {
+                            color: parent.activeFocus ? appWindow.bgActive : appWindow.bgInput
+                            border.color: parent.activeFocus ? appWindow.brandAccent : appWindow.borderSubtle
+                            border.width: 1
+                            radius: 4
+                        }
+
+                        text: BrsrMeta.cleanDisplayValue(card.groupData && card.groupData.data ? card.groupData.data[modelData] : undefined)
+
+                        onEditingFinished: {
+                            card.commitField(modelData, text)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Narrative Disclosures (Long text fields)
         Repeater {
-            model: card.groupData.narrative_keys || []
+            model: (card.groupData && card.groupData.narrative_keys) ? card.groupData.narrative_keys : []
             delegate: ColumnLayout {
                 Layout.fillWidth: true
-                Label { text: modelData; color: appWindow.textMuted; font.pixelSize: 12 }
-                TextArea {
+                spacing: 6
+                Layout.topMargin: 4
+
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 72
-                    wrapMode: TextArea.Wrap
-                    enabled: !card.locked
-                    text: (card.groupData.data && card.groupData.data[modelData] !== undefined) ? String(card.groupData.data[modelData]) : ""
-                    onEditingFinished: card.commitField(modelData, text)
+                    spacing: 8
+
+                    Label {
+                        text: BrsrMeta.formatLabel(modelData)
+                        font.bold: true
+                        font.pixelSize: 12
+                        color: appWindow.textMain
+                    }
+
+                    Rectangle {
+                        Layout.preferredHeight: 18
+                        Layout.preferredWidth: narrativePillText.implicitWidth + 10
+                        color: "#1e293b"
+                        border.color: "#475569"
+                        border.width: 1
+                        radius: 9
+
+                        Text {
+                            id: narrativePillText
+                            anchors.centerIn: parent
+                            text: "Narrative"
+                            color: "#94a3b8"
+                            font.pixelSize: 10
+                        }
+                    }
+                }
+
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 90
+                    clip: true
+
+                    TextArea {
+                        width: parent.width
+                        wrapMode: TextArea.Wrap
+                        enabled: !card.locked
+                        font.pixelSize: 12
+                        color: appWindow.textBright
+                        selectedTextColor: "#ffffff"
+                        selectionColor: appWindow.brandAccent
+                        selectByMouse: true
+                        placeholderText: "Enter qualitative disclosure or management response..."
+                        placeholderTextColor: appWindow.textMuted
+
+                        background: Rectangle {
+                            color: parent.activeFocus ? appWindow.bgActive : appWindow.bgInput
+                            border.color: parent.activeFocus ? appWindow.brandAccent : appWindow.borderSubtle
+                            border.width: 1
+                            radius: 4
+                        }
+
+                        text: BrsrMeta.cleanDisplayValue(card.groupData && card.groupData.data ? card.groupData.data[modelData] : undefined)
+
+                        onEditingFinished: {
+                            card.commitField(modelData, text)
+                        }
+                    }
                 }
             }
         }
 
+        // Tabular & Loop Fields (Rendered via LoopFieldEditor)
         Repeater {
-            model: card.groupData.loop_keys || []
+            model: (card.groupData && card.groupData.loop_keys) ? card.groupData.loop_keys : []
             delegate: LoopFieldEditor {
                 Layout.fillWidth: true
+                Layout.topMargin: 6
                 fieldKey: modelData
-                rows: (card.groupData.data && card.groupData.data[modelData]) ? card.groupData.data[modelData] : []
+                rows: (card.groupData && card.groupData.data && card.groupData.data[modelData]) ? card.groupData.data[modelData] : []
                 locked: card.locked
-                onEdited: function(key, newRows) { card.commitField(key, newRows) }
+                onEdited: function(key, newRows) {
+                    card.commitField(key, newRows)
+                }
             }
         }
     }

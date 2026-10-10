@@ -502,7 +502,7 @@ Rectangle {
                                                         anchors.centerIn: parent
                                                         text: modelData
                                                         font.pixelSize: 11
-                                                        font.family: "Consolas", "Courier New", monospace
+                                                        font.family: "Consolas, monospace"
                                                         color: appWindow.warningColor
                                                     }
                                                 }

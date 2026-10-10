@@ -614,7 +614,7 @@ QVector<ReportSummary> Database::getAllReports() {
 
         if (derivedTitle.isEmpty()) {
             QSqlQuery secQ(getDb());
-            secQ.prepare("SELECT data_json FROM report_sections WHERE job_id = :job AND group_id IN ('section_a_general', 'entity_details') LIMIT 1;");
+            secQ.prepare("SELECT data_json FROM report_sections WHERE job_id = :job AND group_id IN ('section_a_corporate', 'section_a_general', 'entity_details') LIMIT 1;");
             secQ.bindValue(":job", summary.jobId);
             if (secQ.exec() && secQ.next()) {
                 QString jsonStr = secQ.value(0).toString();

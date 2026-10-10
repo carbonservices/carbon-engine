@@ -412,17 +412,12 @@ ApplicationWindow {
 
                 Image {
                     id: appLogo
-                    source: "qrc:/qt/qml/CarbonEngineClient/logo.png"
+                    source: "logo.png"
                     Layout.preferredWidth: 20
                     Layout.preferredHeight: 20
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
                     smooth: true
-                    onStatusChanged: {
-                        if (status === Image.Error) {
-                            source = "logo.png"
-                        }
-                    }
                 }
 
                 Label {
