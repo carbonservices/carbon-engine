@@ -21,174 +21,166 @@
 <p align="center">
   <img src="docs/application.png" width="940" alt="Carbon Engine Desktop Client Workspace"/>
   <br/>
-  <em>Carbon Engine Desktop Workspace: Real-time local extraction tracking, automated statutory gap cataloging, and live GPU/CPU system telemetry.</em>
+  <em>Carbon Engine Desktop Workspace: Real-time local extraction tracking, statutory gap cataloging, and live GPU/CPU telemetry.</em>
 </p>
 
 ---
 
-## 🌍 Overview
+## Table of Contents
 
-Corporate ESG disclosures, including India's **SEBI BRSR (Business Responsibility & Sustainability Reporting)** framework, **BRSR Core**, and **GRI Standards**, require analyzing hundreds of quantitative metrics and qualitative narratives across 300+ page corporate filings.
-
-Most cloud AI services require uploading sensitive corporate binders to third-party APIs. For public companies and auditors handling Unpublished Price Sensitive Information (UPSI), this creates serious compliance and security risks.
-
-**Carbon Engine** is an **on-device, 100% air-gapped C++ application** with zero cloud dependencies or telemetry:
-- Ingests enterprise annual reports and sustainability disclosures locally.
-- Runs high-speed vector retrieval and local quantized language models with GPU acceleration.
-- Surfaces extracted metrics in a consultant-friendly desktop workspace with spreadsheet-style tabular editing.
-- Generates verified, audit-ready HTML and PDF reports with interactive visualizations.
-
----
-
-## ✨ Key Features
-
-- 🔒 **100% Private & Air-Gapped**: Runs entirely on your local machine with zero data transmitted over the internet.
-- 📄 **Fast Document Ingestion**: Native PDF text parsing with automated OCR fallback for scanned pages and images.
-- 🧠 **Hardware-Accelerated Local AI**: Powered by `llama.cpp` (CUDA / CPU AVX2) and FAISS vector search:
-  - High-precision embeddings for semantic document search.
-  - Quantized language models for structured data extraction.
-- 🎯 **Targeted Statutory Extraction**: Automatically maps corporate text and financial footnotes into official SEBI BRSR disclosure sections and principles.
-- 🛡️ **Fault-Tolerant Processing**: Built-in sanitization and self-healing algorithms safeguard against formatting anomalies or model token truncation.
-- 🖥️ **Consultant-Friendly Desktop UI**: Modern Qt Quick application featuring:
-  - Official SEBI BRSR human-readable terminology.
-  - Spreadsheet-style table editors for complex tabular metrics (Workforce Diversity, Energy, Waste, Emissions).
-  - Real-time hardware telemetry (CPU, RAM, GPU VRAM, token generation speed).
-  - Missing-metrics queue highlighting unlocated data points for auditor review.
-- 📊 **Audit-Ready Report Export**: Generates responsive, offline-ready HTML and PDF reports with integrated charts.
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [System Requirements](#system-requirements)
+  - [Hardware Requirements](#hardware-requirements)
+  - [Software Toolchain](#software-toolchain)
+- [Build & Installation](#build--installation)
+  - [1. Clone Repository](#1-clone-repository)
+  - [2. Download Models](#2-download-models)
+  - [3. Build from Source](#3-build-from-source)
+- [Quick Start](#quick-start)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## 🏗️ High-Level Architecture
+## Overview
 
-The engine decouples document processing and model inference from the user interface using a lightweight local background daemon:
+Carbon Engine is an on-device, air-gapped C++ engine and Qt desktop client for statutory ESG reporting (SEBI BRSR, BRSR Core, GRI). It ingests corporate annual reports locally, extracts compliance metrics using local LLMs and vector search with zero cloud telemetry, and generates audit-ready reports.
+
+Most cloud AI services require uploading sensitive financial binders to third-party APIs. For public corporations handling Unpublished Price Sensitive Information (UPSI), Carbon Engine eliminates data leakage risks by keeping 100% of data and compute on the local machine.
+
+---
+
+## Key Features
+
+- **100% Air-Gapped**: Runs entirely on local hardware with zero outbound network calls or telemetry.
+- **Fast Document Ingestion**: Native PDF text extraction with OCR fallback for scanned pages.
+- **Hardware-Accelerated AI**: Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) (CUDA / AVX2) and [FAISS](https://github.com/facebookresearch/faiss) vector search for local embeddings and structured extraction.
+- **Targeted Statutory Extraction**: Extracts and maps metrics directly to official SEBI BRSR sections and principles.
+- **Fault-Tolerant Processing**: Built-in sanitization and self-healing JSON recovery handle model token cutoffs and formatting anomalies.
+- **Consultant Desktop UI**: Qt Quick desktop application with spreadsheet-style tabular editors and live GPU/CPU telemetry.
+- **Audit-Ready Reports**: Exports standalone HTML and PDF reports with interactive charts.
+
+---
+
+## Architecture
+
+The engine decouples document processing and model inference from the desktop interface via a lightweight local background daemon:
 
 <p align="center">
-  <a href="docs/architecture.drawio" title="Open source Draw.io diagram">
-    <img src="docs/architecture.drawio.svg" width="920" alt="Carbon Engine System Architecture"/>
-  </a>
+  <img src="docs/high_level_architecture.drawio.svg" width="940" alt="Carbon Engine Client-Server Architecture and Libraries"/>
   <br/>
-  <em>System Architecture. <a href="docs/architecture.drawio">Click here to view or edit in Draw.io</a>.</em>
+  <em>Client-server communication over local REST and internal engine library architecture.</em>
 </p>
 
-- **Ingestion & Indexing**: Documents are parsed, split into sliding overlapping windows, embedded, and indexed into job-isolated vector storage.
-- **Statutory Extraction Pipeline**: Relevant document context is retrieved and synthesized by a local LLM into structured disclosure metrics.
-- **Desktop Application**: Provides review, calibration, tabular editing, and one-click report generation.
-
-*(Additional technical diagrams: [Database Schema](docs/database_schema.drawio) | [Extraction Pipeline](docs/extraction_pipeline.drawio))*
+Detailed technical diagrams are available in `docs/` (all editable directly in [diagrams.net](https://app.diagrams.net) / Draw.io):
+- **[System Architecture](docs/architecture.drawio.svg)** - End-to-end multi-layer ingestion, chunking, [FAISS](https://github.com/facebookresearch/faiss) vector indexing, and local [llama.cpp](https://github.com/ggerganov/llama.cpp) inference pipeline.
+- **[Database Schema](docs/database_schema.drawio.svg)** - SQLite WAL relational tables, foreign key cascades, and embedding BLOB durability.
+- **[Statutory Extraction Pipeline](docs/extraction_pipeline.drawio.svg)** - Two-tier scoped retrieval, context budgeting, and 3-pass self-healing JSON recovery.
 
 ---
 
-## 💻 System Requirements
+## System Requirements
 
 ### Hardware Requirements
 
 | Component | Minimum | Recommended |
 |---|---|---|
-| **Processor (CPU)** | x86_64 with AVX2 support (4 cores) | 8+ cores (Intel Core i7/i9 or AMD Ryzen 7/9) |
-| **System Memory (RAM)** | 16 GB | 32 GB+ (for processing large 300+ page binders) |
-| **Graphics (GPU)** | *(Optional)* CPU inference supported | NVIDIA GPU with 8 GB+ VRAM (RTX 3060, 4060, or better, Compute 7.0+) |
-| **Disk Space** | 10 GB free space | SSD with 20 GB+ free space (models + document cache) |
+| **CPU** | x86_64 with AVX2 (4 cores) | 8+ cores (Intel Core i7/i9 or AMD Ryzen 7/9) |
+| **RAM** | 16 GB | 32 GB+ (for large 300+ page binders) |
+| **GPU** | *(Optional)* CPU inference supported | NVIDIA GPU with 8 GB+ VRAM (RTX 3060, 4060+, Compute 7.0+) |
+| **Disk** | 10 GB free space | SSD with 20 GB+ free space |
 
 ### Software Toolchain
 
 | Tool | Required Version | Purpose |
 |---|---|---|
-| **Operating System** | Windows 10/11 (64-bit) or Linux (Ubuntu 22.04+) | Host OS |
-| **C++ Compiler** | MSVC (Visual Studio 2022) / GCC 11+ / Clang 14+ | C++20 compliant compiler |
+| **OS** | Windows 10/11 (64-bit) or Linux (Ubuntu 22.04+) | Host platform |
+| **Compiler** | MSVC 2022 (v143+) / GCC 11+ / Clang 14+ | C++20 compiler |
 | **CMake** | 3.24 or newer | Build system generator |
 | **Qt 6** | Qt 6.10 or newer | Core, Quick, QuickControls2, HttpServer, Sql, Concurrent |
-| **NASM** | 2.15+ *(Windows)* | Assembler for SIMD image decoding (auto-detected) |
-| **CUDA Toolkit** | *(Optional)* CUDA 12.x | GPU acceleration for inference (`GGML_CUDA=ON`) |
+| **NASM** | 2.15+ *(Windows)* | SIMD image decoding assembler |
+| **CUDA Toolkit** | *(Optional)* CUDA 12.x | GPU acceleration (`GGML_CUDA=ON`) |
 
 ---
 
-## 🛠️ Build & Installation
+## Build & Installation
 
-### 1. Clone the Repository
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/carbonservices/carbon-engine.git
 cd carbon-engine
 ```
 
-### 2. Download Local Models
+### 2. Download Models
 
-Create a `models/` folder and download the recommended GGUF model files:
+Place the recommended GGUF models in the `models/` folder:
 
 ```powershell
-# Create models directory
 mkdir models
 
-# Download Embedding Model (BGE-Small-EN-v1.5, ~133 MB)
+# Embedding model (BGE-Small-EN-v1.5, ~133 MB)
 curl -L -o models/bge-small-en-v1.5-f16.gguf https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf
 
-# Download Extraction Model (Qwen2.5-7B-Instruct-Q4_K_M, ~4.7 GB)
+# Extraction model (Qwen2.5-7B-Instruct-Q4_K_M, ~4.7 GB)
 curl -L -o models/qwen2.5-7b-instruct-q4_k_m.gguf https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf
 ```
 
 ### 3. Build from Source
 
+Third-party dependencies including [llama.cpp](https://github.com/ggerganov/llama.cpp) and [FAISS](https://github.com/facebookresearch/faiss) are automatically fetched and built via CMake `FetchContent`.
+
 #### Windows (Visual Studio 2022 & Qt 6)
 
 ```powershell
-# Configure build with CMake
 cmake -S . -B __Builds/x64/_build -G "Visual Studio 17 2022" -A x64 `
       -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64"
 
-# Compile engine server and desktop client
 cmake --build __Builds/x64/_build --config Release --target carbon-engine --target carbon-engine-client
 ```
 
-Built binaries will be located in `__Builds/x64/bin/`:
-- `carbon-engine.exe` - Local background engine
-- `carbon-engine-client.exe` - Qt Quick desktop client
+Binaries are placed in `__Builds/x64/bin/`:
+- `carbon-engine.exe` - Background daemon
+- `carbon-engine-client.exe` - Desktop application
 
 ---
 
-## 🚀 Running the Application
+## Quick Start
 
-### Step 1: Start the Engine Daemon
+### 1. Start the Engine Daemon
 ```powershell
 ./__Builds/x64/bin/carbon-engine.exe
 ```
-The engine initializes local models and binds locally to `http://localhost:8080`.
+The daemon initializes local models and listens on `http://localhost:8080`.
 
-### Step 2: Launch the Desktop Client
+### 2. Launch the Desktop Client
 ```powershell
 ./__Builds/x64/bin/carbon-engine-client.exe
 ```
 
-### Typical Workflow
-1. **Stage Documents**: Drop corporate annual report PDFs into the ingestion panel.
-2. **Run Extraction**: Track progress and hardware metrics as the engine extracts disclosures.
-3. **Review & Edit**: Inspect extracted fields, verify numbers against source pages, and edit tabular arrays directly in the spreadsheet grid.
+### Workflow
+1. **Stage Documents**: Drop corporate annual report PDFs into the staging panel.
+2. **Run Extraction**: Track live section extraction and system telemetry.
+3. **Review & Edit**: Inspect extracted fields, verify page citations, and edit tabular grids directly.
 4. **Lock & Export**: Finalize disclosures and export audit-ready HTML/PDF reports.
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions from C++ developers, ML engineers, and ESG sustainability specialists!
+We welcome open-source contributions! Please review our [Contributing Guide](CONTRIBUTING.md) before starting.
 
-### How You Can Help
-- 📄 **Ingestion**: Expand file format support (`.xlsx`, `.docx`, `.xbrl`) and improve multi-column table extraction.
-- 🌐 **Taxonomies**: Add support for global standards like **GRI**, **CSRD / ESRS (EU)**, and **SEC Climate Disclosures**.
-- ⚡ **Performance**: Benchmark and optimize inference kernels and context window caching.
-- 🖥️ **User Experience**: Enhance desktop visualizations, themes, and accessibility.
-
-### Development Guidelines
-
-Please review our [Contributing Guide](CONTRIBUTING.md) before getting started:
-1. File an issue to discuss your approach before opening a PR for new features.
-2. Follow modern C++20 conventions, RAII practices, and format code using `.clang-format`.
-3. Adhere to our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
-4. Submit a clear Pull Request detailing your changes, setup constraints, and verification steps.
+- **Discuss First**: Open an issue to discuss design and approach before submitting a PR for new features.
+- **Standards**: Follow modern C++20 conventions, RAII practices, and format code with `.clang-format`.
+- **Policies**: Adhere to our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the [GNU General Public License v3.0 (GPLv3)](LICENSE).
 
 ---
 

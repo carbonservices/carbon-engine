@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="960px" height="440px" viewBox="0 0 960 440" content="&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2026-10-10T22:00:00.000Z&quot; agent=&quot;CarbonEngine&quot; version=&quot;24.0.0&quot; type=&quot;device&quot;&gt;
+  &lt;diagram id=&quot;HighLevelArchitecture&quot; name=&quot;HighLevelArchitecture&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1000&quot; dy=&quot;600&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;960&quot; pageHeight=&quot;460&quot; background=&quot;#ffffff&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot;/&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;
+        
+        &lt;mxCell id=&quot;c_client&quot; value=&quot;Desktop Client (carbon-engine-client)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#0284c7;strokeWidth=2;fontColor=#0369a1;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;30&quot; y=&quot;30&quot; width=&quot;260&quot; height=&quot;380&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;cli_ui&quot; value=&quot;Qt 6 Quick / QML Interface&amp;#xa;- Modern Dark/Light Workspace&amp;#xa;- Responsive Split-Pane Layout&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#38bdf8;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;80&quot; width=&quot;220&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;cli_staging&quot; value=&quot;Document Staging Panel&amp;#xa;- Drag-and-drop PDF ingestion&amp;#xa;- Multi-document job queuing&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#38bdf8;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;160&quot; width=&quot;220&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;cli_review&quot; value=&quot;Review &amp;amp; Table Editor&amp;#xa;- Spreadsheet grid (LoopFieldEditor)&amp;#xa;- In-place metric verification&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#38bdf8;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;240&quot; width=&quot;220&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;cli_telemetry&quot; value=&quot;Live Telemetry Display&amp;#xa;- Real-time CPU/RAM/VRAM stats&amp;#xa;- Live section extraction tracker&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#38bdf8;fontColor=#0369a1;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;50&quot; y=&quot;320&quot; width=&quot;220&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;ipc_box&quot; value=&quot;Local IPC / REST&amp;#xa;http://localhost:8080&amp;#xa;100% Air-Gapped&amp;#xa;Zero Cloud Egress&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#22c55e;strokeWidth=2;fontColor=#15803d;fontSize=11;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;320&quot; y=&quot;150&quot; width=&quot;140&quot; height=&quot;130&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;c_server&quot; value=&quot;Engine Daemon (carbon-engine) &amp;amp; Core Libraries&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#6366f1;strokeWidth=2;fontColor=#4338ca;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;490&quot; y=&quot;30&quot; width=&quot;440&quot; height=&quot;380&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        
+        &lt;mxCell id=&quot;srv_ingest&quot; value=&quot;Ingestion (src/libs/ingestion)&amp;#xa;PDFium parser + Tesseract OCR&amp;#xa;1500-char sliding chunking&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#3730a3;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;510&quot; y=&quot;80&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;srv_infer&quot; value=&quot;Inference (src/libs/inference)&amp;#xa;llama.cpp (CUDA / AVX2)&amp;#xa;BGE-Small &amp;amp; Qwen 2.5 7B&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#92400e;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;720&quot; y=&quot;80&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;srv_vec&quot; value=&quot;Vector Search (src/libs/vector)&amp;#xa;FAISS HNSW per-job partitions&amp;#xa;Intel MKL accelerated index&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fae8ff;strokeColor=#c084fc;fontColor=#6b21a8;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;510&quot; y=&quot;180&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;srv_report&quot; value=&quot;Report (src/libs/report)&amp;#xa;SEBI BRSR schemas &amp;amp; recovery&amp;#xa;Inja HTML/PDF exporter&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#f472b6;fontColor=#9d174d;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;720&quot; y=&quot;180&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;srv_db&quot; value=&quot;Database (src/libs/db)&amp;#xa;SQLite WAL embedded store&amp;#xa;Embedding BLOB durability&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#34d399;fontColor=#065f46;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;510&quot; y=&quot;280&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;srv_sys&quot; value=&quot;System (src/libs/system)&amp;#xa;Hardware metrics telemetry&amp;#xa;CPU, RAM, GPU VRAM, t/s&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#94a3b8;fontColor=#334155;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry x=&quot;720&quot; y=&quot;280&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;edge1&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284c7;strokeWidth=2;startArrow=classic;endArrow=classic;&quot; edge=&quot;1&quot; source=&quot;c_client&quot; target=&quot;ipc_box&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;edge2&quot; value=&quot;&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#6366f1;strokeWidth=2;startArrow=classic;endArrow=classic;&quot; edge=&quot;1&quot; source=&quot;ipc_box&quot; target=&quot;c_server&quot; parent=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;/&gt;
+        &lt;/mxCell&gt;
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;">
+  <defs>
+    <style type="text/css">
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    </style>
+  </defs>
+  <rect width="960" height="440" fill="#ffffff" rx="8"/>
+  
+  <!-- Client Container -->
+  <rect x="30" y="30" width="260" height="380" rx="8" fill="#f8fafc" stroke="#0284c7" stroke-width="2"/>
+  <text x="45" y="58" fill="#0369a1" font-size="13" font-weight="bold">Desktop Client (carbon-engine-client)</text>
+  
+  <!-- Client Items -->
+  <rect x="50" y="80" width="220" height="65" rx="6" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1"/>
+  <text x="60" y="102" fill="#0369a1" font-size="12" font-weight="bold">Qt 6 Quick / QML Interface</text>
+  <text x="60" y="120" fill="#0284c7" font-size="10.5">• Modern dark/light workspace</text>
+  <text x="60" y="135" fill="#0284c7" font-size="10.5">• Responsive split-pane layout</text>
+  
+  <rect x="50" y="160" width="220" height="65" rx="6" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1"/>
+  <text x="60" y="182" fill="#0369a1" font-size="12" font-weight="bold">Document Staging Panel</text>
+  <text x="60" y="200" fill="#0284c7" font-size="10.5">• Drag-and-drop PDF ingestion</text>
+  <text x="60" y="215" fill="#0284c7" font-size="10.5">• Multi-document job queuing</text>
+  
+  <rect x="50" y="240" width="220" height="65" rx="6" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1"/>
+  <text x="60" y="262" fill="#0369a1" font-size="12" font-weight="bold">Review &amp; Table Editor</text>
+  <text x="60" y="280" fill="#0284c7" font-size="10.5">• Spreadsheet grid table editing</text>
+  <text x="60" y="295" fill="#0284c7" font-size="10.5">• In-place metric verification</text>
+
+  <rect x="50" y="320" width="220" height="65" rx="6" fill="#e0f2fe" stroke="#38bdf8" stroke-width="1"/>
+  <text x="60" y="342" fill="#0369a1" font-size="12" font-weight="bold">Live Telemetry Display</text>
+  <text x="60" y="360" fill="#0284c7" font-size="10.5">• Real-time CPU, RAM &amp; VRAM</text>
+  <text x="60" y="375" fill="#0284c7" font-size="10.5">• Section extraction progress</text>
+
+  <!-- Communication Box -->
+  <path d="M 290 215 L 320 215" stroke="#0284c7" stroke-width="3" stroke-dasharray="4" fill="none"/>
+  <rect x="310" y="150" width="160" height="130" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <text x="390" y="180" text-anchor="middle" fill="#15803d" font-size="12" font-weight="bold">Local IPC / REST</text>
+  <text x="390" y="202" text-anchor="middle" fill="#0f172a" font-size="11" font-family="monospace">localhost:8080</text>
+  <text x="390" y="226" text-anchor="middle" fill="#16a34a" font-size="10.5" font-weight="bold">100% Air-Gapped</text>
+  <text x="390" y="244" text-anchor="middle" fill="#16a34a" font-size="10">Zero Cloud Egress</text>
+  <text x="390" y="262" text-anchor="middle" fill="#64748b" font-size="9.5">JSON Over Localhost</text>
+  <path d="M 470 215 L 490 215" stroke="#6366f1" stroke-width="3" stroke-dasharray="4" fill="none"/>
+
+  <!-- Server Container -->
+  <rect x="490" y="30" width="440" height="380" rx="8" fill="#f8fafc" stroke="#6366f1" stroke-width="2"/>
+  <text x="505" y="58" fill="#4338ca" font-size="13" font-weight="bold">Engine Daemon (carbon-engine) &amp; Core Libraries</text>
+
+  <!-- Core Libraries Grid -->
+  <!-- Row 1: Ingestion & Inference -->
+  <rect x="510" y="80" width="195" height="80" rx="6" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
+  <text x="520" y="102" fill="#3730a3" font-size="11.5" font-weight="bold">Ingestion (src/libs/ingestion)</text>
+  <text x="520" y="122" fill="#4f46e5" font-size="10">• PDFium native parser</text>
+  <text x="520" y="137" fill="#4f46e5" font-size="10">• Tesseract + Leptonica OCR</text>
+  <text x="520" y="152" fill="#4f46e5" font-size="10">• 1,500c sliding chunking</text>
+
+  <rect x="720" y="80" width="195" height="80" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="730" y="102" fill="#92400e" font-size="11.5" font-weight="bold">Inference (src/libs/inference)</text>
+  <text x="730" y="122" fill="#b45309" font-size="10">• llama.cpp (CUDA / AVX2)</text>
+  <text x="730" y="137" fill="#b45309" font-size="10">• BGE-Small (384-dim embed)</text>
+  <text x="730" y="152" fill="#b45309" font-size="10">• Qwen 2.5 7B Instruct (GGUF)</text>
+
+  <!-- Row 2: Vector Search & Report -->
+  <rect x="510" y="180" width="195" height="80" rx="6" fill="#fae8ff" stroke="#c084fc" stroke-width="1"/>
+  <text x="520" y="202" fill="#6b21a8" font-size="11.5" font-weight="bold">Vector Search (src/libs/vector)</text>
+  <text x="520" y="222" fill="#7e22ce" font-size="10">• FAISS HNSW indexes</text>
+  <text x="520" y="237" fill="#7e22ce" font-size="10">• Job-scoped partitioning</text>
+  <text x="520" y="252" fill="#7e22ce" font-size="10">• Intel MKL acceleration</text>
+
+  <rect x="720" y="180" width="195" height="80" rx="6" fill="#fce7f3" stroke="#f472b6" stroke-width="1"/>
+  <text x="730" y="202" fill="#9d174d" font-size="11.5" font-weight="bold">Report (src/libs/report)</text>
+  <text x="730" y="222" fill="#be185d" font-size="10">• SEBI BRSR taxonomy</text>
+  <text x="730" y="237" fill="#be185d" font-size="10">• Self-healing JSON recovery</text>
+  <text x="730" y="252" fill="#be185d" font-size="10">• Inja HTML/PDF exporter</text>
+
+  <!-- Row 3: Database & System -->
+  <rect x="510" y="280" width="195" height="80" rx="6" fill="#ecfdf5" stroke="#34d399" stroke-width="1" />
+  <text x="520" y="302" fill="#065f46" font-size="11.5" font-weight="bold">Database (src/libs/db)</text>
+  <text x="520" y="322" fill="#047857" font-size="10">• SQLite WAL journal mode</text>
+  <text x="520" y="337" fill="#047857" font-size="10">• Embedding BLOB durability</text>
+  <text x="520" y="352" fill="#047857" font-size="10">• Foreign key cascades</text>
+
+  <rect x="720" y="280" width="195" height="80" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="730" y="302" fill="#334155" font-size="11.5" font-weight="bold">System (src/libs/system)</text>
+  <text x="730" y="322" fill="#475569" font-size="10">• Live hardware telemetry</text>
+  <text x="730" y="337" fill="#475569" font-size="10">• CPU &amp; RAM monitoring</text>
+  <text x="730" y="352" fill="#475569" font-size="10">• GPU VRAM &amp; tokens/sec</text>
+</svg>
