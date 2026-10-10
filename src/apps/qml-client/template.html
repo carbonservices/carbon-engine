@@ -375,7 +375,7 @@
  <div class="stat-label">GHG Intensity (Scope 1+2)</div>
  <div class="stat-value">{{ default(scope_1_2_intensity_current, "N/A") }} <span class="stat-unit">t CO2e/₹Cr</span></div>
  {% if exists("scope_1_2_intensity_prev") and scope_1_2_intensity_prev != "" and scope_1_2_intensity_prev != "N/A" %}
- <div class="stat-delta {% if float(default(scope_1_2_intensity_current, "0")) <= float(default(scope_1_2_intensity_prev, "0")) %}up-good{% else %}down-bad{% endif %}">
+ <div class="stat-delta {% if default(scope_1_2_intensity_current, 0) <= default(scope_1_2_intensity_prev, 0) %}up-good{% else %}down-bad{% endif %}">
  vs FY {{ previous_fy }}: <span class="var">{{ scope_1_2_intensity_prev }}</span>
  </div>
  {% endif %}

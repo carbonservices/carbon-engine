@@ -111,7 +111,11 @@ Rectangle {
                     radius: 3
                     color: (appWindow.currentJobId === model.jobId)
                            ? appWindow.bgActive
-                           : (itemMouse.containsMouse ? appWindow.bgSubtle : "transparent")
+                           : (rowHover.hovered ? appWindow.bgSubtle : "transparent")
+
+                    HoverHandler {
+                        id: rowHover
+                    }
 
                     // Selection accent bar
                     Rectangle {
@@ -155,9 +159,10 @@ Rectangle {
                         }
                     }
 
-                    // Delete button (visible on hover or active)
+                    // Delete button (visible on hover)
                     Rectangle {
                         id: deleteBtn
+                        z: 2
                         width: 22
                         height: 22
                         radius: 3
@@ -165,7 +170,7 @@ Rectangle {
                         anchors.rightMargin: 6
                         anchors.verticalCenter: parent.verticalCenter
                         color: deleteMouse.containsMouse ? appWindow.bgHover : "transparent"
-                        visible: itemMouse.containsMouse || deleteMouse.containsMouse
+                        visible: rowHover.hovered
 
                         Text {
                             anchors.centerIn: parent
@@ -187,9 +192,10 @@ Rectangle {
 
                     MouseArea {
                         id: itemMouse
-                        anchors.fill: parent
-                        anchors.rightMargin: 28
-                        hoverEnabled: true
+                        anchors.left: parent.left
+                        anchors.right: deleteBtn.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             appWindow.selectReport(model.jobId)
