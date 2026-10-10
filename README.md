@@ -19,9 +19,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/application.png" width="940" alt="Carbon Engine Desktop Client Workspace"/>
+  <img src="docs/carbon-engine.gif" width="940" alt="Carbon Engine Desktop Client Workspace Demo"/>
   <br/>
-  <em>Carbon Engine Workspace: Real-time local extraction tracking, statutory gap cataloging, GPU/CPU telemetry.</em>
+  <em>Carbon Engine Desktop Workspace: Real-time local extraction tracking, statutory gap cataloging, and live GPU/CPU telemetry.</em>
 </p>
 
 ---
