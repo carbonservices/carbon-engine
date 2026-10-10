@@ -21,7 +21,7 @@
 <p align="center">
   <img src="docs/application.png" width="940" alt="Carbon Engine Desktop Client Workspace"/>
   <br/>
-  <em>Carbon Engine Desktop Workspace: Real-time local extraction tracking, statutory gap cataloging, and live GPU/CPU telemetry.</em>
+  <em>Carbon Engine Workspace: Real-time local extraction tracking, statutory gap cataloging, GPU/CPU telemetry.</em>
 </p>
 
 ---
@@ -56,10 +56,10 @@ Most cloud AI services require uploading sensitive financial binders to third-pa
 
 - **100% Air-Gapped**: Runs entirely on local hardware with zero outbound network calls or telemetry.
 - **Fast Document Ingestion**: Native PDF text extraction with OCR fallback for scanned pages.
-- **Hardware-Accelerated AI**: Powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) (CUDA / AVX2) and [FAISS](https://github.com/facebookresearch/faiss) vector search for local embeddings and structured extraction.
+- **Hardware-Accelerated AI**: [llama.cpp](https://github.com/ggerganov/llama.cpp) (CUDA / AVX2) & [FAISS](https://github.com/facebookresearch/faiss) vector search for embeddings and extraction.
 - **Targeted Statutory Extraction**: Extracts and maps metrics directly to official SEBI BRSR sections and principles.
-- **Fault-Tolerant Processing**: Built-in sanitization and self-healing JSON recovery handle model token cutoffs and formatting anomalies.
-- **Consultant Desktop UI**: Qt Quick desktop application with spreadsheet-style tabular editors and live GPU/CPU telemetry.
+- **Fault-Tolerant Processing**: Built-in sanitization to handle model token cutoffs and formatting anomalies.
+- **Consultant Desktop UI**: Qt Quick desktop application with editor support and device telemetry.
 - **Audit-Ready Reports**: Exports standalone HTML and PDF reports with interactive charts.
 
 ---
@@ -74,10 +74,10 @@ The engine decouples document processing and model inference from the desktop in
   <em>Client-server communication over local REST and internal engine library architecture.</em>
 </p>
 
-Detailed technical diagrams are available in `docs/` (all editable directly in [diagrams.net](https://app.diagrams.net) / Draw.io):
-- **[System Architecture](docs/architecture.drawio.svg)** - End-to-end multi-layer ingestion, chunking, [FAISS](https://github.com/facebookresearch/faiss) vector indexing, and local [llama.cpp](https://github.com/ggerganov/llama.cpp) inference pipeline.
+Detailed technical diagrams are available in `docs/`:
+- **[System Architecture](docs/architecture.drawio.svg)** - Multi-layer ingestion, chunking, [FAISS](https://github.com/facebookresearch/faiss) vector indexing, & local [llama.cpp](https://github.com/ggerganov/llama.cpp) inference.
 - **[Database Schema](docs/database_schema.drawio.svg)** - SQLite WAL relational tables, foreign key cascades, and embedding BLOB durability.
-- **[Statutory Extraction Pipeline](docs/extraction_pipeline.drawio.svg)** - Two-tier scoped retrieval, context budgeting, and 3-pass self-healing JSON recovery.
+- **[Statutory Extraction Pipeline](docs/extraction_pipeline.drawio.svg)** - Two-tier scoped retrieval, context budgeting.
 
 ---
 
