@@ -41,41 +41,48 @@ void PipelineStatusPoller::poll()
     url.setQuery(query);
 
     QNetworkReply *reply = network().get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, polledJobId]()
+    reply->setProperty("polledJobId", polledJobId);
+    connect(reply, &QNetworkReply::finished, this, &PipelineStatusPoller::onPollFinished);
+}
+
+void PipelineStatusPoller::onPollFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int polledJobId = reply->property("polledJobId").toInt();
+
+    if (_jobId != polledJobId || _jobId < 0) {
+        return;
+    }
+    if (reply->error() != QNetworkReply::NoError)
     {
-        reply->deleteLater();
-        if (_jobId != polledJobId || _jobId < 0) {
-            return;
-        }
-        if (reply->error() != QNetworkReply::NoError)
-        {
-            _log.error(QString("Poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
-            return;
-        }
+        _log.error(QString("Poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
+        return;
+    }
 
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        QJsonObject root = doc.object();
-        QString status = root.value("status").toString();
-        QJsonArray docs = root.value("documents").toArray();
+    auto doc = QJsonDocument::fromJson(reply->readAll());
+    QJsonObject root = doc.object();
+    QString status = root.value("status").toString();
+    QJsonArray docs = root.value("documents").toArray();
 
-        _log.info(QString("Job %1 status: %2, %3 document(s)").arg(_jobId).arg(status).arg(docs.size()));
+    _log.info(QString("Job %1 status: %2, %3 document(s)").arg(_jobId).arg(status).arg(docs.size()));
 
-        emit statusUpdated(status, docs);
+    emit statusUpdated(status, docs);
 
-        if (status == JobStatus::Completed)
-        {
-            _timer.stop();
-            emit completed();
-        }
-        else if (status == JobStatus::Failed)
-        {
-            _timer.stop();
-            emit failed("Ingestion failed");
-        }
-        else if (status == JobStatus::Cancelled)
-        {
-            _timer.stop();
-            emit cancelled();
-        }
-    });
+    if (status == JobStatus::Completed)
+    {
+        _timer.stop();
+        emit completed();
+    }
+    else if (status == JobStatus::Failed)
+    {
+        _timer.stop();
+        emit failed("Ingestion failed");
+    }
+    else if (status == JobStatus::Cancelled)
+    {
+        _timer.stop();
+        emit cancelled();
+    }
 }

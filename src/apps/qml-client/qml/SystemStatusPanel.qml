@@ -5,7 +5,7 @@ import CarbonEngineClient
 
 Rectangle {
     Layout.fillWidth: true
-    Layout.preferredHeight: 305
+    Layout.preferredHeight: 330
     color: Theme.bgSidebar
     radius: 4
     border.color: Theme.borderCol
@@ -62,6 +62,11 @@ Rectangle {
                 label: "Mode"
                 value: (!poller || !poller.isConnected) ? "Disconnected" : "Offline (Air-Gapped)"
                 valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
+            }
+            StatusRow {
+                label: "Workload"
+                value: poller ? poller.workloadTitle : "Non-GPU Workload"
+                valueColor: Theme.brandAccent
             }
             StatusRow {
                 label: "Model"

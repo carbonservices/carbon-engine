@@ -9,24 +9,90 @@
 #include <nlohmann/json.hpp>
 #include <unordered_set>
 
-namespace {
+#include <QThreadPool>
+#include <QRunnable>
 
-QString getLoopFieldHint(const QString& key) {
-    return BRSRSchemaCatalog::loopFieldHint(key);
-}
+class AsyncExtractionTask : public QRunnable {
+public:
+    AsyncExtractionTask(ReportExtractionService* service, int jobId)
+        : _service(service), _jobId(jobId) {}
 
-nlohmann::json parseOrRecoverJson(const std::string& raw) {
-    return JsonRepairEngine::parseOrRecoverJson(raw);
-}
+    void run() override {
+        if (_service) {
+            _service->extractJob(_jobId);
+        }
+    }
 
-} // namespace
+private:
+    ReportExtractionService* _service;
+    int _jobId;
+};
+
+struct JsonStreamTokenCollector {
+    std::atomic<bool>& cancelRequested;
+    bool& firstToken;
+    qint64& prefillTime;
+    const QElapsedTimer& genTimer;
+    std::string& generatedJson;
+    int& tokenCount;
+    int braceDepth{1};
+    bool inString{false};
+    bool escapeNext{false};
+
+    bool operator()(const std::string& token) {
+        if (cancelRequested.load()) {
+            return false;
+        }
+
+        if (firstToken) {
+            prefillTime = genTimer.elapsed();
+            firstToken = false;
+        }
+
+        generatedJson += token;
+        tokenCount++;
+
+        // Track balanced braces to stop right after root JSON closing brace
+        for (char c : token) {
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (c == '\\') {
+                escapeNext = true;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString) {
+                if (c == '{') braceDepth++;
+                else if (c == '}') {
+                    braceDepth--;
+                    if (braceDepth <= 0) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+};
 
 ReportExtractionService::ReportExtractionService(Database& db, LlamaEngine& llama,
                                                  VectorIndexRegistry& indexRegistry,
                                                  const BRSRSchemaCatalog& catalog,
-                                                 SystemMonitor& monitor)
-    : _db(db), _llama(llama), _indexRegistry(indexRegistry), _catalog(catalog), _monitor(monitor), _factStore(&db)
+                                                 SystemMonitor& monitor,
+                                                 QObject* parent)
+    : QObject(parent), _db(db), _llama(llama), _indexRegistry(indexRegistry), _catalog(catalog), _monitor(monitor), _factStore(&db)
 {
+}
+
+void ReportExtractionService::startAsyncExtraction(int jobId)
+{
+    _log.info(QString("Starting asynchronous statutory extraction for job %1").arg(jobId));
+    QThreadPool::globalInstance()->start(new AsyncExtractionTask(this, jobId));
 }
 
 ReportExtractionService::GroupContext ReportExtractionService::retrieveContextForGroup(
@@ -106,7 +172,7 @@ QString ReportExtractionService::buildInstructions(int jobId, const FieldGroup& 
         fieldList += "- " + key + ": a short narrative paragraph grounded only in the context below\n";
     }
     for (const QString& key : group.loopFieldKeys) {
-        fieldList += "- " + key + ": " + getLoopFieldHint(key) + "\n";
+        fieldList += "- " + key + ": " + BRSRSchemaCatalog::loopFieldHint(key) + "\n";
     }
 
     QString knownFacts = _factStore.formatKnownFactsForPrompt(jobId);
@@ -174,45 +240,8 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
 
     _monitor.setEnginePhase(EnginePhase::Inferencing);
 
-    _llama.streamCompletion(prompt, [&](const std::string& token) -> bool {
-        if (_cancelRequested.load()) {
-            return false;
-        }
-
-        if (firstToken) {
-            prefillTime = genTimer.elapsed();
-            firstToken = false;
-        }
-
-        generatedJson += token;
-        tokenCount++;
-
-        // Track balanced braces to stop right after root JSON closing brace
-        for (char c : token) {
-            if (escapeNext) {
-                escapeNext = false;
-                continue;
-            }
-            if (c == '\\') {
-                escapeNext = true;
-                continue;
-            }
-            if (c == '"') {
-                inString = !inString;
-                continue;
-            }
-            if (!inString) {
-                if (c == '{') braceDepth++;
-                else if (c == '}') {
-                    braceDepth--;
-                    if (braceDepth <= 0) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }, options);
+    JsonStreamTokenCollector collector{_cancelRequested, firstToken, prefillTime, genTimer, generatedJson, tokenCount};
+    _llama.streamCompletion(prompt, std::ref(collector), options);
 
     _monitor.setEnginePhase(EnginePhase::Idle);
 
@@ -224,7 +253,7 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
     outDecodeMs = genTimer.elapsed() - prefillTime;
     outTokensGenerated = tokenCount;
 
-    nlohmann::json parsed = parseOrRecoverJson(generatedJson);
+    nlohmann::json parsed = JsonRepairEngine::parseOrRecoverJson(generatedJson);
     if (parsed.is_null() || !parsed.is_object()) {
         _log.error(QString("Failed to salvage JSON for group %1").arg(group.id));
         parsed = nlohmann::json::object();

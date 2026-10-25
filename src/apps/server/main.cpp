@@ -49,9 +49,7 @@ int runServerDaemon(int argc, char *argv[])
         return 1;
     }
 
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&llama]() {
-        llama.shutdown();
-    });
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, &llama, &LlamaEngine::shutdown);
 
     VectorIndexRegistry indexRegistry(kEmbeddingDim, &db);
     DocumentProcessor docProcessor;
@@ -63,12 +61,7 @@ int runServerDaemon(int argc, char *argv[])
     ReportExtractionService extractionService(db, llama, indexRegistry, schemaCatalog, monitor);
     ReportExporter exporter(db, schemaCatalog);
 
-    QObject::connect(&jobQueue, &JobQueue::jobCompleted, [&extractionService, &log](int jobId) {
-        log.info(QString("Job %1 ingestion complete. Automatically advancing to statutory extraction on backend...").arg(jobId));
-        QThreadPool::globalInstance()->start([&extractionService, jobId]() {
-            extractionService.extractJob(jobId);
-        });
-    });
+    QObject::connect(&jobQueue, &JobQueue::jobCompleted, &extractionService, &ReportExtractionService::startAsyncExtraction);
 
     HttpServer server(db, llama, indexRegistry, monitor, schemaCatalog, extractionService, exporter, jobQueue);
     if (!server.listen(kDefaultPort))

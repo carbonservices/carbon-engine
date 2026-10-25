@@ -72,6 +72,12 @@ jobs:
           echo "VERSION=${V}" >> $GITHUB_OUTPUT
           echo "CARBON_ENGINE_VERSION=${V}" >> $GITHUB_ENV
 
+      - name: Cache AI Models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: ${{ runner.os }}-ai-models-v1
+
       - name: Configure CMake
         shell: bash
         run: |
@@ -79,7 +85,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=ON
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
@@ -105,8 +111,8 @@ jobs:
         with:
           name: windows-installers
           path: |
-            build/CarbonESG-*-Windows-x64.exe
-            build/CarbonESG-*-Windows-x64.zip
+            build/CarbonESG-*-Windows-x64*.exe
+            build/CarbonESG-*-Windows-x64*.zip
           retention-days: 14
 
   # ─────────────────────────────────────────────────────────────
@@ -181,13 +187,19 @@ jobs:
           echo "VERSION=${V}" >> $GITHUB_OUTPUT
           echo "CARBON_ENGINE_VERSION=${V}" >> $GITHUB_ENV
 
+      - name: Cache AI Models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: ${{ runner.os }}-ai-models-v1
+
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="/home/runner/work/Qt/6.10.0/gcc_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=ON
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
@@ -207,8 +219,8 @@ jobs:
         with:
           name: linux-installers
           path: |
-            build/CarbonESG-*-Linux-x64.deb
-            build/CarbonESG-*-Linux-x64.tar.gz
+            build/CarbonESG-*-Linux-x64*.deb
+            build/CarbonESG-*-Linux-x64*.tar.gz
           retention-days: 14
 
   # ─────────────────────────────────────────────────────────────

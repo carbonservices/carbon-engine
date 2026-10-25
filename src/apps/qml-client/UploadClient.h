@@ -22,6 +22,10 @@ signals:
     void jobCancelled(int jobId);
     void uploadFailed(const QString& reason);
 
+private slots:
+    void onUploadFinished();
+    void onCancelJobFinished();
+
 private:
     Logger _log{"QmlClient.UploadClient"};
 };

@@ -16,15 +16,64 @@
 #include <QFile>
 #include <QCoreApplication>
 
-namespace {
-QHttpServerResponse jsonError(QHttpServerResponder::StatusCode code, const QString &message)
+static QHttpServerResponse jsonError(QHttpServerResponder::StatusCode code, const QString &message)
 {
     QJsonObject obj;
     obj["error"] = message;
     obj["status_code"] = static_cast<int>(code);
     return QHttpServerResponse(obj, code);
 }
-} // namespace
+
+void HttpServer::handleCorsAfterRequest(const QHttpServerRequest &, QHttpServerResponse &resp)
+{
+    QHttpHeaders headers = resp.headers();
+    headers.replaceOrAppend("Access-Control-Allow-Origin", "*");
+    headers.replaceOrAppend("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    headers.replaceOrAppend("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    resp.setHeaders(std::move(headers));
+}
+
+void HttpServer::handleMissingRequest(const QHttpServerRequest &req, QHttpServerResponder &responder)
+{
+    if (req.method() == QHttpServerRequest::Method::Options) {
+        QHttpServerResponse resp(QHttpServerResponder::StatusCode::NoContent);
+        QHttpHeaders headers;
+        headers.append("Access-Control-Allow-Origin", "*");
+        headers.append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        headers.append("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        headers.append("Access-Control-Max-Age", "86400");
+        resp.setHeaders(std::move(headers));
+        responder.sendResponse(std::move(resp));
+        return;
+    }
+    QJsonObject err;
+    err["error"] = "Not Found";
+    err["status_code"] = 404;
+    QHttpServerResponse resp(err, QHttpServerResponder::StatusCode::NotFound);
+    QHttpHeaders headers = resp.headers();
+    headers.append("Access-Control-Allow-Origin", "*");
+    resp.setHeaders(std::move(headers));
+    responder.sendResponse(std::move(resp));
+}
+
+QHttpServerResponse HttpServer::handleServeLogo(const QHttpServerRequest &)
+{
+    QString logoPath = QCoreApplication::applicationDirPath() + "/" + AppInfo::LogoFileName;
+    QFile file(logoPath);
+    if (!file.exists()) {
+        file.setFileName(AppInfo::LogoFileName);
+    }
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray data = file.readAll();
+        QHttpServerResponse resp("image/png", data);
+        QHttpHeaders headers = resp.headers();
+        headers.append("Access-Control-Allow-Origin", "*");
+        headers.append("Cache-Control", "public, max-age=86400");
+        resp.setHeaders(std::move(headers));
+        return resp;
+    }
+    return jsonError(QHttpServerResponder::StatusCode::NotFound, "logo.png not found on disk");
+}
 
 HttpServer::HttpServer(Database &db, LlamaEngine &llama,
                        VectorIndexRegistry &indexRegistry,
@@ -37,116 +86,29 @@ HttpServer::HttpServer(Database &db, LlamaEngine &llama,
       _reportService(db, catalog), _jobQueue(jobQueue)
 {
     // Global CORS middleware: inject Access-Control headers into all responses
-    _server.addAfterRequestHandler(this, [](const QHttpServerRequest &, QHttpServerResponse &resp) {
-        QHttpHeaders headers = resp.headers();
-        headers.replaceOrAppend("Access-Control-Allow-Origin", "*");
-        headers.replaceOrAppend("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        headers.replaceOrAppend("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        resp.setHeaders(std::move(headers));
-    });
+    _server.addAfterRequestHandler(this, &HttpServer::handleCorsAfterRequest);
 
     // Global OPTIONS preflight and 404 JSON fallback handler
-    _server.setMissingHandler(this, [](const QHttpServerRequest &req, QHttpServerResponder &responder) {
-        if (req.method() == QHttpServerRequest::Method::Options) {
-            QHttpServerResponse resp(QHttpServerResponder::StatusCode::NoContent);
-            QHttpHeaders headers;
-            headers.append("Access-Control-Allow-Origin", "*");
-            headers.append("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            headers.append("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            headers.append("Access-Control-Max-Age", "86400");
-            resp.setHeaders(std::move(headers));
-            responder.sendResponse(std::move(resp));
-            return;
-        }
-        QJsonObject err;
-        err["error"] = "Not Found";
-        err["status_code"] = 404;
-        QHttpServerResponse resp(err, QHttpServerResponder::StatusCode::NotFound);
-        QHttpHeaders headers = resp.headers();
-        headers.append("Access-Control-Allow-Origin", "*");
-        resp.setHeaders(std::move(headers));
-        responder.sendResponse(std::move(resp));
-    });
+    _server.setMissingHandler(this, &HttpServer::handleMissingRequest);
 
-    _server.route(ApiRoutes::Ingest, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleIngest(req); });
+    _server.route(ApiRoutes::Ingest, QHttpServerRequest::Method::Post, this, &HttpServer::handleIngest);
+    _server.route(ApiRoutes::Jobs, QHttpServerRequest::Method::Get, this, &HttpServer::handleJobStatus);
+    _server.route(ApiRoutes::System, QHttpServerRequest::Method::Get, this, &HttpServer::handleSystemStatus);
+    _server.route(ApiRoutes::ExtractionStart, QHttpServerRequest::Method::Post, this, &HttpServer::handleExtractionStart);
+    _server.route(ApiRoutes::ExtractionStatus, QHttpServerRequest::Method::Get, this, &HttpServer::handleExtractionStatus);
+    _server.route(ApiRoutes::ExtractionCancel, QHttpServerRequest::Method::Post, this, &HttpServer::handleExtractionCancel);
+    _server.route(ApiRoutes::JobCancel, QHttpServerRequest::Method::Post, this, &HttpServer::handleJobCancel);
+    _server.route(ApiRoutes::ExtractionSections, QHttpServerRequest::Method::Get, this, &HttpServer::handleExtractionSections);
+    _server.route(ApiRoutes::ExtractionSections, QHttpServerRequest::Method::Put, this, &HttpServer::handleExtractionSectionUpdate);
+    _server.route(ApiRoutes::ExtractionAccept, QHttpServerRequest::Method::Post, this, &HttpServer::handleExtractionAccept);
+    _server.route(ApiRoutes::ReportExport, QHttpServerRequest::Method::Post, this, &HttpServer::handleReportExport);
+    _server.route(ApiRoutes::Reports, QHttpServerRequest::Method::Get, this, &HttpServer::handleReportsList);
+    _server.route(ApiRoutes::Reports, QHttpServerRequest::Method::Delete, this, &HttpServer::handleReportDelete);
+    _server.route(ApiRoutes::Documents, QHttpServerRequest::Method::Get, this, &HttpServer::handleJobDocuments);
+    _server.route(ApiRoutes::SchemaBrsr, QHttpServerRequest::Method::Get, this, &HttpServer::handleGetSchemaBrsr);
 
-    _server.route(ApiRoutes::Jobs, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleJobStatus(req); });
-
-    _server.route(ApiRoutes::System, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleSystemStatus(req); });
-
-    _server.route(ApiRoutes::ExtractionStart, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionStart(req); });
-
-    _server.route(ApiRoutes::ExtractionStatus, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionStatus(req); });
-
-    _server.route(ApiRoutes::ExtractionCancel, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionCancel(req); });
-
-    _server.route(ApiRoutes::JobCancel, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleJobCancel(req); });
-
-    _server.route(ApiRoutes::ExtractionSections, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionSections(req); });
-
-    _server.route(ApiRoutes::ExtractionSections, QHttpServerRequest::Method::Put,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionSectionUpdate(req); });
-
-    _server.route(ApiRoutes::ExtractionAccept, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleExtractionAccept(req); });
-
-    _server.route(ApiRoutes::ReportExport, QHttpServerRequest::Method::Post,
-                  [this](const QHttpServerRequest &req)
-                  { return handleReportExport(req); });
-
-    _server.route(ApiRoutes::Reports, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleReportsList(req); });
-
-    _server.route(ApiRoutes::Reports, QHttpServerRequest::Method::Delete,
-                  [this](const QHttpServerRequest &req)
-                  { return handleReportDelete(req); });
-
-    _server.route(ApiRoutes::Documents, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleJobDocuments(req); });
-
-    _server.route(ApiRoutes::SchemaBrsr, QHttpServerRequest::Method::Get,
-                  [this](const QHttpServerRequest &req)
-                  { return handleGetSchemaBrsr(req); });
-
-    auto serveLogo = [](const QHttpServerRequest &) {
-        QString logoPath = QCoreApplication::applicationDirPath() + "/" + AppInfo::LogoFileName;
-        QFile file(logoPath);
-        if (!file.exists()) {
-            file.setFileName(AppInfo::LogoFileName);
-        }
-        if (file.open(QIODevice::ReadOnly)) {
-            QByteArray data = file.readAll();
-            QHttpServerResponse resp("image/png", data);
-            QHttpHeaders headers = resp.headers();
-            headers.append("Access-Control-Allow-Origin", "*");
-            headers.append("Cache-Control", "public, max-age=86400");
-            resp.setHeaders(std::move(headers));
-            return resp;
-        }
-        return QHttpServerResponse(QHttpServerResponder::StatusCode::NotFound);
-    };
-    _server.route("/logo.png", QHttpServerRequest::Method::Get, serveLogo);
-    _server.route("/api/logo", QHttpServerRequest::Method::Get, serveLogo);
+    _server.route("/logo.png", QHttpServerRequest::Method::Get, &HttpServer::handleServeLogo);
+    _server.route("/api/logo", QHttpServerRequest::Method::Get, &HttpServer::handleServeLogo);
 }
 
 bool HttpServer::listen(quint16 port)
@@ -283,10 +245,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServer
         return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
     }
 
-    _log.info(QString("Starting asynchronous statutory extraction for job %1").arg(jobId));
-    QThreadPool::globalInstance()->start([this, jobId]() {
-        _extractionService.extractJob(jobId);
-    });
+    _extractionService.startAsyncExtraction(jobId);
 
     QJsonObject resp;
     resp["job_id"] = jobId;

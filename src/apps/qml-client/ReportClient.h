@@ -29,6 +29,12 @@ signals:
     void reportDeleted(int jobId);
     void reportDeleteFailed(const QString& reason);
 
+private slots:
+    void onFetchReportFinished();
+    void onFetchReportsFinished();
+    void onDeleteReportFinished();
+    void onFetchDocumentsFinished();
+
 private:
     Logger _log{"QmlClient.ReportClient"};
 };

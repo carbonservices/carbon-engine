@@ -164,15 +164,17 @@ QString LlamaEngine::offloadModeString() const
     return QStringLiteral("CPU Only (0L)");
 }
 
+void LlamaEngine::onResetIdleTimer()
+{
+    if (_idleTimer && _idleTimeoutSec > 0) {
+        _idleTimer->start(_idleTimeoutSec * 1000);
+    }
+}
+
 void LlamaEngine::resetIdleTimer()
 {
     if (!_idleTimer || _idleTimeoutSec <= 0) return;
-
-    QMetaObject::invokeMethod(_idleTimer, [this]() {
-        if (_idleTimer && _idleTimeoutSec > 0) {
-            _idleTimer->start(_idleTimeoutSec * 1000);
-        }
-    }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, &LlamaEngine::onResetIdleTimer, Qt::QueuedConnection);
 }
 
 void LlamaEngine::scheduleIdleUnload(int timeoutSeconds)

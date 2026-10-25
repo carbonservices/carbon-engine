@@ -3,9 +3,7 @@
 #include <nlohmann/json.hpp>
 #include <cmath>
 
-namespace {
-
-bool tryParseNumber(const nlohmann::json& value, double& outNumber)
+static bool tryParseNumber(const nlohmann::json& value, double& outNumber)
 {
     if (value.is_number()) {
         outNumber = value.get<double>();
@@ -31,7 +29,7 @@ bool tryParseNumber(const nlohmann::json& value, double& outNumber)
     return false;
 }
 
-void checkMissingAndRangeIssues(const QString& groupId, const nlohmann::json& data, QVector<ValidationIssue>& issues)
+static void checkMissingAndRangeIssues(const QString& groupId, const nlohmann::json& data, QVector<ValidationIssue>& issues)
 {
     for (auto& [key, value] : data.items()) {
         QString fieldName = QString::fromStdString(key);
@@ -298,30 +296,33 @@ void checkOperationsConsistency(const QString& groupId, const nlohmann::json& da
     }
 }
 
-void checkComplaintsConsistency(const QString& groupId, const nlohmann::json& data, QVector<ValidationIssue>& issues)
+static void checkPendingVsFiled(const QString& groupId, const nlohmann::json& data,
+                                const char* pendingKey, const char* filedKey,
+                                const QString& label, QVector<ValidationIssue>& issues)
 {
-    auto checkPendingVsFiled = [&](const char* pendingKey, const char* filedKey, const QString& label) {
-        if (data.contains(pendingKey) && data.contains(filedKey)) {
-            double pending = 0.0;
-            double filed = 0.0;
-            if (tryParseNumber(data[pendingKey], pending) && tryParseNumber(data[filedKey], filed)) {
-                if (pending > filed) {
-                    ValidationIssue issue;
-                    issue.groupId = groupId;
-                    issue.fieldKey = QString::fromLatin1(pendingKey);
-                    issue.message = QString("%1: pending complaints (%2) exceed complaints filed (%3)")
-                        .arg(label).arg(pending).arg(filed);
-                    issue.severity = "WARNING";
-                    issues.append(issue);
-                }
+    if (data.contains(pendingKey) && data.contains(filedKey)) {
+        double pending = 0.0;
+        double filed = 0.0;
+        if (tryParseNumber(data[pendingKey], pending) && tryParseNumber(data[filedKey], filed)) {
+            if (pending > filed) {
+                ValidationIssue issue;
+                issue.groupId = groupId;
+                issue.fieldKey = QString::fromLatin1(pendingKey);
+                issue.message = QString("%1: pending complaints (%2) exceed complaints filed (%3)")
+                    .arg(label).arg(pending).arg(filed);
+                issue.severity = "WARNING";
+                issues.append(issue);
             }
         }
-    };
+    }
+}
 
-    checkPendingVsFiled("p3_wc_pending_current", "p3_wc_filed_current", "working conditions (current FY)");
-    checkPendingVsFiled("p3_wc_pending_prev", "p3_wc_filed_prev", "working conditions (previous FY)");
-    checkPendingVsFiled("p3_hs_pending_current", "p3_hs_filed_current", "health & safety (current FY)");
-    checkPendingVsFiled("p3_hs_pending_prev", "p3_hs_filed_prev", "health & safety (previous FY)");
+static void checkComplaintsConsistency(const QString& groupId, const nlohmann::json& data, QVector<ValidationIssue>& issues)
+{
+    checkPendingVsFiled(groupId, data, "p3_wc_pending_current", "p3_wc_filed_current", "working conditions (current FY)", issues);
+    checkPendingVsFiled(groupId, data, "p3_wc_pending_prev", "p3_wc_filed_prev", "working conditions (previous FY)", issues);
+    checkPendingVsFiled(groupId, data, "p3_hs_pending_current", "p3_hs_filed_current", "health & safety (current FY)", issues);
+    checkPendingVsFiled(groupId, data, "p3_hs_pending_prev", "p3_hs_filed_prev", "health & safety (previous FY)", issues);
 
     if (data.contains("stakeholder_grievances") && data["stakeholder_grievances"].is_array()) {
         for (const auto& row : data["stakeholder_grievances"]) {
@@ -343,8 +344,6 @@ void checkComplaintsConsistency(const QString& groupId, const nlohmann::json& da
         }
     }
 }
-
-} // namespace
 
 QVector<ValidationIssue> ReportValidator::validateIssues(const QVector<ReportSection>& sections)
 {

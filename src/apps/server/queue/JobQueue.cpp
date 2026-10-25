@@ -5,6 +5,25 @@
 #include <QThreadPool>
 #include <unordered_map>
 
+#include <QRunnable>
+
+class JobWorkerTask : public QRunnable {
+public:
+    JobWorkerTask(JobQueue* queue, int jobId, QVector<JobDocument> documents)
+        : _queue(queue), _jobId(jobId), _documents(std::move(documents)) {}
+
+    void run() override {
+        if (_queue) {
+            _queue->executeJob(_jobId, _documents);
+        }
+    }
+
+private:
+    JobQueue* _queue;
+    int _jobId;
+    QVector<JobDocument> _documents;
+};
+
 JobQueue::JobQueue(Database &db, DocumentProcessor &proc, LlamaEngine &llama, VectorIndexRegistry &indexRegistry, QObject *parent)
     : QObject(parent), _db(db), _proc(proc), _llama(llama), _indexRegistry(indexRegistry)
 {
@@ -51,8 +70,11 @@ void JobQueue::pollNextJob()
     }
     _log.info(QString("Job %1 PROCESSING: %2 document(s)").arg(jobId).arg(documents.size()));
 
-    QThreadPool::globalInstance()->start([this, jobId, documents]()
-    {
+    QThreadPool::globalInstance()->start(new JobWorkerTask(this, jobId, documents));
+}
+
+void JobQueue::executeJob(int jobId, const QVector<JobDocument>& documents)
+{
         bool inTx = false;
         try
         {
@@ -176,6 +198,5 @@ void JobQueue::pollNextJob()
 
         // Check for subsequent jobs
         pollNextJob();
-    });
 }
 

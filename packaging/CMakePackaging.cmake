@@ -57,9 +57,6 @@ if(WIN32)
     )
 
     install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-    install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
         DESTINATION templates
     )
     install(FILES "${CMAKE_SOURCE_DIR}/src/apps/qml-client/logo.png"
@@ -129,9 +126,9 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/README.md")
 
 if(WIN32)
     set(CPACK_GENERATOR "NSIS;ZIP")
-    set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Windows-x64")
-    set(CPACK_NSIS_PACKAGE_NAME "Carbon ESG")
-    set(CPACK_NSIS_DISPLAY_NAME "Carbon ESG")
+    set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Windows-x64-${CARBON_WORKLOAD_TAG}")
+    set(CPACK_NSIS_PACKAGE_NAME "Carbon ESG Workspace (${CARBON_WORKLOAD_TITLE})")
+    set(CPACK_NSIS_DISPLAY_NAME "Carbon ESG Workspace (${CARBON_WORKLOAD_TITLE})")
     set(CPACK_NSIS_HELP_LINK "https://carbonservices.io")
     set(CPACK_NSIS_URL_INFO_ABOUT "https://carbonservices.io")
     set(CPACK_NSIS_CONTACT "support@carbonservices.io")
@@ -156,16 +153,15 @@ if(WIN32)
       DeleteRegValue HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray'
     ")
     set(CPACK_PACKAGE_EXECUTABLES
-        "carbon-engine-client" "Carbon ESG"
-        "carbon-tray" "Carbon Engine Service Manager"
+        "carbon-tray" "Carbon ESG Workspace"
     )
-    set(CPACK_CREATE_DESKTOP_LINKS "carbon-engine-client")
+    set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray")
 else()
     set(CPACK_GENERATOR "DEB;TGZ")
-    set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64")
+    set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")
     set(CPACK_DEBIAN_PACKAGE_NAME "carbon-esg")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Carbon Services <support@carbonservices.io>")
-    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Carbon ESG statutory BRSR reporting engine and desktop application by Carbon Services.")
+    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Carbon ESG statutory BRSR reporting engine and desktop application by Carbon Services (${CARBON_WORKLOAD_TITLE}).")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonservices.io")

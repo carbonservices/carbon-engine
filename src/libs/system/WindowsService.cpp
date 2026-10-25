@@ -10,15 +10,13 @@
 #include <QCoreApplication>
 #include <QThread>
 
-namespace {
+static std::function<int(int, char**)> g_runDaemonFunc;
+static SERVICE_STATUS_HANDLE g_statusHandle = NULL;
+static SERVICE_STATUS g_serviceStatus = {};
+static int g_serviceArgc = 0;
+static char** g_serviceArgv = nullptr;
 
-std::function<int(int, char**)> g_runDaemonFunc;
-SERVICE_STATUS_HANDLE g_statusHandle = NULL;
-SERVICE_STATUS g_serviceStatus = {};
-int g_serviceArgc = 0;
-char** g_serviceArgv = nullptr;
-
-void ReportServiceStatus(DWORD currentState, DWORD exitCode, DWORD waitHint)
+static void ReportServiceStatus(DWORD currentState, DWORD exitCode, DWORD waitHint)
 {
     static DWORD checkPoint = 1;
 
@@ -41,7 +39,7 @@ void ReportServiceStatus(DWORD currentState, DWORD exitCode, DWORD waitHint)
     SetServiceStatus(g_statusHandle, &g_serviceStatus);
 }
 
-DWORD WINAPI ServiceCtrlHandler(DWORD ctrl, DWORD /*eventType*/, LPVOID /*eventData*/, LPVOID /*context*/)
+static DWORD WINAPI ServiceCtrlHandler(DWORD ctrl, DWORD /*eventType*/, LPVOID /*eventData*/, LPVOID /*context*/)
 {
     switch (ctrl) {
     case SERVICE_CONTROL_STOP:
@@ -55,7 +53,7 @@ DWORD WINAPI ServiceCtrlHandler(DWORD ctrl, DWORD /*eventType*/, LPVOID /*eventD
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-VOID WINAPI ServiceMain(DWORD /*argc*/, LPWSTR* /*argv*/)
+static VOID WINAPI ServiceMain(DWORD /*argc*/, LPWSTR* /*argv*/)
 {
     g_serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
     g_serviceStatus.dwServiceSpecificExitCode = 0;
@@ -75,11 +73,7 @@ VOID WINAPI ServiceMain(DWORD /*argc*/, LPWSTR* /*argv*/)
     ReportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0);
 }
 
-} // namespace
-
-namespace WindowsService {
-
-bool installService(QString& outMessage)
+bool WindowsService::installService(QString& outMessage)
 {
     WCHAR path[MAX_PATH];
     if (!GetModuleFileNameW(NULL, path, MAX_PATH)) {
@@ -132,7 +126,7 @@ bool installService(QString& outMessage)
     return true;
 }
 
-bool uninstallService(QString& outMessage)
+bool WindowsService::uninstallService(QString& outMessage)
 {
     SC_HANDLE scm = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (!scm) {
@@ -169,7 +163,7 @@ bool uninstallService(QString& outMessage)
     return true;
 }
 
-bool startService(QString& outMessage)
+bool WindowsService::startService(QString& outMessage)
 {
     SC_HANDLE scm = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm) {
@@ -210,7 +204,7 @@ bool startService(QString& outMessage)
     return true;
 }
 
-bool stopService(QString& outMessage)
+bool WindowsService::stopService(QString& outMessage)
 {
     SC_HANDLE scm = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm) {
@@ -245,7 +239,7 @@ bool stopService(QString& outMessage)
     return true;
 }
 
-bool isServiceInstalled()
+bool WindowsService::isServiceInstalled()
 {
     SC_HANDLE scm = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm) return false;
@@ -257,7 +251,7 @@ bool isServiceInstalled()
     return installed;
 }
 
-bool isServiceRunning()
+bool WindowsService::isServiceRunning()
 {
     SC_HANDLE scm = OpenSCManagerW(NULL, NULL, SC_MANAGER_CONNECT);
     if (!scm) return false;
@@ -280,7 +274,7 @@ bool isServiceRunning()
     return running;
 }
 
-bool handleServiceCommands(int argc, char* argv[], std::function<int(int, char**)> runDaemonFunc)
+bool WindowsService::handleServiceCommands(int argc, char* argv[], std::function<int(int, char**)> runDaemonFunc)
 {
     if (argc < 2) {
         return false;
@@ -331,22 +325,16 @@ bool handleServiceCommands(int argc, char* argv[], std::function<int(int, char**
     return false;
 }
 
-} // namespace WindowsService
-
 #else
 
 // Non-Windows POSIX stub implementation
-namespace WindowsService {
-
-bool installService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
-bool uninstallService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
-bool startService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
-bool stopService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
-bool isServiceInstalled() { return false; }
-bool isServiceRunning() { return false; }
-bool handleServiceCommands(int, char*[], std::function<int(int, char**)>) { return false; }
-
-} // namespace WindowsService
+bool WindowsService::installService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
+bool WindowsService::uninstallService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
+bool WindowsService::startService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
+bool WindowsService::stopService(QString& outMessage) { outMessage = "Windows Services not supported on POSIX."; return false; }
+bool WindowsService::isServiceInstalled() { return false; }
+bool WindowsService::isServiceRunning() { return false; }
+bool WindowsService::handleServiceCommands(int, char*[], std::function<int(int, char**)>) { return false; }
 
 #endif
 

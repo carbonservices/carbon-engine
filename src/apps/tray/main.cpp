@@ -3,13 +3,23 @@
 #include "system/SingleInstanceGuard.h"
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QFile>
 #include <QMessageBox>
+#include <QProcess>
 
 int main(int argc, char* argv[])
 {
     SingleInstanceGuard guard(AppInfo::TrayMutexName);
     if (!guard.isPrimary()) {
-        // Another instance of the tray companion is already active in the taskbar notification area
+        // Another instance of the tray companion is already active.
+        // Clicking the Start Menu shortcut again opens the client UI.
+        QCoreApplication tempApp(argc, argv);
+        QString appDir = QCoreApplication::applicationDirPath();
+        QString clientPath = appDir + "/" + AppInfo::ClientExecutableName;
+        if (QFile::exists(clientPath)) {
+            QProcess::startDetached(clientPath, {}, appDir);
+        }
         return 0;
     }
 

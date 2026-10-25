@@ -30,6 +30,8 @@ signals:
 public slots:
     void pollNextJob();
 
+    void executeJob(int jobId, const QVector<JobDocument>& documents);
+
 private:
     Database& _db;
     DocumentProcessor& _proc;

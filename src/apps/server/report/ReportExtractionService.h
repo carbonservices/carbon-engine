@@ -15,7 +15,11 @@
 #include "system/SystemMonitor.h"
 #include "vector/VectorIndexRegistry.h"
 
-class ReportExtractionService {
+#include <QObject>
+
+class ReportExtractionService : public QObject {
+    Q_OBJECT
+
 public:
     struct MissingSection {
         QString groupId;
@@ -36,12 +40,15 @@ public:
 
     ReportExtractionService(Database& db, LlamaEngine& llama,
                             VectorIndexRegistry& indexRegistry,
-                            const BRSRSchemaCatalog& catalog, SystemMonitor& monitor);
-
-    void extractJob(int jobId);
+                            const BRSRSchemaCatalog& catalog, SystemMonitor& monitor,
+                            QObject* parent = nullptr);
 
     bool isExtracting() const { return _isExtracting.load(); }
     int activeJobId() const { return _activeJobId.load(); }
+
+public slots:
+    void extractJob(int jobId);
+    void startAsyncExtraction(int jobId);
     void cancelJob(int jobId);
 
     FactStore& factStore() { return _factStore; }

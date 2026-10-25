@@ -14,12 +14,10 @@
 #include <QStandardPaths>
 #include <QTextStream>
 
-namespace {
+static QString s_customLogDir;
+static QMutex s_logDirMutex;
 
-QString s_customLogDir;
-QMutex s_logDirMutex;
-
-bool testWritableDir(const QString& dirPath) {
+static bool testWritableDir(const QString& dirPath) {
     if (dirPath.isEmpty() || !QDir().mkpath(dirPath)) {
         return false;
     }
@@ -100,17 +98,17 @@ private:
     QMutex _mutex;
 };
 
-QMutex& registryMutex() {
+static QMutex& registryMutex() {
     static QMutex mutex;
     return mutex;
 }
 
-std::map<QString, std::shared_ptr<FileLogSink>>& registry() {
+static std::map<QString, std::shared_ptr<FileLogSink>>& registry() {
     static std::map<QString, std::shared_ptr<FileLogSink>> sinks;
     return sinks;
 }
 
-std::shared_ptr<FileLogSink> sinkFor(const QString& moduleName) {
+static std::shared_ptr<FileLogSink> sinkFor(const QString& moduleName) {
     const QString dateStamp = QDate::currentDate().toString("yyyy-MM-dd");
     const QString prefix = moduleName + "_";
     const QString key = prefix + dateStamp;
@@ -136,8 +134,6 @@ std::shared_ptr<FileLogSink> sinkFor(const QString& moduleName) {
     reg.emplace(key, sink);
     return sink;
 }
-
-} // namespace
 
 Logger::Logger(const QString& moduleName) : _moduleName(moduleName) {}
 

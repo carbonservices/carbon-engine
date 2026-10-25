@@ -57,8 +57,6 @@ inline QString resolveDatabasePath()
 }
 
 inline QString defaultGenModel() {
-    if (QFile::exists(Models::LocalGemmaFile)) return Models::LocalGemmaFile;
-    if (QFile::exists(Models::LocalQwenFile)) return Models::LocalQwenFile;
     return Models::LocalGemmaFile;
 }
 

@@ -29,8 +29,13 @@ void SystemStatusPoller::stopPolling()
 void SystemStatusPoller::poll()
 {
     QNetworkReply *reply = network().get(QNetworkRequest(endpoint(ApiRoutes::System)));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]()
-    {
+    connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onPollFinished);
+}
+
+void SystemStatusPoller::onPollFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             if (_isConnected) {
@@ -150,5 +155,4 @@ void SystemStatusPoller::poll()
         _activeModel = obj.value("active_model").toString(Models::LocalGemmaName);
 
         emit statusUpdated();
-    });
 }

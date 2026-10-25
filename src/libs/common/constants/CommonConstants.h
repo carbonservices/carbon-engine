@@ -2,83 +2,99 @@
 
 #include <QString>
 
-namespace JobStatus {
-inline constexpr const char* Pending = "PENDING";
-inline constexpr const char* Processing = "PROCESSING";
-inline constexpr const char* Completed = "COMPLETED";
-inline constexpr const char* Failed = "FAILED";
-inline constexpr const char* Cancelled = "CANCELLED";
-}
+struct JobStatus {
+    static constexpr const char* Pending = "PENDING";
+    static constexpr const char* Processing = "PROCESSING";
+    static constexpr const char* Completed = "COMPLETED";
+    static constexpr const char* Failed = "FAILED";
+    static constexpr const char* Cancelled = "CANCELLED";
+};
 
-namespace ExtractionStatus {
-inline constexpr const char* NotStarted = "NOT_STARTED";
-inline constexpr const char* Extracting = "EXTRACTING";
-inline constexpr const char* ReadyForReview = "READY_FOR_REVIEW";
-inline constexpr const char* Completed = "COMPLETED";
-inline constexpr const char* Accepted = "ACCEPTED";
-inline constexpr const char* Failed = "FAILED";
-inline constexpr const char* Cancelled = "CANCELLED";
-}
+struct ExtractionStatus {
+    static constexpr const char* NotStarted = "NOT_STARTED";
+    static constexpr const char* Extracting = "EXTRACTING";
+    static constexpr const char* ReadyForReview = "READY_FOR_REVIEW";
+    static constexpr const char* Completed = "COMPLETED";
+    static constexpr const char* Accepted = "ACCEPTED";
+    static constexpr const char* Failed = "FAILED";
+    static constexpr const char* Cancelled = "CANCELLED";
+};
 
-namespace ReportSectionStatus {
-inline constexpr const char* Draft = "DRAFT";
-inline constexpr const char* Updated = "UPDATED";
-inline constexpr const char* Failed = "FAILED";
-}
+struct ReportSectionStatus {
+    static constexpr const char* Draft = "DRAFT";
+    static constexpr const char* Updated = "UPDATED";
+    static constexpr const char* Failed = "FAILED";
+};
 
-namespace EngineMode {
-inline constexpr const char* Offline = "OFFLINE";
-}
+struct EngineMode {
+    static constexpr const char* Offline = "OFFLINE";
+};
 
-namespace Models {
-inline constexpr const char* LocalQwenName = "qwen2.5-7b-instruct";
-inline constexpr const char* LocalQwenFile = "models/qwen2.5-7b-instruct-q4_k_m.gguf";
-inline constexpr const char* LocalGemmaName = "gemma-2-2b-it";
-inline constexpr const char* LocalGemmaFile = "models/gemma-2-2b-it-q4_k_m.gguf";
-inline constexpr const char* LocalBgeEmbeddingFile = "models/bge-small-en-v1.5-f16.gguf";
-}
+struct Models {
+    static constexpr const char* LocalGemmaName = "gemma-2-2b-it";
+    static constexpr const char* LocalGemmaFile = "models/gemma-2-2b-it-q4_k_m.gguf";
+    static constexpr const char* LocalBgeEmbeddingFile = "models/bge-small-en-v1.5-f16.gguf";
+};
 
-namespace ApiRoutes {
-inline constexpr const char* Ingest = "/api/ingest";
-inline constexpr const char* Jobs = "/api/jobs";
-inline constexpr const char* JobCancel = "/api/jobs/cancel";
-inline constexpr const char* System = "/api/system";
-inline constexpr const char* ExtractionStart = "/api/extraction/start";
-inline constexpr const char* ExtractionStatus = "/api/extraction/status";
-inline constexpr const char* ExtractionCancel = "/api/extraction/cancel";
-inline constexpr const char* ExtractionSections = "/api/extraction/sections";
-inline constexpr const char* ExtractionAccept = "/api/extraction/accept";
-inline constexpr const char* ReportExport = "/api/report/export";
-inline constexpr const char* Reports = "/api/reports";
-inline constexpr const char* Documents = "/api/documents";
-inline constexpr const char* SchemaBrsr = "/api/schema/brsr";
-}
+struct ApiRoutes {
+    static constexpr const char* Ingest = "/api/ingest";
+    static constexpr const char* Jobs = "/api/jobs";
+    static constexpr const char* JobCancel = "/api/jobs/cancel";
+    static constexpr const char* System = "/api/system";
+    static constexpr const char* ExtractionStart = "/api/extraction/start";
+    static constexpr const char* ExtractionStatus = "/api/extraction/status";
+    static constexpr const char* ExtractionCancel = "/api/extraction/cancel";
+    static constexpr const char* ExtractionSections = "/api/extraction/sections";
+    static constexpr const char* ExtractionAccept = "/api/extraction/accept";
+    static constexpr const char* ReportExport = "/api/report/export";
+    static constexpr const char* Reports = "/api/reports";
+    static constexpr const char* Documents = "/api/documents";
+    static constexpr const char* SchemaBrsr = "/api/schema/brsr";
+};
 
-namespace ServerDefaults {
-inline constexpr quint16 DefaultPort = 8080;
-inline constexpr const char* DefaultDatabaseName = "ce-database";
-inline constexpr int DefaultEmbeddingDim = 384;
-}
+struct ServerDefaults {
+    static constexpr quint16 DefaultPort = 8080;
+    static constexpr const char* DefaultDatabaseName = "ce-database";
+    static constexpr int DefaultEmbeddingDim = 384;
+};
 
-namespace AppInfo {
+struct AppInfo {
 #ifdef CARBON_ENGINE_VERSION
-inline constexpr const char* Version = CARBON_ENGINE_VERSION;
+    static constexpr const char* Version = CARBON_ENGINE_VERSION;
 #else
-inline constexpr const char* Version = "1.0.0";
+    static constexpr const char* Version = "1.0.0";
 #endif
-inline constexpr const char* OrganizationName = "Carbon Services";
-inline constexpr const char* OrganizationDomain = "carbonservices.io";
-inline constexpr const char* ServerAppName = "Carbon Engine";
-inline constexpr const char* ClientAppName = "Carbon ESG";
-inline constexpr const char* TrayAppName = "Carbon ESG Service Manager";
 
-inline constexpr const char* DaemonMutexName = "CarbonEngine_Daemon_Mutex";
-inline constexpr const char* TrayMutexName = "CarbonEngine_Tray_Mutex";
+#ifdef CARBON_WORKLOAD_TITLE
+    static constexpr const char* WorkloadTitle = CARBON_WORKLOAD_TITLE;
+#elif defined(CARBON_ENGINE_CUDA)
+    static constexpr const char* WorkloadTitle = "GPU Accelerated";
+#else
+    static constexpr const char* WorkloadTitle = "Non-GPU Workload";
+#endif
 
-inline constexpr const char* ServerExecutableName = "carbon-engine.exe";
-inline constexpr const char* ClientExecutableName = "carbon-engine-client.exe";
-inline constexpr const char* TrayExecutableName = "carbon-tray.exe";
-inline constexpr const char* IconFileName = "app.ico";
-inline constexpr const char* LogoFileName = "logo.png";
-}
+#ifdef CARBON_WORKLOAD_TAG
+    static constexpr const char* WorkloadTag = CARBON_WORKLOAD_TAG;
+#elif defined(CARBON_ENGINE_CUDA)
+    static constexpr const char* WorkloadTag = "CUDA";
+#else
+    static constexpr const char* WorkloadTag = "Non-GPU";
+#endif
+
+    static constexpr const char* OrganizationName = "Carbon Services";
+    static constexpr const char* OrganizationDomain = "carbonservices.io";
+    static constexpr const char* ServerAppName = "Carbon Engine";
+    static constexpr const char* ClientAppName = "Carbon ESG";
+    static constexpr const char* WorkspaceAppName = "Carbon ESG Workspace";
+    static constexpr const char* TrayAppName = "Carbon ESG Workspace";
+
+    static constexpr const char* DaemonMutexName = "CarbonEngine_Daemon_Mutex";
+    static constexpr const char* TrayMutexName = "CarbonEngine_Tray_Mutex";
+
+    static constexpr const char* ServerExecutableName = "carbon-engine.exe";
+    static constexpr const char* ClientExecutableName = "carbon-engine-client.exe";
+    static constexpr const char* TrayExecutableName = "carbon-tray.exe";
+    static constexpr const char* IconFileName = "app.ico";
+    static constexpr const char* LogoFileName = "logo.png";
+};
 

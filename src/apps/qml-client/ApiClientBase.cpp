@@ -18,18 +18,21 @@ QNetworkAccessManager &ApiClientBase::network()
     return *sharedNetworkManager();
 }
 
+static QString resolveBaseUrl()
+{
+    QString envUrl = QProcessEnvironment::systemEnvironment().value("CARBON_ENGINE_SERVER_URL").trimmed();
+    if (!envUrl.isEmpty()) {
+        if (envUrl.endsWith('/')) {
+            envUrl.chop(1);
+        }
+        return envUrl;
+    }
+    return QStringLiteral("http://localhost:%1").arg(ServerDefaults::DefaultPort);
+}
+
 QUrl ApiClientBase::endpoint(const QString &route)
 {
-    static const QString s_baseUrl = []() {
-        QString envUrl = QProcessEnvironment::systemEnvironment().value("CARBON_ENGINE_SERVER_URL").trimmed();
-        if (!envUrl.isEmpty()) {
-            if (envUrl.endsWith('/')) {
-                envUrl.chop(1);
-            }
-            return envUrl;
-        }
-        return QStringLiteral("http://localhost:%1").arg(ServerDefaults::DefaultPort);
-    }();
+    static const QString s_baseUrl = resolveBaseUrl();
 
     QString cleanRoute = route.startsWith('/') ? route : QString("/" + route);
     return QUrl(s_baseUrl + cleanRoute);

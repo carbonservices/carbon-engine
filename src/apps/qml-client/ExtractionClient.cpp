@@ -15,17 +15,24 @@ void ExtractionClient::startExtraction(int jobId)
     QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::ExtractionStart));
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
     QNetworkReply *reply = network().post(request, body.toJson());
+    reply->setProperty("jobId", jobId);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Extraction start failed for job %1: %2").arg(jobId).arg(reply->errorString()));
-            emit requestFailed(reply->errorString());
-            return;
-        }
-        emit extractionStarted();
-    });
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onStartExtractionFinished);
+}
+
+void ExtractionClient::onStartExtractionFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int jobId = reply->property("jobId").toInt();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Extraction start failed for job %1: %2").arg(jobId).arg(reply->errorString()));
+        emit requestFailed(reply->errorString());
+        return;
+    }
+    emit extractionStarted();
 }
 
 void ExtractionClient::cancelExtraction(int jobId)
@@ -36,18 +43,25 @@ void ExtractionClient::cancelExtraction(int jobId)
     QNetworkRequest req = createJsonRequest(endpoint(ApiRoutes::ExtractionCancel));
     QByteArray body = QJsonDocument(reqObj).toJson(QJsonDocument::Compact);
     QNetworkReply *reply = network().post(req, body);
+    reply->setProperty("jobId", jobId);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Cancel extraction failed for job %1: %2").arg(jobId).arg(reply->errorString()));
-            emit requestFailed("Failed to cancel extraction: " + reply->errorString());
-            return;
-        }
-        _log.info(QString("Extraction cancelled successfully for job %1").arg(jobId));
-        emit extractionCancelled(jobId);
-    });
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onCancelExtractionFinished);
+}
+
+void ExtractionClient::onCancelExtractionFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int jobId = reply->property("jobId").toInt();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Cancel extraction failed for job %1: %2").arg(jobId).arg(reply->errorString()));
+        emit requestFailed("Failed to cancel extraction: " + reply->errorString());
+        return;
+    }
+    _log.info(QString("Extraction cancelled successfully for job %1").arg(jobId));
+    emit extractionCancelled(jobId);
 }
 
 void ExtractionClient::fetchSections(int jobId)
@@ -58,21 +72,28 @@ void ExtractionClient::fetchSections(int jobId)
     url.setQuery(query);
 
     QNetworkReply *reply = network().get(QNetworkRequest(url));
+    reply->setProperty("jobId", jobId);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Fetching sections failed for job %1: %2").arg(jobId).arg(reply->errorString()));
-            emit requestFailed(reply->errorString());
-            return;
-        }
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onFetchSectionsFinished);
+}
 
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        emit sectionsReady(doc.object().value("sections").toArray(),
-                           doc.object().value("warnings").toArray(),
-                           doc.object().value("issues").toArray());
-    });
+void ExtractionClient::onFetchSectionsFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int jobId = reply->property("jobId").toInt();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Fetching sections failed for job %1: %2").arg(jobId).arg(reply->errorString()));
+        emit requestFailed(reply->errorString());
+        return;
+    }
+
+    auto doc = QJsonDocument::fromJson(reply->readAll());
+    emit sectionsReady(doc.object().value("sections").toArray(),
+                       doc.object().value("warnings").toArray(),
+                       doc.object().value("issues").toArray());
 }
 
 void ExtractionClient::fetchSchema()
@@ -80,18 +101,23 @@ void ExtractionClient::fetchSchema()
     QUrl url = endpoint(ApiRoutes::SchemaBrsr);
     QNetworkReply *reply = network().get(QNetworkRequest(url));
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Fetching schema failed: %1").arg(reply->errorString()));
-            emit requestFailed(reply->errorString());
-            return;
-        }
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onFetchSchemaFinished);
+}
 
-        auto doc = QJsonDocument::fromJson(reply->readAll());
-        emit schemaReady(doc.object());
-    });
+void ExtractionClient::onFetchSchemaFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Fetching schema failed: %1").arg(reply->errorString()));
+        emit requestFailed(reply->errorString());
+        return;
+    }
+
+    auto doc = QJsonDocument::fromJson(reply->readAll());
+    emit schemaReady(doc.object());
 }
 
 void ExtractionClient::updateSection(int jobId, const QString &groupId, const QJsonObject &data)
@@ -99,17 +125,24 @@ void ExtractionClient::updateSection(int jobId, const QString &groupId, const QJ
     QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::ExtractionSections));
     QJsonDocument body(QJsonObject{{"job_id", jobId}, {"group_id", groupId}, {"data", data}});
     QNetworkReply *reply = network().sendCustomRequest(request, "PUT", body.toJson());
+    reply->setProperty("groupId", groupId);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, groupId]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Section update failed for group %1: %2").arg(groupId).arg(reply->errorString()));
-            emit requestFailed(reply->errorString());
-            return;
-        }
-        emit updateSucceeded(groupId);
-    });
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onUpdateSectionFinished);
+}
+
+void ExtractionClient::onUpdateSectionFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    QString groupId = reply->property("groupId").toString();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Section update failed for group %1: %2").arg(groupId).arg(reply->errorString()));
+        emit requestFailed(reply->errorString());
+        return;
+    }
+    emit updateSucceeded(groupId);
 }
 
 void ExtractionClient::acceptReport(int jobId)
@@ -117,15 +150,22 @@ void ExtractionClient::acceptReport(int jobId)
     QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::ExtractionAccept));
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
     QNetworkReply *reply = network().post(request, body.toJson());
+    reply->setProperty("jobId", jobId);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
-    {
-        reply->deleteLater();
-        if (reply->error() != QNetworkReply::NoError) {
-            _log.error(QString("Accept failed for job %1: %2").arg(jobId).arg(reply->errorString()));
-            emit requestFailed(reply->errorString());
-            return;
-        }
-        emit acceptSucceeded();
-    });
+    connect(reply, &QNetworkReply::finished, this, &ExtractionClient::onAcceptReportFinished);
+}
+
+void ExtractionClient::onAcceptReportFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int jobId = reply->property("jobId").toInt();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Accept failed for job %1: %2").arg(jobId).arg(reply->errorString()));
+        emit requestFailed(reply->errorString());
+        return;
+    }
+    emit acceptSucceeded();
 }

@@ -59,6 +59,7 @@ public:
 
 private slots:
     void handleIdleTimeout();
+    void onResetIdleTimer();
 
 private:
     bool initGenContext();

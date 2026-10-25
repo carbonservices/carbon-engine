@@ -24,6 +24,9 @@ signals:
     void failed(const QString &reason);
     void statusUpdated(const QString &status, const QJsonArray &documents);
 
+private slots:
+    void onPollFinished();
+
 private:
     void poll();
 

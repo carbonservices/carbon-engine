@@ -26,6 +26,9 @@ signals:
     void progressUpdated(int currentStep, int totalSteps, const QString &groupLabel, double progressPct);
     void missingMetricsReceived(const QString &groupLabel, const QStringList &missingKeys);
 
+private slots:
+    void onPollFinished();
+
 private:
     void poll();
 

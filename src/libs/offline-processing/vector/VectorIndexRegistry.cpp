@@ -1,6 +1,15 @@
 #include "VectorIndexRegistry.h"
 #include "db/Database.h"
 
+struct IndexEmbeddingLoader {
+    VectorIndex* index;
+    void operator()(int64_t id, const std::vector<float>& vec) const {
+        if (index) {
+            index->add(id, vec);
+        }
+    }
+};
+
 VectorIndexRegistry::VectorIndexRegistry(int dimension, Database* db)
     : _dimension(dimension), _db(db) {}
 
@@ -11,9 +20,7 @@ std::shared_ptr<VectorIndex> VectorIndexRegistry::getOrCreate(int jobId)
     if (it == _indicesByJobId.end()) {
         auto index = std::make_shared<VectorIndex>(_dimension);
         if (_db) {
-            _db->loadEmbeddingsForJob(jobId, [&index](int64_t id, const std::vector<float>& vec) {
-                index->add(id, vec);
-            });
+            _db->loadEmbeddingsForJob(jobId, IndexEmbeddingLoader{index.get()});
         }
         it = _indicesByJobId.emplace(jobId, std::move(index)).first;
     }

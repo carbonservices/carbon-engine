@@ -32,6 +32,14 @@ signals:
     void acceptSucceeded();
     void requestFailed(const QString& reason);
 
+private slots:
+    void onStartExtractionFinished();
+    void onCancelExtractionFinished();
+    void onFetchSectionsFinished();
+    void onFetchSchemaFinished();
+    void onUpdateSectionFinished();
+    void onAcceptReportFinished();
+
 private:
     Logger _log{"QmlClient.ExtractionClient"};
 };

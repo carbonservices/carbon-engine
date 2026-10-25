@@ -48,6 +48,10 @@ private:
     QFuture<QHttpServerResponse> handleJobDocuments(const QHttpServerRequest& request);
     QFuture<QHttpServerResponse> handleGetSchemaBrsr(const QHttpServerRequest& request);
 
+    static void handleCorsAfterRequest(const QHttpServerRequest& req, QHttpServerResponse& resp);
+    static void handleMissingRequest(const QHttpServerRequest& req, QHttpServerResponder& responder);
+    static QHttpServerResponse handleServeLogo(const QHttpServerRequest& req);
+
     QHttpServer               _server;
     Database&                 _db;
     LlamaEngine&              _llama;

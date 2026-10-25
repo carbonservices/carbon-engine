@@ -71,6 +71,13 @@ QVector<int64_t> FactStore::getAnchorChunksForTopic(int jobId, const QString& to
     return jobIt.value().value(topic);
 }
 
+static void appendFactIfPresent(QStringList& lines, const QHash<QString, FactEntry>& facts, const QString& label, const QString& key)
+{
+    if (facts.contains(key) && !facts[key].value.isEmpty()) {
+        lines.append(QString("- %1: %2").arg(label, facts[key].value));
+    }
+}
+
 QString FactStore::formatKnownFactsForPrompt(int jobId) const
 {
     QMutexLocker locker(&_mutex);
@@ -82,19 +89,13 @@ QString FactStore::formatKnownFactsForPrompt(int jobId) const
     const auto& facts = jobIt.value();
     QStringList lines;
 
-    auto appendFact = [&](const QString& label, const QString& key) {
-        if (facts.contains(key) && !facts[key].value.isEmpty()) {
-            lines.append(QString("- %1: %2").arg(label, facts[key].value));
-        }
-    };
-
-    appendFact("Reporting Entity", "entity_name");
-    appendFact("Current Financial Year", "current_fy");
-    appendFact("Previous Financial Year", "previous_fy");
-    appendFact("Reporting Financial Year", "reporting_financial_year");
-    appendFact("Total Turnover", "csr_turnover_amount");
-    appendFact("Total Permanent Employees", "emp_perm_total");
-    appendFact("Total Employees", "emp_total_total");
+    appendFactIfPresent(lines, facts, "Reporting Entity", "entity_name");
+    appendFactIfPresent(lines, facts, "Current Financial Year", "current_fy");
+    appendFactIfPresent(lines, facts, "Previous Financial Year", "previous_fy");
+    appendFactIfPresent(lines, facts, "Reporting Financial Year", "reporting_financial_year");
+    appendFactIfPresent(lines, facts, "Total Turnover", "csr_turnover_amount");
+    appendFactIfPresent(lines, facts, "Total Permanent Employees", "emp_perm_total");
+    appendFactIfPresent(lines, facts, "Total Employees", "emp_total_total");
 
     if (lines.isEmpty()) {
         return "";

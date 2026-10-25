@@ -13,7 +13,7 @@ ApplicationWindow {
     minimumWidth: 1080
     minimumHeight: 680
     visible: true
-    title: "Carbon ESG"
+    title: "Carbon ESG (" + systemPoller.workloadTitle + ")"
     flags: Qt.Window | Qt.FramelessWindowHint
 
     function safeMove() {
@@ -553,6 +553,19 @@ ApplicationWindow {
                 }
 
                 Label {
+                    text: systemPoller.workloadTitle
+                    font.pixelSize: 10
+                    color: Theme.brandAccent
+                    font.bold: true
+                }
+
+                Label {
+                    text: "•"
+                    font.pixelSize: 10
+                    color: Theme.borderSubtle
+                }
+
+                Label {
                     text: "BRSR ESG Analytics"
                     font.pixelSize: 11
                     color: Theme.textMuted
@@ -599,7 +612,7 @@ ApplicationWindow {
                     Label {
                         text: !systemPoller.isConnected
                             ? "Backend Disconnected"
-                            : ("Offline (" + systemPoller.activeModel + ")")
+                            : ("Offline (" + systemPoller.activeModel + " • " + systemPoller.workloadTag + ")")
                         color: !systemPoller.isConnected ? Theme.badgeDangerText : Theme.textBright
                         font.pixelSize: 10
                         font.bold: true

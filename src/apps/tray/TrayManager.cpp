@@ -48,7 +48,7 @@ TrayManager::TrayManager(QObject* parent)
 
     m_trayMenu->addSeparator();
 
-    m_stopAndQuitAction = m_trayMenu->addAction("Stop Engine && Exit");
+    m_stopAndQuitAction = m_trayMenu->addAction("Exit Workspace (Quit All)");
     connect(m_stopAndQuitAction, &QAction::triggered, this, &TrayManager::stopAndQuit);
 
     m_quitTrayOnlyAction = m_trayMenu->addAction("Exit Tray (Keep Engine Running)");
@@ -66,6 +66,9 @@ TrayManager::TrayManager(QObject* parent)
 
     // Auto-start backend application if not already running
     ensureBackendStarted();
+
+    // Auto-launch client UI
+    openClient();
 }
 
 bool TrayManager::isBackendRunning() const
@@ -112,16 +115,17 @@ void TrayManager::updateStatus()
     bool svcRunning = WindowsService::isServiceRunning();
     bool procRunning = !svcRunning && isBackendRunning();
     bool anyRunning = svcRunning || procRunning;
+    QString workloadStr = QString::fromUtf8(AppInfo::WorkloadTitle);
 
     if (svcRunning) {
-        m_statusAction->setText(QString("%1 Status: Running (Windows Service)").arg(AppInfo::ServerAppName));
-        m_trayIcon->setToolTip(QString("%1: Running (Windows Service)").arg(AppInfo::ServerAppName));
+        m_statusAction->setText(QString("%1: Running (Service • %2)").arg(AppInfo::ServerAppName, workloadStr));
+        m_trayIcon->setToolTip(QString("%1 (%2)\n%3: Running (Windows Service)").arg(AppInfo::WorkspaceAppName, workloadStr, AppInfo::ServerAppName));
     } else if (procRunning) {
-        m_statusAction->setText(QString("%1 Status: Running (Background Process)").arg(AppInfo::ServerAppName));
-        m_trayIcon->setToolTip(QString("%1: Running (Background Process)").arg(AppInfo::ServerAppName));
+        m_statusAction->setText(QString("%1: Running (Process • %2)").arg(AppInfo::ServerAppName, workloadStr));
+        m_trayIcon->setToolTip(QString("%1 (%2)\n%3: Running (Background Process)").arg(AppInfo::WorkspaceAppName, workloadStr, AppInfo::ServerAppName));
     } else {
-        m_statusAction->setText(QString("%1 Status: Stopped").arg(AppInfo::ServerAppName));
-        m_trayIcon->setToolTip(QString("%1: Stopped").arg(AppInfo::ServerAppName));
+        m_statusAction->setText(QString("%1: Stopped (%2)").arg(AppInfo::ServerAppName, workloadStr));
+        m_trayIcon->setToolTip(QString("%1 (%2)\n%3: Stopped").arg(AppInfo::WorkspaceAppName, workloadStr, AppInfo::ServerAppName));
     }
 
     m_startAction->setEnabled(!anyRunning);
@@ -217,6 +221,12 @@ void TrayManager::restartBackend()
 
 void TrayManager::stopAndQuit()
 {
+#ifdef _WIN32
+    // Terminate UI client if active
+    QProcess killClient;
+    killClient.start("taskkill", {"/F", "/IM", AppInfo::ClientExecutableName, "/T"});
+    killClient.waitForFinished(1500);
+#endif
     if (isBackendRunning()) {
         stopBackend();
         QThread::msleep(500);

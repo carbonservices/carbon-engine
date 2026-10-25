@@ -2,6 +2,7 @@
 
 // Qt
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 
@@ -9,11 +10,9 @@
 #include <inja/inja.hpp>
 #include <nlohmann/json.hpp>
 
-namespace {
-
 // Safe recursive merge that does not delete default fields when the extracted value is null,
 // and ensures array structures are preserved cleanly without breaking template placeholders.
-void safeMerge(nlohmann::json& target, const nlohmann::json& patch)
+static void safeMerge(nlohmann::json& target, const nlohmann::json& patch)
 {
     if (!patch.is_object()) return;
     for (auto it = patch.begin(); it != patch.end(); ++it) {
@@ -46,7 +45,7 @@ void safeMerge(nlohmann::json& target, const nlohmann::json& patch)
     }
 }
 
-double parseNumericValue(const nlohmann::json& val)
+static double parseNumericValue(const nlohmann::json& val)
 {
     if (val.is_number()) {
         return val.get<double>();
@@ -70,7 +69,7 @@ double parseNumericValue(const nlohmann::json& val)
     return 0.0;
 }
 
-void enrichArrayNumbers(nlohmann::json& arr, const std::string& currKey = "current_value", const std::string& prevKey = "previous_value")
+static void enrichArrayNumbers(nlohmann::json& arr, const std::string& currKey = "current_value", const std::string& prevKey = "previous_value")
 {
     if (!arr.is_array()) return;
     for (auto& item : arr) {
@@ -80,7 +79,7 @@ void enrichArrayNumbers(nlohmann::json& arr, const std::string& currKey = "curre
     }
 }
 
-void copyAliasIfMissing(nlohmann::json& item, const std::string& targetKey, const std::string& sourceKey)
+static void copyAliasIfMissing(nlohmann::json& item, const std::string& targetKey, const std::string& sourceKey)
 {
     if (item.contains(sourceKey) && !item.contains(targetKey)) {
         item[targetKey] = item[sourceKey];
@@ -89,17 +88,19 @@ void copyAliasIfMissing(nlohmann::json& item, const std::string& targetKey, cons
     }
 }
 
-void normalizeTableAliases(nlohmann::json& reportData)
+static void applyAliases(nlohmann::json& arr, const std::vector<std::pair<std::string, std::string>>& pairs)
 {
-    auto applyAliases = [](nlohmann::json& arr, const std::vector<std::pair<std::string, std::string>>& pairs) {
-        if (!arr.is_array()) return;
-        for (auto& item : arr) {
-            if (!item.is_object()) continue;
-            for (const auto& [a, b] : pairs) {
-                copyAliasIfMissing(item, a, b);
-            }
+    if (!arr.is_array()) return;
+    for (auto& item : arr) {
+        if (!item.is_object()) continue;
+        for (const auto& [a, b] : pairs) {
+            copyAliasIfMissing(item, a, b);
         }
-    };
+    }
+}
+
+static void normalizeTableAliases(nlohmann::json& reportData)
+{
 
     applyAliases(reportData["subsidiaries"], {
         {"name", "company_name"},
@@ -220,7 +221,41 @@ void precomputeChartMetrics(nlohmann::json& reportData)
     });
 }
 
-} // namespace
+
+static nlohmann::json injaRangeCallback(inja::Arguments& args)
+{
+    int start = 0;
+    int end = 0;
+    if (args.size() == 1) {
+        end = args.at(0)->get<int>();
+    } else if (args.size() >= 2) {
+        start = args.at(0)->get<int>();
+        end = args.at(1)->get<int>();
+    }
+    nlohmann::json res = nlohmann::json::array();
+    for (int i = start; i < end; ++i) {
+        res.push_back(i);
+    }
+    return res;
+}
+
+static nlohmann::json injaFloatCallback(inja::Arguments& args)
+{
+    try {
+        if (args.at(0)->is_number()) {
+            return args.at(0)->get<double>();
+        }
+        if (args.at(0)->is_string()) {
+            std::string s = args.at(0)->get<std::string>();
+            std::string clean;
+            for (char c : s) {
+                if ((c >= '0' && c <= '9') || c == '.' || c == '-') clean += c;
+            }
+            if (!clean.empty()) return std::stod(clean);
+        }
+    } catch (...) {}
+    return 0.0;
+}
 
 ReportExporter::ReportExporter(Database& db, const BRSRSchemaCatalog& catalog) : _db(db), _catalog(catalog) {}
 
@@ -233,16 +268,22 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
 
     QString tmplPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/templates/template.html";
     if (!QFile::exists(tmplPath)) {
-        tmplPath = QCoreApplication::applicationDirPath() + "/template.html";
+        tmplPath = QDir(QCoreApplication::applicationDirPath() + "/../templates").filePath("template.html");
     }
     if (!QFile::exists(tmplPath)) {
         tmplPath = QCoreApplication::applicationDirPath() + "/templates/template.html";
+    }
+    if (!QFile::exists(tmplPath)) {
+        tmplPath = QCoreApplication::applicationDirPath() + "/template.html";
     }
     if (!QFile::exists(tmplPath)) {
         tmplPath = QCoreApplication::applicationDirPath() + "/../share/carbon-esg/templates/template.html";
     }
     if (!QFile::exists(tmplPath)) {
         tmplPath = "src/libs/common/templates/template.html";
+    }
+    if (!QFile::exists(tmplPath)) {
+        tmplPath = "templates/template.html";
     }
     if (!QFile::exists(tmplPath)) {
         tmplPath = "template.html";
@@ -283,39 +324,10 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
         inja::Environment env;
 
         // Variadic range supporting both range(count) and range(start, end)
-        env.add_callback("range", [](inja::Arguments& args) {
-            int start = 0;
-            int end = 0;
-            if (args.size() == 1) {
-                end = args.at(0)->get<int>();
-            } else if (args.size() >= 2) {
-                start = args.at(0)->get<int>();
-                end = args.at(1)->get<int>();
-            }
-            nlohmann::json res = nlohmann::json::array();
-            for (int i = start; i < end; ++i) {
-                res.push_back(i);
-            }
-            return res;
-        });
+        env.add_callback("range", injaRangeCallback);
 
         // Float parser supporting numbers and formatted numeric strings (with commas/symbols)
-        env.add_callback("float", 1, [](inja::Arguments& args) {
-            try {
-                if (args.at(0)->is_number()) {
-                    return args.at(0)->get<double>();
-                }
-                if (args.at(0)->is_string()) {
-                    std::string s = args.at(0)->get<std::string>();
-                    std::string clean;
-                    for (char c : s) {
-                        if ((c >= '0' && c <= '9') || c == '.' || c == '-') clean += c;
-                    }
-                    if (!clean.empty()) return std::stod(clean);
-                }
-            } catch (...) {}
-            return 0.0;
-        });
+        env.add_callback("float", 1, injaFloatCallback);
 
         std::string renderedHtml = env.render(tmpl, reportData);
         _log.info(QString("Report exported for job %1 (allowDraft: %2)").arg(jobId).arg(allowDraft));
