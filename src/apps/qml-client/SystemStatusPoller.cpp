@@ -147,7 +147,7 @@ void SystemStatusPoller::poll()
             _tokenRate = "—";
         }
 
-        _activeModel = obj.value("active_model").toString(Models::LocalQwenName);
+        _activeModel = obj.value("active_model").toString(Models::LocalGemmaName);
 
         emit statusUpdated();
     });

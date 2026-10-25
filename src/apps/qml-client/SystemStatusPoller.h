@@ -68,7 +68,7 @@ private:
     QString _engineStatus = "Connecting...";
     QString _databaseStatus = "Offline";
     QString _tokenRate = "—";
-    QString _activeModel{Models::LocalQwenName};
+    QString _activeModel{Models::LocalGemmaName};
 
     Logger _log{"QmlClient.SystemStatusPoller"};
 };

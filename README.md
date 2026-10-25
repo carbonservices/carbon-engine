@@ -116,16 +116,18 @@ cd carbon-engine
 
 ### 2. Download Models
 
-Place the recommended GGUF models in the `models/` folder:
+By default, CMake automatically downloads the required GGUF models during configuration (`-DCARBON_ENGINE_DOWNLOAD_MODELS=ON`). 
+
+If downloading manually or configuring an air-gapped machine, place the latest models in the `models/` directory:
 
 ```powershell
 mkdir models
 
-# Embedding model (BGE-Small-EN-v1.5, ~133 MB)
+# Embedding model (BGE-Small-EN-v1.5, ~67 MB)
 curl -L -o models/bge-small-en-v1.5-f16.gguf https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf
 
-# Extraction model (Qwen2.5-7B-Instruct-Q4_K_M, ~4.7 GB)
-curl -L -o models/qwen2.5-7b-instruct-q4_k_m.gguf https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf
+# Extraction & Generation model (Gemma 2 2B Instruct Q4_K_M, ~1.7 GB)
+curl -L -o models/gemma-2-2b-it-q4_k_m.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf
 ```
 
 ### 3. Build from Source
@@ -138,24 +140,41 @@ Third-party dependencies including [llama.cpp](https://github.com/ggerganov/llam
 cmake -S . -B __Builds/x64/_build -G "Visual Studio 17 2022" -A x64 `
       -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64"
 
-cmake --build __Builds/x64/_build --config Release --target carbon-engine --target carbon-engine-client
+cmake --build __Builds/x64/_build --config Release --target carbon-engine --target carbon-engine-client --target carbon-tray
 ```
 
 Binaries are placed in `__Builds/x64/bin/`:
-- `carbon-engine.exe` - Background daemon
-- `carbon-engine-client.exe` - Desktop application
+- `carbon-engine.exe` - Background daemon & Windows Service
+- `carbon-engine-client.exe` - Native desktop GUI client
+- `carbon-tray.exe` - Windows system tray service manager
 
 ---
 
 ## Quick Start
 
-### 1. Start the Engine Daemon
+### 1. Start the Engine Daemon or Windows Service
+**Console Mode**:
 ```powershell
 ./__Builds/x64/bin/carbon-engine.exe
 ```
 The daemon initializes local models and listens on `http://localhost:8080`.
 
-### 2. Launch the Desktop Client
+**Windows Service Mode** *(Run as Administrator)*:
+```powershell
+# Install and register the Windows Service
+./__Builds/x64/bin/carbon-engine.exe --install-service
+
+# Start the service
+./__Builds/x64/bin/carbon-engine.exe --start-service
+```
+
+### 2. Launch the System Tray Manager
+```powershell
+./__Builds/x64/bin/carbon-tray.exe
+```
+Provides instant engine status monitoring, start/stop/restart controls, and quick-launch access to the desktop client from the Windows Notification Area.
+
+### 3. Launch the Desktop Client
 ```powershell
 ./__Builds/x64/bin/carbon-engine-client.exe
 ```

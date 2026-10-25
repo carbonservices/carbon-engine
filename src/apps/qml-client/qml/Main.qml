@@ -200,7 +200,7 @@ ApplicationWindow {
             })
         }
         rightPanel.showAttachedTab()
-        appendStatus("Queued " + paths.length + " document(s) for local on-device processing via Qwen 2.5 / Gemma 2.")
+        appendStatus("Queued " + paths.length + " document(s) for local on-device processing via Gemma 2 2B.")
         uploadClient.uploadDocuments(paths)
     }
 

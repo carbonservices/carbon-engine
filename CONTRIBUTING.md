@@ -39,7 +39,7 @@ Carbon Engine interacts directly with local hardware and native C++ libraries. P
   - Compiler: MSVC 2022 (v143), GCC 11+, or Clang 14+
   - Qt version: Qt 6.10 or newer
   - CMake version: CMake 3.24 or newer
-- **Models Used**: Model names and quantization levels (e.g., `qwen2.5-7b-instruct-q4_k_m.gguf`, `bge-small-en-v1.5-f16.gguf`).
+- **Models Used**: Model names and quantization levels (e.g., `gemma-2-2b-it-q4_k_m.gguf`, `bge-small-en-v1.5-f16.gguf`).
 - **Input Document Profile**: Approximate page count, file size, and whether the document contains digital vector text or scanned image pages.
 
 ### 4. Steps to Reproduce

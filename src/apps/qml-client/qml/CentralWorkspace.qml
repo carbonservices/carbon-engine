@@ -249,7 +249,7 @@ Rectangle {
                             ColumnLayout {
                                 spacing: 2
                                 Label {
-                                    text: "Local LLM Statutory Extraction (Qwen 2.5 7B / Gemma 2)"
+                                    text: "Local LLM Statutory Extraction (Gemma 2 2B / BGE-Small)"
                                     font.pixelSize: 14
                                     font.bold: true
                                     color: Theme.textBright
@@ -324,7 +324,7 @@ Rectangle {
                         RowLayout {
                             Layout.fillWidth: true
                             Label {
-                                text: "Local inference powered by llama.cpp GGUF runtime (qwen2.5-7b-instruct)"
+                                text: "Local inference powered by llama.cpp GGUF runtime (gemma-2-2b-it)"
                                 font.pixelSize: 11
                                 color: Theme.textMuted
                             }
