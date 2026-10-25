@@ -4,13 +4,18 @@
 #include <QQuickStyle>
 #include <QtWebEngineQuick>
 
+#include "constants/CommonConstants.h"
+
 int main(int argc, char *argv[])
 {
     QtWebEngineQuick::initialize();
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName("Carbon Engine");
-    app.setApplicationDisplayName("Carbon Engine - BRSR ESG Analytics");
+    app.setApplicationName(AppInfo::ClientAppName);
+    app.setOrganizationName(AppInfo::OrganizationName);
+    app.setOrganizationDomain(AppInfo::OrganizationDomain);
+    app.setApplicationDisplayName(AppInfo::ClientAppName);
+    app.setApplicationVersion(AppInfo::Version);
 
     QQuickStyle::setStyle("Basic");
 

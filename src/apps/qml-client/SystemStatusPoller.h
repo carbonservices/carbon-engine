@@ -1,17 +1,14 @@
 #ifndef SYSTEM_STATUS_POLLER_H
 #define SYSTEM_STATUS_POLLER_H
 
-#include "logging/Logger.h"
+#include "ApiClientBase.h"
 
 // Qt
-#include <QObject>
 #include <QQmlEngine>
-#include <QNetworkAccessManager>
 #include <QTimer>
 #include <QString>
-#include <QUrl>
 
-class SystemStatusPoller : public QObject
+class SystemStatusPoller : public ApiClientBase
 {
     Q_OBJECT
     QML_ELEMENT
@@ -25,6 +22,10 @@ class SystemStatusPoller : public QObject
     Q_PROPERTY(QString engineStatus READ engineStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString databaseStatus READ databaseStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString tokenRate READ tokenRate NOTIFY statusUpdated)
+    Q_PROPERTY(bool cloudEnabled READ cloudEnabled CONSTANT)
+    Q_PROPERTY(QString activeEngineMode READ activeEngineMode CONSTANT)
+    Q_PROPERTY(QString activeModel READ activeModel NOTIFY statusUpdated)
+    Q_PROPERTY(bool isConnected READ isConnected NOTIFY statusUpdated)
 
 public:
     explicit SystemStatusPoller(QObject *parent = nullptr);
@@ -38,6 +39,10 @@ public:
     QString engineStatus() const { return _engineStatus; }
     QString databaseStatus() const { return _databaseStatus; }
     QString tokenRate() const { return _tokenRate; }
+    bool cloudEnabled() const { return false; }
+    QString activeEngineMode() const { return QStringLiteral("OFFLINE"); }
+    QString activeModel() const { return _activeModel; }
+    bool isConnected() const { return _isConnected; }
 
     Q_INVOKABLE void startPolling();
     Q_INVOKABLE void stopPolling();
@@ -50,20 +55,20 @@ private slots:
 
 private:
     static constexpr int PollIntervalMs = 1000;
-    static inline const QUrl Endpoint{"http://localhost:8080/api/system"};
 
-    QNetworkAccessManager _network;
     QTimer _timer;
 
-    QString _jobQueue = "0";
-    QString _cpuLoad = "0% (0% sys)";
-    QString _memoryUsage = "0 MB (0 MB sys)";
-    QString _gpuLoad = "N/A";
-    QString _gpuOffload = "N/A";
-    QString _vramUsage = "N/A";
-    QString _engineStatus = "Idle";
-    QString _databaseStatus = "Idle";
-    QString _tokenRate = "0 t/s";
+    bool _isConnected = false;
+    QString _jobQueue = "—";
+    QString _cpuLoad = "—";
+    QString _memoryUsage = "—";
+    QString _gpuLoad = "—";
+    QString _gpuOffload = "—";
+    QString _vramUsage = "—";
+    QString _engineStatus = "Connecting...";
+    QString _databaseStatus = "Offline";
+    QString _tokenRate = "—";
+    QString _activeModel{Models::LocalQwenName};
 
     Logger _log{"QmlClient.SystemStatusPoller"};
 };

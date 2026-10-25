@@ -7,10 +7,8 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QDir>
-#include <QFileInfo>
 
-
-UploadClient::UploadClient(QObject *parent) : QObject(parent) {}
+UploadClient::UploadClient(QObject *parent) : ApiClientBase(parent) {}
 
 void UploadClient::uploadDocuments(const QVariantList &filePaths)
 {
@@ -52,11 +50,9 @@ void UploadClient::uploadDocuments(const QVariantList &filePaths)
     }
     _log.info(QString("Uploading %1 document(s): %2").arg(localPaths.size()).arg(localPaths.join(", ")));
 
-    QNetworkRequest request(IngestEndpoint);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
+    QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::Ingest));
     QJsonDocument body(QJsonObject{{"file_paths", QJsonArray::fromStringList(localPaths)}});
-    QNetworkReply *reply = _network.post(request, body.toJson());
+    QNetworkReply *reply = network().post(request, body.toJson());
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, localPaths]()
     {
@@ -69,7 +65,35 @@ void UploadClient::uploadDocuments(const QVariantList &filePaths)
 
         auto doc = QJsonDocument::fromJson(reply->readAll());
         int jobId = doc.object().value("job_id").toInt(-1);
+        if (jobId < 0) {
+            QString err = doc.object().value("error").toString("Server failed to assign valid job ID");
+            _log.error(QString("Upload failed to produce valid job_id: %1").arg(err));
+            emit uploadFailed(err);
+            return;
+        }
         _log.info(QString("Upload queued for %1 document(s), job_id=%2").arg(localPaths.size()).arg(jobId));
         emit jobQueued(jobId);
+    });
+}
+
+void UploadClient::cancelJob(int jobId)
+{
+    QJsonObject reqObj;
+    reqObj["job_id"] = jobId;
+
+    QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::JobCancel));
+    QJsonDocument body(reqObj);
+    QNetworkReply *reply = network().post(request, body.toJson());
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
+    {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            _log.error(QString("Cancel job failed for job %1: %2").arg(jobId).arg(reply->errorString()));
+            emit uploadFailed("Failed to cancel job: " + reply->errorString());
+            return;
+        }
+        _log.info(QString("Job %1 cancelled successfully").arg(jobId));
+        emit jobCancelled(jobId);
     });
 }

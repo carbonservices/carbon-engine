@@ -1,32 +1,28 @@
 #ifndef UPLOAD_CLIENT_H
 #define UPLOAD_CLIENT_H
 
-#include "logging/Logger.h"
+#include "ApiClientBase.h"
 
 // Qt
-#include <QObject>
 #include <QQmlEngine>
-#include <QNetworkAccessManager>
-#include <QUrl>
-#include <QList>
+#include <QVariantList>
 
-class UploadClient : public QObject
+class UploadClient : public ApiClientBase
 {
     Q_OBJECT
     QML_ELEMENT
 
 public:
-    explicit UploadClient(QObject* parent = Q_NULLPTR);
+    explicit UploadClient(QObject* parent = nullptr);
     Q_INVOKABLE void uploadDocuments(const QVariantList& filePaths);
+    Q_INVOKABLE void cancelJob(int jobId);
 
 signals:
     void jobQueued(int jobId);
+    void jobCancelled(int jobId);
     void uploadFailed(const QString& reason);
 
 private:
-    static inline const QUrl IngestEndpoint{"http://localhost:8080/api/ingest"};
-
-    QNetworkAccessManager _network;
     Logger _log{"QmlClient.UploadClient"};
 };
 

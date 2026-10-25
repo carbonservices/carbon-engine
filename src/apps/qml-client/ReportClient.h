@@ -1,24 +1,19 @@
 #ifndef REPORT_CLIENT_H
 #define REPORT_CLIENT_H
 
-#include "logging/Logger.h"
+#include "ApiClientBase.h"
 
 // Qt
-#include <QObject>
 #include <QQmlEngine>
-#include <QNetworkAccessManager>
-#include <QUrl>
-
-
 #include <QJsonArray>
 
-class ReportClient : public QObject
+class ReportClient : public ApiClientBase
 {
     Q_OBJECT
     QML_ELEMENT
 
 public:
-    explicit ReportClient(QObject* parent = Q_NULLPTR);
+    explicit ReportClient(QObject* parent = nullptr);
     Q_INVOKABLE void fetchReport(int jobId);
     Q_INVOKABLE void fetchReports();
     Q_INVOKABLE void fetchDocuments(int jobId);
@@ -35,11 +30,6 @@ signals:
     void reportDeleteFailed(const QString& reason);
 
 private:
-    static inline const QUrl ReportEndpoint{"http://localhost:8080/api/report/export"};
-    static inline const QUrl ReportsEndpoint{"http://localhost:8080/api/reports"};
-    static inline const QUrl DocumentsEndpoint{"http://localhost:8080/api/documents"};
-
-    QNetworkAccessManager _network;
     Logger _log{"QmlClient.ReportClient"};
 };
 

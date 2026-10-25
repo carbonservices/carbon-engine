@@ -1,10 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
-// Enterprise ESG Report Data Review Modal
-// Provides a tabbed review interface across Section A, Section B, Principles 1-9, and BRSR Core.
-// Allows ESG consultants to inspect and edit extracted scalar data, narratives, and tabular records.
 Dialog {
     id: reviewDialog
     title: ""
@@ -17,8 +16,8 @@ Dialog {
     padding: 0
 
     background: Rectangle {
-        color: appWindow.bgBase
-        border.color: appWindow.borderCol
+        color: Theme.bgBase
+        border.color: Theme.borderDialog
         border.width: 1
         radius: 6
     }
@@ -26,12 +25,13 @@ Dialog {
     property int jobId: -1
     property var sectionsByGroupId: ({})
     property var warningsByGroupId: ({})
+    property var issuesByGroupId: ({})
     property bool accepted: false
 
     signal reportAccepted(int jobId)
 
-    readonly property var sectionOrder: ["A", "B", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "CORE"]
-    readonly property var sectionLabels: ({
+    property var sectionOrder: ["A", "B", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "CORE"]
+    property var sectionLabels: ({
         "A": "Section A", "B": "Section B", "P1": "Principle 1", "P2": "Principle 2",
         "P3": "Principle 3", "P4": "Principle 4", "P5": "Principle 5", "P6": "Principle 6",
         "P7": "Principle 7", "P8": "Principle 8", "P9": "Principle 9", "CORE": "BRSR Core"
@@ -39,7 +39,16 @@ Dialog {
 
     ExtractionClient {
         id: extractionClient
-        onSectionsReady: function(sections, warnings) {
+        onSchemaReady: function(schema) {
+            BrsrMeta.applyServerSchema(schema)
+            if (schema && schema.section_labels) {
+                reviewDialog.sectionLabels = schema.section_labels
+            }
+            if (schema && schema.section_order && schema.section_order.length > 0) {
+                reviewDialog.sectionOrder = schema.section_order
+            }
+        }
+        onSectionsReady: function(sections, warnings, issues) {
             var byGroup = {}
             for (var i = 0; i < sections.length; ++i) {
                 byGroup[sections[i].group_id] = sections[i]
@@ -54,9 +63,19 @@ Dialog {
                 warningsByGroup[groupId].push(text)
             }
             reviewDialog.warningsByGroupId = warningsByGroup
+
+            var issuesByGroup = {}
+            if (issues && issues.length) {
+                for (var j = 0; j < issues.length; ++j) {
+                    var issue = issues[j]
+                    if (!issuesByGroup[issue.group_id]) issuesByGroup[issue.group_id] = []
+                    issuesByGroup[issue.group_id].push(issue)
+                }
+            }
+            reviewDialog.issuesByGroupId = issuesByGroup
         }
         onUpdateSucceeded: function(groupId) {
-            appWindow.appendStatus("Saved edits for " + groupId)
+            if (typeof appWindow !== "undefined" && appWindow) appWindow.appendStatus("Saved edits for " + groupId)
         }
         onAcceptSucceeded: function() {
             reviewDialog.accepted = true
@@ -64,7 +83,7 @@ Dialog {
             reviewDialog.close()
         }
         onRequestFailed: function(reason) {
-            appWindow.appendStatus("Review action failed: " + reason)
+            if (typeof appWindow !== "undefined" && appWindow) appWindow.appendStatus("Review action failed: " + reason)
         }
     }
 
@@ -81,6 +100,7 @@ Dialog {
     function openForJob(id) {
         jobId = id
         accepted = false
+        extractionClient.fetchSchema()
         extractionClient.fetchSections(id)
         open()
     }
@@ -90,12 +110,11 @@ Dialog {
     contentItem: ColumnLayout {
         spacing: 0
 
-        // Custom Modal Header
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 52
-            color: appWindow.bgHeader
-            border.color: appWindow.borderCol
+            color: Theme.bgHeader
+            border.color: Theme.borderCol
             border.width: 1
 
             RowLayout {
@@ -110,12 +129,12 @@ Dialog {
                         text: "Review Extracted Report Data"
                         font.bold: true
                         font.pixelSize: 15
-                        color: appWindow.textBright
+                        color: Theme.textBright
                     }
                     Label {
                         text: "Verify and calibrate ESG metrics and disclosure tables before final report generation and audit lock."
                         font.pixelSize: 11
-                        color: appWindow.textMuted
+                        color: Theme.textMuted
                     }
                 }
 
@@ -124,16 +143,16 @@ Dialog {
                 Rectangle {
                     Layout.preferredHeight: 22
                     Layout.preferredWidth: jobPillText.implicitWidth + 14
-                    color: "#1e3a5f"
+                    color: Theme.badgePillBlueBg
                     radius: 11
-                    border.color: "#3b82f6"
+                    border.color: Theme.badgePillBlueBorder
                     border.width: 1
 
                     Text {
                         id: jobPillText
                         anchors.centerIn: parent
                         text: "Job #" + reviewDialog.jobId
-                        color: "#93c5fd"
+                        color: Theme.badgePillBlueText
                         font.pixelSize: 11
                         font.bold: true
                     }
@@ -143,12 +162,12 @@ Dialog {
                     Layout.preferredWidth: 28
                     Layout.preferredHeight: 28
                     background: Rectangle {
-                        color: parent.down ? appWindow.bgActive : (parent.hovered ? appWindow.bgHover : "transparent")
+                        color: parent.down ? Theme.bgActive : (parent.hovered ? Theme.bgHover : "transparent")
                         radius: 4
                     }
                     contentItem: Text {
                         text: "✕"
-                        color: appWindow.textMuted
+                        color: Theme.textMuted
                         font.pixelSize: 13
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
@@ -158,12 +177,11 @@ Dialog {
             }
         }
 
-        // Section Tabs Bar
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 38
-            color: appWindow.bgSidebar
-            border.color: appWindow.borderCol
+            color: Theme.bgSidebar
+            border.color: Theme.borderCol
             border.width: 1
 
             TabBar {
@@ -181,19 +199,19 @@ Dialog {
                         font.weight: tabBtn.checked ? Font.DemiBold : Font.Normal
 
                         background: Rectangle {
-                            color: tabBtn.checked ? appWindow.bgBase : (tabBtn.hovered ? appWindow.bgHover : "transparent")
+                            color: tabBtn.checked ? Theme.bgBase : (tabBtn.hovered ? Theme.bgHover : "transparent")
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 height: 2
-                                color: tabBtn.checked ? appWindow.brandAccent : "transparent"
+                                color: tabBtn.checked ? Theme.brandAccent : "transparent"
                             }
                         }
 
                         contentItem: Text {
                             text: tabBtn.text
-                            color: tabBtn.checked ? appWindow.textBright : (tabBtn.hovered ? appWindow.textMain : appWindow.textMuted)
+                            color: tabBtn.checked ? Theme.textBright : (tabBtn.hovered ? Theme.textMain : Theme.textMuted)
                             font.pixelSize: 11
                             font.bold: tabBtn.checked
                             horizontalAlignment: Text.AlignHCenter
@@ -204,49 +222,41 @@ Dialog {
             }
         }
 
-        // Scrollable Body for Cards
-        StackLayout {
-            id: sectionStack
+        ScrollView {
+            id: sectionScrollView
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 12
-            currentIndex: sectionTabBar.currentIndex
+            clip: true
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-            Repeater {
-                model: reviewDialog.sectionOrder
-                delegate: ScrollView {
-                    clip: true
-                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+            ColumnLayout {
+                width: sectionScrollView.width - 24
+                spacing: 14
 
-                    ColumnLayout {
-                        width: sectionStack.width - 24
-                        spacing: 14
-
-                        Repeater {
-                            model: reviewDialog.groupsForSection(modelData)
-                            delegate: FieldGroupCard {
-                                Layout.fillWidth: true
-                                groupData: modelData
-                                warnings: reviewDialog.warningsByGroupId[modelData.group_id] || []
-                                locked: reviewDialog.accepted
-                                onFieldEdited: function(groupId, data) {
-                                    extractionClient.updateSection(reviewDialog.jobId, groupId, data)
-                                }
-                            }
+                Repeater {
+                    model: reviewDialog.groupsForSection(reviewDialog.sectionOrder[sectionTabBar.currentIndex])
+                    delegate: FieldGroupCard {
+                        Layout.fillWidth: true
+                        groupData: modelData
+                        issues: reviewDialog.issuesByGroupId[modelData.group_id] || []
+                        warnings: reviewDialog.warningsByGroupId[modelData.group_id] || []
+                        locked: reviewDialog.accepted
+                        onFieldEdited: function(groupId, data) {
+                            extractionClient.updateSection(reviewDialog.jobId, groupId, data)
                         }
-
-                        Item { Layout.preferredHeight: 16 }
                     }
                 }
+
+                Item { Layout.preferredHeight: 16 }
             }
         }
 
-        // Action Footer
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 50
-            color: appWindow.bgHeader
-            border.color: appWindow.borderCol
+            color: Theme.bgHeader
+            border.color: Theme.borderCol
             border.width: 1
 
             RowLayout {
@@ -260,7 +270,7 @@ Dialog {
                     text: reviewDialog.accepted
                         ? "✓ Report verified, accepted, and locked in the audit ledger."
                         : "All edits are automatically saved to draft. Click 'Accept & Lock' to finalize."
-                    color: reviewDialog.accepted ? appWindow.successColor : appWindow.textMuted
+                    color: reviewDialog.accepted ? Theme.successColor : Theme.textMuted
                     font.pixelSize: 11
                 }
 
@@ -269,15 +279,15 @@ Dialog {
                     Layout.preferredHeight: 30
                     Layout.preferredWidth: 80
                     background: Rectangle {
-                        color: parent.down ? appWindow.bgActive
-                             : (parent.hovered ? appWindow.bgHover : appWindow.bgSubtle)
-                        border.color: appWindow.borderSubtle
+                        color: parent.down ? Theme.bgActive
+                             : (parent.hovered ? Theme.bgHover : Theme.bgSubtle)
+                        border.color: Theme.borderSubtle
                         border.width: 1
                         radius: 4
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: appWindow.textMain
+                        color: Theme.textMain
                         font.pixelSize: 12
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
@@ -291,14 +301,14 @@ Dialog {
                     Layout.preferredHeight: 30
                     Layout.preferredWidth: 120
                     background: Rectangle {
-                        color: !parent.enabled ? appWindow.bgSubtle
-                             : (parent.down ? appWindow.brandAccentPressed
-                             : (parent.hovered ? appWindow.brandAccentHover : appWindow.brandAccent))
+                        color: !parent.enabled ? Theme.bgSubtle
+                             : (parent.down ? Theme.brandAccentPressed
+                             : (parent.hovered ? Theme.brandAccentHover : Theme.brandAccent))
                         radius: 4
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: parent.enabled ? "#ffffff" : appWindow.textMuted
+                        color: parent.enabled ? "#ffffff" : Theme.textMuted
                         font.pixelSize: 12
                         font.bold: true
                         horizontalAlignment: Text.AlignHCenter

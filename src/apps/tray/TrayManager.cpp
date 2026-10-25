@@ -1,0 +1,253 @@
+#include "TrayManager.h"
+#include "constants/CommonConstants.h"
+#include "system/WindowsService.h"
+
+#include <QApplication>
+#include <QCoreApplication>
+#include <QFile>
+#include <QIcon>
+#include <QProcess>
+#include <QStyle>
+#include <QThread>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+TrayManager::TrayManager(QObject* parent)
+    : QObject(parent)
+{
+    m_trayIcon = new QSystemTrayIcon(this);
+
+    // Attempt to load application icon from app directory or fallback to system icon
+    QString iconPath = QCoreApplication::applicationDirPath() + "/" + AppInfo::IconFileName;
+    QIcon icon(iconPath);
+    if (icon.isNull()) {
+        icon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
+    }
+    m_trayIcon->setIcon(icon);
+
+    m_trayMenu = new QMenu();
+
+    m_openClientAction = m_trayMenu->addAction(QString("Open %1").arg(AppInfo::ClientAppName));
+    connect(m_openClientAction, &QAction::triggered, this, &TrayManager::openClient);
+
+    m_trayMenu->addSeparator();
+
+    m_statusAction = m_trayMenu->addAction(QString("%1 Status: Checking...").arg(AppInfo::ServerAppName));
+    m_statusAction->setEnabled(false);
+
+    m_startAction = m_trayMenu->addAction("Start Engine");
+    connect(m_startAction, &QAction::triggered, this, &TrayManager::startBackend);
+
+    m_stopAction = m_trayMenu->addAction("Stop Engine");
+    connect(m_stopAction, &QAction::triggered, this, &TrayManager::stopBackend);
+
+    m_restartAction = m_trayMenu->addAction("Restart Engine");
+    connect(m_restartAction, &QAction::triggered, this, &TrayManager::restartBackend);
+
+    m_trayMenu->addSeparator();
+
+    m_stopAndQuitAction = m_trayMenu->addAction("Stop Engine && Exit");
+    connect(m_stopAndQuitAction, &QAction::triggered, this, &TrayManager::stopAndQuit);
+
+    m_quitTrayOnlyAction = m_trayMenu->addAction("Exit Tray (Keep Engine Running)");
+    connect(m_quitTrayOnlyAction, &QAction::triggered, this, &TrayManager::quitTrayOnly);
+
+    m_trayIcon->setContextMenu(m_trayMenu);
+    connect(m_trayIcon, &QSystemTrayIcon::activated, this, &TrayManager::onTrayActivated);
+
+    m_pollTimer = new QTimer(this);
+    connect(m_pollTimer, &QTimer::timeout, this, &TrayManager::updateStatus);
+    m_pollTimer->start(2500);
+
+    updateStatus();
+    m_trayIcon->show();
+
+    // Auto-start backend application if not already running
+    ensureBackendStarted();
+}
+
+bool TrayManager::isBackendRunning() const
+{
+    if (WindowsService::isServiceRunning()) {
+        return true;
+    }
+#ifdef _WIN32
+    std::wstring globalMutex = (L"Global\\" + QString(AppInfo::DaemonMutexName)).toStdWString();
+    HANDLE hGlobal = OpenMutexW(SYNCHRONIZE, FALSE, globalMutex.c_str());
+    if (hGlobal) {
+        CloseHandle(hGlobal);
+        return true;
+    } else if (GetLastError() == ERROR_ACCESS_DENIED) {
+        return true;
+    }
+
+    std::wstring localMutex = (L"Local\\" + QString(AppInfo::DaemonMutexName)).toStdWString();
+    HANDLE hLocal = OpenMutexW(SYNCHRONIZE, FALSE, localMutex.c_str());
+    if (hLocal) {
+        CloseHandle(hLocal);
+        return true;
+    } else if (GetLastError() == ERROR_ACCESS_DENIED) {
+        return true;
+    }
+#endif
+    return false;
+}
+
+bool TrayManager::isServiceMode() const
+{
+    return WindowsService::isServiceInstalled();
+}
+
+void TrayManager::ensureBackendStarted()
+{
+    if (!isBackendRunning()) {
+        startBackend();
+    }
+}
+
+void TrayManager::updateStatus()
+{
+    bool svcRunning = WindowsService::isServiceRunning();
+    bool procRunning = !svcRunning && isBackendRunning();
+    bool anyRunning = svcRunning || procRunning;
+
+    if (svcRunning) {
+        m_statusAction->setText(QString("%1 Status: Running (Windows Service)").arg(AppInfo::ServerAppName));
+        m_trayIcon->setToolTip(QString("%1: Running (Windows Service)").arg(AppInfo::ServerAppName));
+    } else if (procRunning) {
+        m_statusAction->setText(QString("%1 Status: Running (Background Process)").arg(AppInfo::ServerAppName));
+        m_trayIcon->setToolTip(QString("%1: Running (Background Process)").arg(AppInfo::ServerAppName));
+    } else {
+        m_statusAction->setText(QString("%1 Status: Stopped").arg(AppInfo::ServerAppName));
+        m_trayIcon->setToolTip(QString("%1: Stopped").arg(AppInfo::ServerAppName));
+    }
+
+    m_startAction->setEnabled(!anyRunning);
+    m_stopAction->setEnabled(anyRunning);
+    m_restartAction->setEnabled(anyRunning);
+}
+
+void TrayManager::startBackend()
+{
+    if (isBackendRunning()) {
+        m_trayIcon->showMessage(
+            AppInfo::ServerAppName,
+            "Engine is already running.",
+            QSystemTrayIcon::Information,
+            3000
+        );
+        updateStatus();
+        return;
+    }
+
+    if (isServiceMode()) {
+        QString msg;
+        bool ok = WindowsService::startService(msg);
+        m_trayIcon->showMessage(
+            AppInfo::ServerAppName,
+            msg,
+            ok ? QSystemTrayIcon::Information : QSystemTrayIcon::Warning,
+            4000
+        );
+    } else {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QString serverPath = appDir + "/" + AppInfo::ServerExecutableName;
+        if (QFile::exists(serverPath)) {
+            bool ok = QProcess::startDetached(serverPath, {}, appDir);
+            m_trayIcon->showMessage(
+                AppInfo::ServerAppName,
+                ok ? "Started background engine process." : QString("Failed to launch %1.").arg(AppInfo::ServerExecutableName),
+                ok ? QSystemTrayIcon::Information : QSystemTrayIcon::Warning,
+                4000
+            );
+        } else {
+            m_trayIcon->showMessage(
+                AppInfo::ServerAppName,
+                QString("Executable %1 not found in application directory.").arg(AppInfo::ServerExecutableName),
+                QSystemTrayIcon::Warning,
+                4000
+            );
+        }
+    }
+    updateStatus();
+}
+
+void TrayManager::stopBackend()
+{
+    if (WindowsService::isServiceRunning()) {
+        QString msg;
+        bool ok = WindowsService::stopService(msg);
+        m_trayIcon->showMessage(
+            AppInfo::ServerAppName,
+            msg,
+            ok ? QSystemTrayIcon::Information : QSystemTrayIcon::Warning,
+            4000
+        );
+    } else if (isBackendRunning()) {
+#ifdef _WIN32
+        QProcess killProc;
+        killProc.start("taskkill", {"/F", "/IM", AppInfo::ServerExecutableName, "/T"});
+        killProc.waitForFinished(3000);
+#endif
+        m_trayIcon->showMessage(
+            AppInfo::ServerAppName,
+            "Background engine process stopped.",
+            QSystemTrayIcon::Information,
+            3000
+        );
+    } else {
+        m_trayIcon->showMessage(
+            AppInfo::ServerAppName,
+            "Engine is not currently running.",
+            QSystemTrayIcon::Information,
+            3000
+        );
+    }
+    updateStatus();
+}
+
+void TrayManager::restartBackend()
+{
+    stopBackend();
+    QThread::msleep(800);
+    startBackend();
+}
+
+void TrayManager::stopAndQuit()
+{
+    if (isBackendRunning()) {
+        stopBackend();
+        QThread::msleep(500);
+    }
+    qApp->quit();
+}
+
+void TrayManager::quitTrayOnly()
+{
+    qApp->quit();
+}
+
+void TrayManager::openClient()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString clientPath = appDir + "/" + AppInfo::ClientExecutableName;
+    if (QFile::exists(clientPath)) {
+        QProcess::startDetached(clientPath, {}, appDir);
+    } else {
+        m_trayIcon->showMessage(
+            AppInfo::ClientAppName,
+            QString("Desktop UI executable (%1) not found.").arg(AppInfo::ClientExecutableName),
+            QSystemTrayIcon::Warning,
+            3000
+        );
+    }
+}
+
+void TrayManager::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick || reason == QSystemTrayIcon::Trigger) {
+        openClient();
+    }
+}

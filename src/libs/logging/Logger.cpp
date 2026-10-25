@@ -10,27 +10,58 @@
 #include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QTextStream>
 
 namespace {
 
-// Decides where log files live: a `log/` directory next to the running
-// executable (dev tree / normal install) when writable, otherwise falls back
-// to a per-app directory under the system temp path (e.g. installed to a
-// read-only Program Files location).
+QString s_customLogDir;
+QMutex s_logDirMutex;
+
+bool testWritableDir(const QString& dirPath) {
+    if (dirPath.isEmpty() || !QDir().mkpath(dirPath)) {
+        return false;
+    }
+    QFileInfo probe(dirPath + "/.write-test");
+    QFile test(probe.filePath());
+    if (test.open(QIODevice::WriteOnly)) {
+        test.close();
+        test.remove();
+        return true;
+    }
+    return false;
+}
+
 QString resolveLogDirectory() {
-    const QString appRelative = QFileInfo(QCoreApplication::applicationDirPath() + "/log").absoluteFilePath();
-    if (QDir().mkpath(appRelative)) {
-        QFileInfo probe(appRelative + "/.write-test");
-        QFile test(probe.filePath());
-        if (test.open(QIODevice::WriteOnly)) {
-            test.close();
-            test.remove();
-            return appRelative;
-        }
+    QMutexLocker locker(&s_logDirMutex);
+    if (!s_customLogDir.isEmpty() && testWritableDir(s_customLogDir)) {
+        return s_customLogDir;
     }
 
-    const QString fallback = QDir::tempPath() + "/carbon-engine/log";
+    // 1. Check user configured setting in QSettings
+    QSettings settings("Carbon Services", "Carbon ESG");
+    QString configured = settings.value("paths/logsDir").toString();
+    if (!configured.isEmpty() && testWritableDir(configured)) {
+        return configured;
+    }
+
+    // 2. Default Documents directory: <Documents>/CarbonESG/logs
+    QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (docsLocation.isEmpty()) docsLocation = QDir::homePath() + "/Documents";
+    QString docsLogDir = QDir::cleanPath(docsLocation + "/CarbonESG/logs");
+    if (testWritableDir(docsLogDir)) {
+        return docsLogDir;
+    }
+
+    // 3. Fallback: app-relative directory (e.g. dev build)
+    const QString appRelative = QFileInfo(QCoreApplication::applicationDirPath() + "/log").absoluteFilePath();
+    if (testWritableDir(appRelative)) {
+        return appRelative;
+    }
+
+    // 4. Last resort: per-app system temp directory
+    const QString fallback = QDir::cleanPath(QDir::tempPath() + "/CarbonServices/CarbonEngine/log");
     QDir().mkpath(fallback);
     return fallback;
 }
@@ -81,17 +112,28 @@ std::map<QString, std::shared_ptr<FileLogSink>>& registry() {
 
 std::shared_ptr<FileLogSink> sinkFor(const QString& moduleName) {
     const QString dateStamp = QDate::currentDate().toString("yyyy-MM-dd");
-    const QString key = moduleName + "_" + dateStamp;
+    const QString prefix = moduleName + "_";
+    const QString key = prefix + dateStamp;
 
     QMutexLocker locker(&registryMutex());
-    auto it = registry().find(key);
-    if (it != registry().end()) {
+    auto& reg = registry();
+    auto it = reg.find(key);
+    if (it != reg.end()) {
         return it->second;
+    }
+
+    // Evict expired daily sinks for this module so old file handles close cleanly
+    for (auto iter = reg.begin(); iter != reg.end(); ) {
+        if (iter->first.startsWith(prefix)) {
+            iter = reg.erase(iter);
+        } else {
+            ++iter;
+        }
     }
 
     const QString filePath = resolveLogDirectory() + "/" + key + ".log";
     auto sink = std::make_shared<FileLogSink>(filePath);
-    registry().emplace(key, sink);
+    reg.emplace(key, sink);
     return sink;
 }
 
@@ -108,4 +150,13 @@ void Logger::critical(const QString& message) const { log(LogLevel::Critical, me
 
 void Logger::log(LogLevel level, const QString& message) const {
     sinkFor(_moduleName)->write(level, _moduleName, message);
+}
+
+void Logger::setLogDirectory(const QString& dir) {
+    QMutexLocker locker(&s_logDirMutex);
+    s_customLogDir = dir;
+}
+
+QString Logger::logDirectory() {
+    return resolveLogDirectory();
 }

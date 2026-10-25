@@ -1,2 +1,5 @@
 add_subdirectory(server)
 add_subdirectory(qml-client)
+if(WIN32)
+    add_subdirectory(tray)
+endif()

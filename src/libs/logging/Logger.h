@@ -17,6 +17,9 @@ public:
     void error(const QString& message) const;
     void critical(const QString& message) const;
 
+    static void setLogDirectory(const QString& dir);
+    static QString logDirectory();
+
 private:
     void log(LogLevel level, const QString& message) const;
 

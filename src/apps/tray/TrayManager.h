@@ -1,0 +1,46 @@
+#pragma once
+
+#include <QObject>
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QAction>
+#include <QTimer>
+
+class TrayManager : public QObject {
+    Q_OBJECT
+
+public:
+    explicit TrayManager(QObject* parent = nullptr);
+    ~TrayManager() override = default;
+
+public slots:
+    void updateStatus();
+    void startBackend();
+    void stopBackend();
+    void restartBackend();
+    void openClient();
+    void stopAndQuit();
+    void quitTrayOnly();
+    void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+
+    // Backward-compatibility slot aliases
+    void startService() { startBackend(); }
+    void stopService() { stopBackend(); }
+    void restartService() { restartBackend(); }
+
+private:
+    bool isBackendRunning() const;
+    bool isServiceMode() const;
+    void ensureBackendStarted();
+
+    QSystemTrayIcon* m_trayIcon{nullptr};
+    QMenu* m_trayMenu{nullptr};
+    QAction* m_openClientAction{nullptr};
+    QAction* m_statusAction{nullptr};
+    QAction* m_startAction{nullptr};
+    QAction* m_stopAction{nullptr};
+    QAction* m_restartAction{nullptr};
+    QAction* m_stopAndQuitAction{nullptr};
+    QAction* m_quitTrayOnlyAction{nullptr};
+    QTimer* m_pollTimer{nullptr};
+};

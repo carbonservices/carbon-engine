@@ -10,18 +10,15 @@
 #include <QTextStream>
 #include <memory>
 
-
-ReportClient::ReportClient(QObject *parent) : QObject(parent) {}
+ReportClient::ReportClient(QObject *parent) : ApiClientBase(parent) {}
 
 void ReportClient::fetchReport(int jobId)
 {
     _log.info(QString("Fetching report for job %1").arg(jobId));
 
-    QNetworkRequest request(ReportEndpoint);
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
+    QNetworkRequest request = createJsonRequest(endpoint(ApiRoutes::ReportExport));
     QJsonDocument body(QJsonObject{{"job_id", jobId}});
-    QNetworkReply *reply = _network.post(request, body.toJson());
+    QNetworkReply *reply = network().post(request, body.toJson());
 
     auto buffer = std::make_shared<QByteArray>();
 
@@ -58,8 +55,8 @@ void ReportClient::fetchReports()
 {
     _log.info("Fetching reports list from server");
 
-    QNetworkRequest request(ReportsEndpoint);
-    QNetworkReply *reply = _network.get(request);
+    QNetworkRequest request(endpoint(ApiRoutes::Reports));
+    QNetworkReply *reply = network().get(request);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply]()
     {
@@ -81,13 +78,13 @@ void ReportClient::deleteReport(int jobId)
 {
     _log.info(QString("Requesting deletion of report / job %1").arg(jobId));
 
-    QUrl url = ReportsEndpoint;
+    QUrl url = endpoint(ApiRoutes::Reports);
     QUrlQuery query;
     query.addQueryItem("job_id", QString::number(jobId));
     url.setQuery(query);
 
     QNetworkRequest request(url);
-    QNetworkReply *reply = _network.deleteResource(request);
+    QNetworkReply *reply = network().deleteResource(request);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
     {
@@ -107,13 +104,13 @@ void ReportClient::fetchDocuments(int jobId)
 {
     _log.info(QString("Fetching documents for job %1").arg(jobId));
 
-    QUrl url = DocumentsEndpoint;
+    QUrl url = endpoint(ApiRoutes::Documents);
     QUrlQuery query;
     query.addQueryItem("job_id", QString::number(jobId));
     url.setQuery(query);
 
     QNetworkRequest request(url);
-    QNetworkReply *reply = _network.get(request);
+    QNetworkReply *reply = network().get(request);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, jobId]()
     {
@@ -134,15 +131,16 @@ void ReportClient::fetchDocuments(int jobId)
 
 bool ReportClient::saveHtmlToFile(const QString& filePath, const QString& content)
 {
-    QFile file(filePath);
+    QUrl url(filePath);
+    const QString localPath = url.isLocalFile() ? url.toLocalFile() : filePath;
+    QFile file(localPath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        _log.error(QString("Failed to open file for writing at %1: %2").arg(filePath, file.errorString()));
+        _log.error(QString("Failed to open file for writing at %1: %2").arg(localPath, file.errorString()));
         return false;
     }
     QTextStream out(&file);
     out << content;
     file.close();
-    _log.info(QString("Successfully exported report HTML to %1").arg(filePath));
+    _log.info(QString("Successfully exported report HTML to %1").arg(localPath));
     return true;
 }
-

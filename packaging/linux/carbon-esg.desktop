@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Carbon ESG
+GenericName=ESG Reporting Platform
+Comment=Enterprise Statutory BRSR Reporting Application by Carbon Services
+Exec=carbon-engine-client %F
+Icon=carbon-esg
+Terminal=false
+Categories=Office;Finance;
+StartupNotify=true
+StartupWMClass=Carbon ESG
+

@@ -1,28 +1,43 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
 Rectangle {
     id: root
     Layout.fillWidth: true
     Layout.preferredHeight: 260
-    color: appWindow.bgSidebar
+    color: Theme.bgSidebar
     radius: 4
-    border.color: appWindow.borderCol
+    border.color: Theme.borderCol
     border.width: 1
     clip: true
 
-    property int tabIndex: 0
+    property var activeModel: (typeof activeDocumentsModel !== "undefined") ? activeDocumentsModel : null
+    property var queueModel: (typeof documentQueueModel !== "undefined") ? documentQueueModel : null
+    property int currentJobId: (typeof appWindow !== "undefined") ? appWindow.currentJobId : -1
+    property bool batchConfirmed: (typeof appWindow !== "undefined") ? appWindow.batchConfirmed : false
+    property bool daemonConnected: (typeof appWindow !== "undefined" && appWindow.systemPoller) ? appWindow.systemPoller.isConnected : true
 
-    function showQueueTab() { tabIndex = 1 }
-    function showAttachedTab() { tabIndex = 0 }
+    readonly property int queueCount: (root.queueModel ? root.queueModel.count : 0)
+    readonly property int activeCount: (root.activeModel ? root.activeModel.count : 0)
+    readonly property int totalDocCount: queueCount + activeCount
+
+    signal addDocumentRequested()
+    signal startProcessingRequested()
+    signal cancelActiveJobRequested()
+
+    // Backward-compatibility no-op helpers
+    function showQueueTab() {}
+    function showAttachedTab() {}
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
         spacing: 8
 
-        // Top Header
+        // Header
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
@@ -31,327 +46,310 @@ Rectangle {
                 text: "DOCUMENTS"
                 font.bold: true
                 font.pixelSize: 11
-                color: appWindow.textMuted
+                color: Theme.textMuted
+            }
+
+            Rectangle {
+                visible: root.totalDocCount > 0
+                radius: 8
+                color: Theme.bgSubtle
+                border.color: Theme.borderCol
+                border.width: 1
+                Layout.preferredHeight: 18
+                Layout.preferredWidth: docBadgeText.implicitWidth + 10
+
+                Text {
+                    id: docBadgeText
+                    anchors.centerIn: parent
+                    text: root.totalDocCount
+                    font.pixelSize: 10
+                    font.bold: true
+                    color: Theme.textBright
+                }
             }
 
             Item { Layout.fillWidth: true }
 
             Label {
-                visible: appWindow.currentJobId >= 0
-                text: "Report #" + appWindow.currentJobId
+                visible: root.currentJobId >= 0
+                text: "Report #" + root.currentJobId
                 font.pixelSize: 10
                 font.bold: true
-                color: appWindow.brandAccent
+                color: Theme.brandAccent
             }
         }
 
-        // Segmented Tab Switcher
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 4
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderCol }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 24
-                radius: 3
-                color: root.tabIndex === 0 ? appWindow.bgActive : appWindow.bgSubtle
-                border.color: root.tabIndex === 0 ? appWindow.brandAccent : appWindow.borderSubtle
-                border.width: 1
-
-                Label {
-                    anchors.centerIn: parent
-                    text: "Attached (" + activeDocumentsModel.count + ")"
-                    font.pixelSize: 11
-                    font.bold: root.tabIndex === 0
-                    color: root.tabIndex === 0 ? appWindow.textBright : appWindow.textMuted
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.tabIndex = 0
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 24
-                radius: 3
-                color: root.tabIndex === 1 ? appWindow.bgActive : appWindow.bgSubtle
-                border.color: root.tabIndex === 1 ? appWindow.brandAccent : appWindow.borderSubtle
-                border.width: 1
-
-                Label {
-                    anchors.centerIn: parent
-                    text: documentQueueModel.count > 0 ? ("Queue (" + documentQueueModel.count + ")") : "Staging"
-                    font.pixelSize: 11
-                    font.bold: root.tabIndex === 1
-                    color: documentQueueModel.count > 0 ? appWindow.brandAccent : (root.tabIndex === 1 ? appWindow.textBright : appWindow.textMuted)
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.tabIndex = 1
-                }
-            }
-        }
-
-        Rectangle { Layout.fillWidth: true; height: 1; color: appWindow.borderCol }
-
-        // Content Area
+        // Documents List / Empty Placeholder
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
 
-            // TAB 0: Attached Documents to Active Report
-            Item {
+            ScrollView {
+                id: docScrollView
                 anchors.fill: parent
-                visible: root.tabIndex === 0
+                visible: root.totalDocCount > 0
+                contentWidth: availableWidth
+                clip: true
 
-                ListView {
-                    id: attachedList
-                    anchors.fill: parent
-                    visible: activeDocumentsModel.count > 0
-                    model: activeDocumentsModel
+                ColumnLayout {
+                    width: docScrollView.availableWidth
                     spacing: 4
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
 
-                    delegate: Rectangle {
-                        width: attachedList.width
-                        height: 36
-                        color: appWindow.bgSubtle
-                        radius: 3
+                    // 1. Queued Documents waiting for ingestion
+                    Repeater {
+                        model: root.queueModel
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            color: Theme.bgSubtle
+                            border.color: Theme.borderSubtle
+                            border.width: 1
+                            radius: 3
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 6
-                            spacing: 8
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 8
 
-                            Text {
-                                text: "📄"
-                                font.pixelSize: 14
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 1
-
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: model.fileName
-                                    font.pixelSize: 11
-                                    font.bold: true
-                                    elide: Text.ElideMiddle
-                                    color: appWindow.textBright
+                                Text {
+                                    text: "📄"
+                                    font.pixelSize: 14
                                 }
 
-                                Label {
+                                ColumnLayout {
                                     Layout.fillWidth: true
-                                    text: {
-                                        if (model.chunkCount > 0) {
-                                            return model.chunkCount + " chunks" + (model.pageCount > 0 ? (" • " + model.pageCount + " pgs") : "")
-                                        }
-                                        if (model.status === "PROCESSING") return "Processing document..."
-                                        if (model.status === "QUEUED") return "Queued for ingestion"
-                                        return "Ingested"
+                                    spacing: 1
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: model.fileName
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        elide: Text.ElideMiddle
+                                        color: Theme.textBright
                                     }
-                                    font.pixelSize: 10
-                                    color: appWindow.textMuted
-                                }
-                            }
 
-                            Rectangle {
-                                Layout.preferredHeight: 18
-                                Layout.preferredWidth: badgeText.implicitWidth + 8
-                                radius: 3
-                                color: {
-                                    if (model.status === "INGESTED") return Qt.rgba(0.06, 0.73, 0.51, 0.15)
-                                    if (model.status === "PROCESSING") return Qt.rgba(0.23, 0.51, 0.96, 0.15)
-                                    if (model.status === "FAILED") return Qt.rgba(0.94, 0.27, 0.27, 0.15)
-                                    return Qt.rgba(0.92, 0.70, 0.03, 0.15)
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: "Pending ingestion"
+                                        font.pixelSize: 10
+                                        color: Theme.textMuted
+                                    }
                                 }
 
-                                Label {
-                                    id: badgeText
-                                    anchors.centerIn: parent
-                                    text: model.status || "INGESTED"
-                                    font.pixelSize: 9
-                                    font.bold: true
-                                    color: {
-                                        if (model.status === "INGESTED") return appWindow.successColor
-                                        if (model.status === "PROCESSING") return appWindow.brandAccent
-                                        if (model.status === "FAILED") return appWindow.dangerColor
-                                        return "#eab308"
+                                Rectangle {
+                                    Layout.preferredHeight: 18
+                                    Layout.preferredWidth: queueBadgeText.implicitWidth + 8
+                                    radius: 3
+                                    color: Qt.rgba(0.23, 0.51, 0.96, 0.15)
+
+                                    Label {
+                                        id: queueBadgeText
+                                        anchors.centerIn: parent
+                                        text: "READY"
+                                        font.pixelSize: 9
+                                        font.bold: true
+                                        color: Theme.brandAccent
+                                    }
+                                }
+
+                                Rectangle {
+                                    visible: !root.batchConfirmed
+                                    Layout.preferredWidth: 20
+                                    Layout.preferredHeight: 20
+                                    radius: 3
+                                    color: removeMouse.containsMouse ? Theme.bgHover : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "✕"
+                                        color: removeMouse.containsMouse ? Theme.dangerColor : Theme.textMuted
+                                        font.pixelSize: 11
+                                    }
+
+                                    MouseArea {
+                                        id: removeMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (root.queueModel) root.queueModel.remove(index)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Empty state for Attached Documents
-                ColumnLayout {
-                    anchors.centerIn: parent
-                    visible: activeDocumentsModel.count === 0
-                    spacing: 4
+                    // 2. Active Ingested Documents
+                    Repeater {
+                        model: root.activeModel
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 36
+                            color: Theme.bgSubtle
+                            radius: 3
 
-                    Label {
-                        text: "No documents attached"
-                        font.pixelSize: 11
-                        font.bold: true
-                        color: appWindow.textMuted
-                        Layout.alignment: Qt.AlignHCenter
-                    }
-                    Label {
-                        text: "Click '+ Add Document' to stage files"
-                        font.pixelSize: 10
-                        color: appWindow.textMuted
-                        Layout.alignment: Qt.AlignHCenter
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 8
+
+                                Text {
+                                    text: "📄"
+                                    font.pixelSize: 14
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 1
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: model.fileName
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        elide: Text.ElideMiddle
+                                        color: Theme.textBright
+                                    }
+
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: {
+                                            if (model.chunkCount > 0) {
+                                                return model.chunkCount + " chunks" + (model.pageCount > 0 ? (" • " + model.pageCount + " pgs") : "")
+                                            }
+                                            if (model.status === BrsrMeta.DocumentStatus.Processing) return "Processing document..."
+                                            if (model.status === BrsrMeta.DocumentStatus.Queued) return "Queued for ingestion"
+                                            if (model.status === BrsrMeta.DocumentStatus.Cancelled) return "Cancelled"
+                                            if (model.status === BrsrMeta.DocumentStatus.Failed) return "Failed"
+                                            return "Ingested"
+                                        }
+                                        font.pixelSize: 10
+                                        color: Theme.textMuted
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.preferredHeight: 18
+                                    Layout.preferredWidth: badgeText.implicitWidth + 8
+                                    radius: 3
+                                    color: {
+                                        if (model.status === BrsrMeta.DocumentStatus.Ingested || model.status === "COMPLETED") return Qt.rgba(0.06, 0.73, 0.51, 0.15)
+                                        if (model.status === BrsrMeta.DocumentStatus.Processing) return Qt.rgba(0.23, 0.51, 0.96, 0.15)
+                                        if (model.status === BrsrMeta.DocumentStatus.Failed) return Qt.rgba(0.94, 0.27, 0.27, 0.15)
+                                        return Qt.rgba(0.92, 0.70, 0.03, 0.15)
+                                    }
+
+                                    Label {
+                                        id: badgeText
+                                        anchors.centerIn: parent
+                                        text: model.status || "INGESTED"
+                                        font.pixelSize: 9
+                                        font.bold: true
+                                        color: {
+                                            if (model.status === BrsrMeta.DocumentStatus.Ingested || model.status === "COMPLETED") return Theme.successColor
+                                            if (model.status === BrsrMeta.DocumentStatus.Processing) return Theme.brandAccent
+                                            if (model.status === BrsrMeta.DocumentStatus.Failed) return Theme.dangerColor
+                                            return Theme.warningColor
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // TAB 1: Staging Queue
-            Item {
-                anchors.fill: parent
-                visible: root.tabIndex === 1
+            // Clean Empty State
+            ColumnLayout {
+                anchors.centerIn: parent
+                visible: root.totalDocCount === 0
+                spacing: 6
 
-                ListView {
-                    id: queueList
-                    anchors.fill: parent
-                    visible: documentQueueModel.count > 0
-                    model: documentQueueModel
-                    spacing: 4
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-
-                    delegate: Rectangle {
-                        width: queueList.width
-                        height: 30
-                        color: appWindow.bgSubtle
-                        radius: 3
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 6
-                            spacing: 8
-
-                            Text {
-                                text: "📄"
-                                font.pixelSize: 12
-                            }
-
-                            Label {
-                                Layout.fillWidth: true
-                                text: model.fileName
-                                elide: Text.ElideMiddle
-                                font.pixelSize: 11
-                                color: appWindow.textMain
-                            }
-
-                            Rectangle {
-                                visible: !appWindow.batchConfirmed
-                                Layout.preferredWidth: 18
-                                Layout.preferredHeight: 18
-                                radius: 3
-                                color: removeMouse.containsMouse ? appWindow.bgHover : "transparent"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "✕"
-                                    color: removeMouse.containsMouse ? appWindow.dangerColor : appWindow.textMuted
-                                    font.pixelSize: 10
-                                }
-
-                                MouseArea {
-                                    id: removeMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: documentQueueModel.remove(index)
-                                }
-                            }
-                        }
-                    }
+                Label {
+                    text: "📄"
+                    font.pixelSize: 22
+                    color: Theme.textMuted
+                    Layout.alignment: Qt.AlignHCenter
                 }
-
-                // Empty state for Staging Queue
-                ColumnLayout {
-                    anchors.centerIn: parent
-                    visible: documentQueueModel.count === 0
-                    spacing: 4
-
-                    Label {
-                        text: "Staging queue is empty"
-                        font.pixelSize: 11
-                        font.bold: true
-                        color: appWindow.textMuted
-                        Layout.alignment: Qt.AlignHCenter
-                    }
-                    Label {
-                        text: "Click '+ Add Document' to select PDFs"
-                        font.pixelSize: 10
-                        color: appWindow.textMuted
-                        Layout.alignment: Qt.AlignHCenter
-                    }
+                Label {
+                    text: "No documents attached"
+                    font.pixelSize: 11
+                    font.bold: true
+                    color: Theme.textMuted
+                    Layout.alignment: Qt.AlignHCenter
+                }
+                Label {
+                    text: "Click '+ Add Document' to select PDF files\nor select a report from history."
+                    font.pixelSize: 10
+                    color: Theme.textMuted
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.alignment: Qt.AlignHCenter
                 }
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: appWindow.borderCol }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderCol }
 
-        // Bottom Action Bar
+        // Action Buttons
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
 
             Button {
                 text: "+ Add Document"
-                enabled: !appWindow.batchConfirmed
+                enabled: !root.batchConfirmed
                 Layout.preferredHeight: 28
                 background: Rectangle {
                     color: !parent.enabled ? "transparent"
-                        : (parent.down ? appWindow.bgActive
-                        : (parent.hovered ? appWindow.bgHover : appWindow.bgSubtle))
-                    border.color: appWindow.borderSubtle
+                        : (parent.down ? Theme.bgActive
+                        : (parent.hovered ? Theme.bgHover : Theme.bgSubtle))
+                    border.color: Theme.borderSubtle
                     border.width: 1
                     radius: 3
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: parent.enabled ? appWindow.textMain : appWindow.textMuted
+                    color: parent.enabled ? Theme.textMain : Theme.textMuted
                     font.pixelSize: 11
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
-                onClicked: addDocDialog.open()
+                onClicked: root.addDocumentRequested()
             }
 
             Item { Layout.fillWidth: true }
 
             Button {
-                text: "Start Ingestion"
-                enabled: documentQueueModel.count > 0 && !appWindow.batchConfirmed
+                id: ingestBtn
+                text: root.batchConfirmed ? "Cancel Ingestion" : "Start Ingestion"
+                enabled: root.batchConfirmed || (root.daemonConnected && root.queueCount > 0)
                 Layout.preferredHeight: 28
                 background: Rectangle {
-                    color: !parent.enabled ? appWindow.bgSubtle
-                        : (parent.down ? appWindow.brandAccentPressed
-                        : (parent.hovered ? appWindow.brandAccentHover : appWindow.brandAccent))
+                    color: !ingestBtn.enabled ? Theme.bgSubtle
+                        : (root.batchConfirmed ? (ingestBtn.hovered ? "#dc2626" : Theme.dangerColor)
+                        : (ingestBtn.down ? Theme.brandAccentPressed
+                        : (ingestBtn.hovered ? Theme.brandAccentHover : Theme.brandAccent)))
                     radius: 3
                 }
                 contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? appWindow.textBright : appWindow.textMuted
+                    text: ingestBtn.text
+                    color: ingestBtn.enabled ? (root.batchConfirmed ? "#ffffff" : Theme.textBright) : Theme.textMuted
                     font.pixelSize: 11
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
                 onClicked: {
-                    appWindow.startProcessing()
+                    if (root.batchConfirmed) {
+                        root.cancelActiveJobRequested()
+                    } else {
+                        root.startProcessingRequested()
+                    }
                 }
             }
         }

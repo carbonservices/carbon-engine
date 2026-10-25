@@ -3,14 +3,16 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtWebEngine
+import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
 Rectangle {
     Layout.fillWidth: true
     Layout.fillHeight: true
     Layout.minimumWidth: 450
-    color: appWindow.bgBase
+    color: Theme.bgBase
     radius: 4
-    border.color: appWindow.borderCol
+    border.color: Theme.borderCol
     border.width: 1
     clip: true
 
@@ -31,16 +33,16 @@ Rectangle {
                         : (appWindow.activeReportTitle !== "" ? appWindow.activeReportTitle : "No Report Selected")
                     font.pixelSize: 15
                     font.bold: true
-                    color: (appWindow.isExtracting || appWindow.activeReportTitle !== "") ? appWindow.textBright : appWindow.textMuted
+                    color: (appWindow.isExtracting || appWindow.activeReportTitle !== "") ? Theme.textBright : Theme.textMuted
                 }
                 Label {
                     text: appWindow.isExtracting
-                        ? ("Processing Section " + appWindow.extractionStep + " of " + appWindow.extractionTotal + " (" + Math.round(appWindow.extractionProgressPct) + "%)")
+                        ? ("Processing Section " + appWindow.extractionStep + (appWindow.extractionTotal > 0 ? (" of " + appWindow.extractionTotal) : "") + " (" + Math.round(appWindow.extractionProgressPct) + "%)")
                         : (appWindow.activeReportTitle !== ""
                             ? ("Generated BRSR Report Preview" + (activeDocumentsModel.count > 0 ? (" • " + activeDocumentsModel.count + " document" + (activeDocumentsModel.count > 1 ? "s" : "")) : ""))
                             : "Standing by for document extraction")
                     font.pixelSize: 11
-                    color: appWindow.isExtracting ? appWindow.brandAccent : appWindow.textMuted
+                    color: appWindow.isExtracting ? Theme.brandAccent : Theme.textMuted
                 }
             }
 
@@ -51,15 +53,15 @@ Rectangle {
                 visible: appWindow.currentJobId > 0 && !appWindow.isExtracting
                 Layout.preferredHeight: 28
                 background: Rectangle {
-                    color: parent.down ? appWindow.bgActive
-                         : (parent.hovered ? appWindow.bgHover : appWindow.bgSubtle)
-                    border.color: appWindow.borderSubtle
+                    color: parent.down ? Theme.bgActive
+                         : (parent.hovered ? Theme.bgHover : Theme.bgSubtle)
+                    border.color: Theme.borderSubtle
                     border.width: 1
                     radius: 3
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: appWindow.textMain
+                    color: Theme.textMain
                     font.pixelSize: 12
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -73,15 +75,15 @@ Rectangle {
                 Layout.preferredHeight: 28
                 background: Rectangle {
                     color: !parent.enabled ? "transparent"
-                         : (parent.down ? appWindow.bgActive
-                         : (parent.hovered ? appWindow.bgHover : appWindow.bgSubtle))
-                    border.color: appWindow.borderSubtle
+                         : (parent.down ? Theme.bgActive
+                         : (parent.hovered ? Theme.bgHover : Theme.bgSubtle))
+                    border.color: Theme.borderSubtle
                     border.width: 1
                     radius: 3
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: parent.enabled ? appWindow.textMain : appWindow.textMuted
+                    color: parent.enabled ? Theme.textMain : Theme.textMuted
                     font.pixelSize: 12
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -94,14 +96,14 @@ Rectangle {
                 enabled: !appWindow.isExtracting && appWindow.activeReportContent !== ""
                 Layout.preferredHeight: 28
                 background: Rectangle {
-                    color: !parent.enabled ? appWindow.bgSubtle
-                         : (parent.down ? appWindow.brandAccentPressed
-                         : (parent.hovered ? appWindow.brandAccentHover : appWindow.brandAccent))
+                    color: !parent.enabled ? Theme.bgSubtle
+                         : (parent.down ? Theme.brandAccentPressed
+                         : (parent.hovered ? Theme.brandAccentHover : Theme.brandAccent))
                     radius: 3
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: parent.enabled ? appWindow.textBright : appWindow.textMuted
+                    color: parent.enabled ? Theme.textBright : Theme.textMuted
                     font.pixelSize: 12
                     font.weight: Font.Medium
                     horizontalAlignment: Text.AlignHCenter
@@ -118,12 +120,7 @@ Rectangle {
             fileMode: FileDialog.SaveFile
             defaultSuffix: "html"
             onAccepted: {
-                var path = selectedFile.toString()
-                if (path.indexOf("file:///") === 0) {
-                    path = path.substring(path.charAt(9) === ':' ? 8 : 7)
-                } else if (path.indexOf("file://") === 0) {
-                    path = path.substring(7)
-                }
+                var path = BrsrMeta.cleanFileUrl(selectedFile.toString())
                 if (reportClient.saveHtmlToFile(path, appWindow.activeReportContent)) {
                     appWindow.appendStatus("Exported HTML report to: " + path)
                 } else {
@@ -139,26 +136,23 @@ Rectangle {
             fileMode: FileDialog.SaveFile
             defaultSuffix: "pdf"
             onAccepted: {
-                var path = selectedFile.toString()
-                if (path.indexOf("file:///") === 0) {
-                    path = path.substring(path.charAt(9) === ':' ? 8 : 7)
-                } else if (path.indexOf("file://") === 0) {
-                    path = path.substring(7)
+                var path = BrsrMeta.cleanFileUrl(selectedFile.toString())
+                if (webViewLoader.item) {
+                    appWindow.appendStatus("Rendering PDF report to: " + path + "...")
+                    webViewLoader.item.printToPdf(path)
                 }
-                webView.printToPdf(path)
-                appWindow.appendStatus("Exported PDF report to: " + path)
             }
         }
 
-        Rectangle { Layout.fillWidth: true; height: 1; color: appWindow.borderCol }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderCol }
 
         // Subtle Missing Metrics Notice Banner in Preview Mode
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 34
             visible: !appWindow.isExtracting && appWindow.missingMetricsSummary.length > 0
-            color: "#302400"
-            border.color: appWindow.warningColor
+            color: Theme.badgeWarningBg
+            border.color: Theme.warningColor
             border.width: 1
             radius: 4
 
@@ -182,7 +176,7 @@ Rectangle {
                         }
                         return total + " statutory metric(s) were not found in source documents and require manual entry."
                     }
-                    color: appWindow.textBright
+                    color: Theme.textBright
                     font.pixelSize: 12
                     elide: Text.ElideRight
                 }
@@ -191,13 +185,13 @@ Rectangle {
                     text: "Review & Fill In"
                     Layout.preferredHeight: 24
                     background: Rectangle {
-                        color: parent.down ? appWindow.brandAccentPressed
-                             : (parent.hovered ? appWindow.brandAccentHover : appWindow.brandAccent)
+                        color: parent.down ? Theme.brandAccentPressed
+                             : (parent.hovered ? Theme.brandAccentHover : Theme.brandAccent)
                         radius: 3
                     }
                     contentItem: Text {
                         text: parent.text
-                        color: appWindow.textBright
+                        color: Theme.textBright
                         font.pixelSize: 11
                         font.weight: Font.Medium
                         horizontalAlignment: Text.AlignHCenter
@@ -223,9 +217,9 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 110
-                    color: appWindow.bgCard
+                    color: Theme.bgCard
                     radius: 6
-                    border.color: appWindow.borderCol
+                    border.color: Theme.borderCol
                     border.width: 1
 
                     ColumnLayout {
@@ -241,8 +235,8 @@ Rectangle {
                                 width: 28
                                 height: 28
                                 radius: 14
-                                color: appWindow.bgSubtle
-                                border.color: appWindow.brandAccent
+                                color: Theme.bgSubtle
+                                border.color: Theme.brandAccent
                                 border.width: 1
 
                                 Text {
@@ -255,17 +249,17 @@ Rectangle {
                             ColumnLayout {
                                 spacing: 2
                                 Label {
-                                    text: "Local LLM Statutory Extraction"
+                                    text: "Local LLM Statutory Extraction (Qwen 2.5 7B / Gemma 2)"
                                     font.pixelSize: 14
                                     font.bold: true
-                                    color: appWindow.textBright
+                                    color: Theme.textBright
                                 }
                                 Label {
                                     text: appWindow.extractionCurrentGroup !== ""
                                         ? ("Current Stage: " + appWindow.extractionCurrentGroup)
                                         : "Initializing retrieval and context synthesis..."
                                     font.pixelSize: 12
-                                    color: appWindow.brandAccent
+                                    color: Theme.brandAccent
                                     elide: Text.ElideRight
                                 }
                             }
@@ -273,10 +267,37 @@ Rectangle {
                             Item { Layout.fillWidth: true }
 
                             Label {
-                                text: appWindow.extractionStep + " / " + appWindow.extractionTotal + " Sections (" + Math.round(appWindow.extractionProgressPct) + "%)"
+                                text: appWindow.extractionStep + (appWindow.extractionTotal > 0 ? (" / " + appWindow.extractionTotal) : "") + " Sections (" + Math.round(appWindow.extractionProgressPct) + "%)"
                                 font.pixelSize: 13
                                 font.bold: true
-                                color: appWindow.textMain
+                                color: Theme.textMain
+                            }
+
+                            Button {
+                                id: cancelExtractionBtn
+                                text: "✕ Cancel Job"
+                                Layout.preferredHeight: 26
+                                background: Rectangle {
+                                    color: cancelExtractionBtn.down ? "#991b1b"
+                                        : (cancelExtractionBtn.hovered ? "#dc2626" : Theme.badgeDangerBg)
+                                    border.color: Theme.badgeDangerBorder
+                                    border.width: 1
+                                    radius: 3
+                                }
+                                contentItem: Text {
+                                    text: cancelExtractionBtn.text
+                                    color: cancelExtractionBtn.hovered ? "#ffffff" : Theme.badgeDangerText
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                                ToolTip.visible: cancelExtractionBtn.hovered
+                                ToolTip.delay: 300
+                                ToolTip.text: "Halt statutory extraction and cancel local LLM worker."
+                                onClicked: {
+                                    appWindow.cancelActiveJob()
+                                }
                             }
                         }
 
@@ -285,13 +306,13 @@ Rectangle {
                             Layout.fillWidth: true
                             height: 8
                             radius: 4
-                            color: appWindow.bgSubtle
+                            color: Theme.bgSubtle
 
                             Rectangle {
                                 id: progressBarFill
                                 height: parent.height
                                 radius: 4
-                                color: appWindow.brandAccent
+                                color: Theme.brandAccent
                                 width: Math.max(4, parent.width * (Math.min(100.0, Math.max(0.0, appWindow.extractionProgressPct)) / 100.0))
 
                                 Behavior on width {
@@ -303,15 +324,15 @@ Rectangle {
                         RowLayout {
                             Layout.fillWidth: true
                             Label {
-                                text: "Local inference powered by llama.cpp GGUF runtime"
+                                text: "Local inference powered by llama.cpp GGUF runtime (qwen2.5-7b-instruct)"
                                 font.pixelSize: 11
-                                color: appWindow.textMuted
+                                color: Theme.textMuted
                             }
                             Item { Layout.fillWidth: true }
                             Label {
                                 text: "Streaming live section progress..."
                                 font.pixelSize: 11
-                                color: appWindow.textMuted
+                                color: Theme.textMuted
                             }
                         }
                     }
@@ -321,9 +342,9 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: appWindow.bgCard
+                    color: Theme.bgCard
                     radius: 6
-                    border.color: appWindow.borderCol
+                    border.color: Theme.borderCol
                     border.width: 1
                     clip: true
 
@@ -345,14 +366,14 @@ Rectangle {
                                 text: "Missing Statutory Metrics (Manual Input Queue)"
                                 font.pixelSize: 13
                                 font.bold: true
-                                color: appWindow.textBright
+                                color: Theme.textBright
                             }
 
                             Rectangle {
                                 visible: appWindow.missingMetricsSummary.length > 0
                                 radius: 10
-                                color: "#3d2800"
-                                border.color: appWindow.warningColor
+                                color: Theme.badgeWarningDarkBg
+                                border.color: Theme.warningColor
                                 border.width: 1
                                 Layout.preferredHeight: 20
                                 Layout.preferredWidth: countText.implicitWidth + 12
@@ -369,7 +390,7 @@ Rectangle {
                                     }
                                     font.pixelSize: 10
                                     font.bold: true
-                                    color: appWindow.warningColor
+                                    color: Theme.warningColor
                                 }
                             }
 
@@ -378,7 +399,7 @@ Rectangle {
                             Label {
                                 text: "Cataloged in real time"
                                 font.pixelSize: 11
-                                color: appWindow.textMuted
+                                color: Theme.textMuted
                             }
                         }
 
@@ -386,14 +407,14 @@ Rectangle {
                             Layout.fillWidth: true
                             text: "Statutory fields not detected in source documents are listed below. You will be able to review and manually fill these in the Review Screen before finalizing the report."
                             font.pixelSize: 11
-                            color: appWindow.textMuted
+                            color: Theme.textMuted
                             wrapMode: Text.WordWrap
                         }
 
                         Rectangle {
                             Layout.fillWidth: true
                             height: 1
-                            color: appWindow.borderCol
+                            color: Theme.borderCol
                         }
 
                         // Placeholder when no missing metrics yet
@@ -409,102 +430,103 @@ Rectangle {
                                 Label {
                                     text: "✓"
                                     font.pixelSize: 22
-                                    color: appWindow.textMuted
+                                    color: Theme.textMuted
                                     Layout.alignment: Qt.AlignHCenter
                                 }
                                 Label {
                                     text: "No missing statutory metrics detected yet"
                                     font.pixelSize: 12
                                     font.bold: true
-                                    color: appWindow.textMuted
+                                    color: Theme.textMuted
                                     Layout.alignment: Qt.AlignHCenter
                                 }
                                 Label {
                                     text: "As sections finish processing, any fields that require manual input will appear here."
                                     font.pixelSize: 11
-                                    color: appWindow.textMuted
+                                    color: Theme.textMuted
                                     Layout.alignment: Qt.AlignHCenter
                                 }
                             }
                         }
 
-                        // Scrollable list when missing metrics are detected
-                        ScrollView {
+                        // Missing metrics list with direct scrollbar
+                        ListView {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             visible: appWindow.missingMetricsSummary.length > 0
                             clip: true
+                            spacing: 8
+                            model: appWindow.missingMetricsSummary
+                            boundsBehavior: Flickable.StopAtBounds
 
-                            ListView {
-                                width: parent.width
-                                spacing: 8
-                                model: appWindow.missingMetricsSummary
+                            ScrollBar.vertical: ScrollBar {
+                                policy: ScrollBar.AsNeeded
+                            }
 
-                                delegate: Rectangle {
-                                    width: ListView.view.width - 12
-                                    implicitHeight: sectionCol.implicitHeight + 16
-                                    color: appWindow.bgSubtle
-                                    border.color: appWindow.borderSubtle
-                                    border.width: 1
-                                    radius: 4
+                            delegate: Rectangle {
+                                width: ListView.view.width - 12
+                                implicitHeight: sectionCol.implicitHeight + 16
+                                color: Theme.bgSubtle
+                                border.color: Theme.borderSubtle
+                                border.width: 1
+                                radius: 4
 
-                                    ColumnLayout {
-                                        id: sectionCol
-                                        anchors.left: parent.left
-                                        anchors.right: parent.right
-                                        anchors.top: parent.top
-                                        anchors.margins: 10
-                                        spacing: 8
+                                ColumnLayout {
+                                    id: sectionCol
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.margins: 10
+                                    spacing: 8
 
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 6
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
 
-                                            Rectangle {
-                                                width: 6
-                                                height: 6
-                                                radius: 3
-                                                color: appWindow.warningColor
-                                            }
-
-                                            Label {
-                                                text: modelData.group
-                                                font.pixelSize: 12
-                                                font.bold: true
-                                                color: appWindow.textBright
-                                            }
-
-                                            Item { Layout.fillWidth: true }
-
-                                            Label {
-                                                text: modelData.missing.length + " field(s) missing"
-                                                font.pixelSize: 11
-                                                color: appWindow.warningColor
-                                            }
+                                        Rectangle {
+                                            width: 6
+                                            height: 6
+                                            radius: 3
+                                            color: Theme.warningColor
                                         }
 
-                                        Flow {
-                                            Layout.fillWidth: true
-                                            spacing: 6
+                                        Label {
+                                            text: modelData.group
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            color: Theme.textBright
+                                        }
 
-                                            Repeater {
-                                                model: modelData.missing
-                                                delegate: Rectangle {
-                                                    radius: 3
-                                                    color: appWindow.bgBase
-                                                    border.color: appWindow.borderCol
-                                                    border.width: 1
-                                                    height: 22
-                                                    width: fieldText.implicitWidth + 12
+                                        Item { Layout.fillWidth: true }
 
-                                                    Text {
-                                                        id: fieldText
-                                                        anchors.centerIn: parent
-                                                        text: modelData
-                                                        font.pixelSize: 11
-                                                        font.family: "Consolas, monospace"
-                                                        color: appWindow.warningColor
-                                                    }
+                                        Label {
+                                            text: modelData.missing.length + " field(s) missing"
+                                            font.pixelSize: 11
+                                            color: Theme.warningColor
+                                        }
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Repeater {
+                                            model: modelData.missing
+                                            delegate: Rectangle {
+                                                radius: 3
+                                                color: Theme.bgBase
+                                                border.color: Theme.borderCol
+                                                border.width: 1
+                                                height: 22
+                                                width: fieldText.implicitWidth + 12
+
+                                                Text {
+                                                    id: fieldText
+                                                    anchors.centerIn: parent
+                                                    text: modelData
+                                                    font.pixelSize: 11
+                                                    font.family: "Consolas, monospace"
+                                                    color: Theme.warningColor
                                                 }
                                             }
                                         }
@@ -517,17 +539,36 @@ Rectangle {
             }
         }
 
-        // Web Report Preview (Visible when not extracting)
-        WebEngineView {
-            id: webView
+        // Web Report Preview (Loaded on-demand when active report exists)
+        Loader {
+            id: webViewLoader
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !appWindow.isExtracting
-            backgroundColor: appWindow.bgBase
+            active: !appWindow.isExtracting && (appWindow.activeReportContent !== "" || appWindow.currentJobId > 0)
 
-            Component.onCompleted: {
-                var loadingHtml = "<html><body style='background:#1e1e1e; color:#858585; font-family:\"Segoe UI\",system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:85vh; margin:0;'><div style='font-size:16px; margin-bottom:8px; color:#cccccc;'>No Report Loaded</div><div style='font-size:12px;'>Select a report from history or ingest documents to generate a report.</div></body></html>"
-                loadHtml(loadingHtml, "http://localhost/");
+            sourceComponent: WebEngineView {
+                id: webView
+                anchors.fill: parent
+                backgroundColor: Theme.bgBase
+
+                onPdfPrintingFinished: function(filePath, success) {
+                    if (success) {
+                        appWindow.appendStatus("Exported PDF report to: " + filePath)
+                    } else {
+                        appWindow.appendStatus("Failed to export PDF report to: " + filePath)
+                    }
+                }
+
+                Component.onCompleted: {
+                    var baseUrl = reportClient.baseUrl();
+                    if (appWindow.activeReportContent !== "") {
+                        loadHtml(appWindow.activeReportContent, baseUrl);
+                    } else {
+                        var loadingHtml = "<html><body style='background:#1e1e1e; color:#858585; font-family:\"Segoe UI\",system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:85vh; margin:0;'><div style='font-size:16px; margin-bottom:8px; color:#cccccc;'>No Report Loaded</div><div style='font-size:12px;'>Select a report from history or ingest documents to generate a report.</div></body></html>"
+                        loadHtml(loadingHtml, baseUrl);
+                    }
+                }
             }
         }
     }
@@ -535,11 +576,14 @@ Rectangle {
     Connections {
         target: appWindow
         function onActiveReportContentChanged() {
-            if (appWindow.activeReportContent !== "") {
-                webView.loadHtml(appWindow.activeReportContent, "http://localhost/");
-            } else {
-                var emptyHtml = "<html><body style='background:#1e1e1e; color:#858585; font-family:\"Segoe UI\",system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:85vh; margin:0;'><div style='font-size:16px; margin-bottom:8px; color:#cccccc;'>No Report Loaded</div><div style='font-size:12px;'>Select a report from history or ingest documents to generate a report.</div></body></html>"
-                webView.loadHtml(emptyHtml, "http://localhost/");
+            if (webViewLoader.item) {
+                var baseUrl = reportClient.baseUrl();
+                if (appWindow.activeReportContent !== "") {
+                    webViewLoader.item.loadHtml(appWindow.activeReportContent, baseUrl);
+                } else {
+                    var emptyHtml = "<html><body style='background:#1e1e1e; color:#858585; font-family:\"Segoe UI\",system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:85vh; margin:0;'><div style='font-size:16px; margin-bottom:8px; color:#cccccc;'>No Report Loaded</div><div style='font-size:12px;'>Select a report from history or ingest documents to generate a report.</div></body></html>"
+                    webViewLoader.item.loadHtml(emptyHtml, baseUrl);
+                }
             }
         }
     }

@@ -1,29 +1,25 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "BrsrMetadata.js" as BrsrMeta
+import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
-// Modern ESG Field Group Card:
-// - Professional SEBI BRSR human-friendly labels for ESG consultants
-// - Responsive multi-column form grid for scalar data fields
-// - Clean value formatting (preventing "null", "N/A", or [object V4ReferenceObject])
-// - Collapsible missing-field warning badge to keep the UI uncluttered
-// - Elegant dark-themed inputs and narrative text areas
-// - Embedded spreadsheet-style LoopFieldEditor for all tabular disclosures
 Rectangle {
     id: card
 
     property var groupData
     property var warnings: []
+    property var issues: []
+    readonly property var activeIssues: (issues && issues.length > 0) ? issues : (warnings || [])
     property bool locked: false
     property bool showWarningsDetail: false
 
     signal fieldEdited(string groupId, var data)
 
     Layout.preferredHeight: contentColumn.implicitHeight + 28
-    color: appWindow.bgSidebar
+    color: Theme.bgSidebar
     radius: 6
-    border.color: appWindow.borderCol
+    border.color: Theme.borderCol
     border.width: 1
 
     function currentData() {
@@ -41,12 +37,23 @@ Rectangle {
     }
 
     function cleanFieldWarning(rawWarning) {
-        // Transform "group_id: field "name" has no extracted value" to clean human text
         var match = rawWarning.match(/field\s*["']([^"']+)["']/i)
         if (match && match[1]) {
             return "\"" + BrsrMeta.formatLabel(match[1]) + "\" was not found in the source document"
         }
         return rawWarning
+    }
+
+    function formatIssueText(issueItem) {
+        if (!issueItem) return ""
+        if (typeof issueItem === "object") {
+            var label = issueItem.field_key ? BrsrMeta.formatLabel(issueItem.field_key) : ""
+            if (label) {
+                return "\"" + label + "\": " + (issueItem.message || "notice")
+            }
+            return issueItem.message || ""
+        }
+        return cleanFieldWarning(issueItem)
     }
 
     ColumnLayout {
@@ -57,7 +64,6 @@ Rectangle {
         anchors.margins: 16
         spacing: 12
 
-        // Card Header Bar
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -65,7 +71,7 @@ Rectangle {
             Rectangle {
                 Layout.preferredWidth: 4
                 Layout.preferredHeight: 18
-                color: appWindow.brandAccent
+                color: Theme.brandAccent
                 radius: 2
             }
 
@@ -73,32 +79,31 @@ Rectangle {
                 text: (card.groupData && card.groupData.label) ? card.groupData.label : "Disclosure Group"
                 font.bold: true
                 font.pixelSize: 15
-                color: appWindow.textBright
+                color: Theme.textBright
             }
 
             Item { Layout.fillWidth: true }
 
-            // Collapsible missing-metrics pill button
             Button {
-                visible: card.warnings && card.warnings.length > 0
+                visible: card.activeIssues && card.activeIssues.length > 0
                 Layout.preferredHeight: 24
                 background: Rectangle {
-                    color: card.showWarningsDetail ? "#78350f" : "#451a03"
-                    border.color: "#b45309"
+                    color: card.showWarningsDetail ? Theme.badgeWarningPillActiveBg : Theme.badgeWarningPillBg
+                    border.color: Theme.badgeWarningBorder
                     border.width: 1
                     radius: 12
                 }
                 contentItem: RowLayout {
                     spacing: 4
                     Text {
-                        text: "⚠️ " + card.warnings.length + " unpopulated"
-                        color: "#fde68a"
+                        text: "⚠️ " + card.activeIssues.length + " notice" + (card.activeIssues.length > 1 ? "s" : "")
+                        color: Theme.badgeWarningSubtleText
                         font.pixelSize: 11
                         font.weight: Font.Medium
                     }
                     Text {
                         text: card.showWarningsDetail ? "▲" : "▼"
-                        color: "#fde68a"
+                        color: Theme.badgeWarningSubtleText
                         font.pixelSize: 9
                     }
                 }
@@ -108,19 +113,18 @@ Rectangle {
             Label {
                 visible: card.groupData && card.groupData.status === "FAILED"
                 text: "Extraction Failed"
-                color: appWindow.dangerColor
+                color: Theme.dangerColor
                 font.pixelSize: 11
                 font.bold: true
             }
         }
 
-        // Expanded Warnings Details (collapsible)
         Rectangle {
-            visible: card.showWarningsDetail && card.warnings && card.warnings.length > 0
+            visible: card.showWarningsDetail && card.activeIssues && card.activeIssues.length > 0
             Layout.fillWidth: true
             Layout.preferredHeight: warningsColumn.implicitHeight + 16
-            color: "#291b00"
-            border.color: "#b45309"
+            color: Theme.badgeWarningDarkBg
+            border.color: Theme.badgeWarningBorder
             border.width: 1
             radius: 4
 
@@ -131,18 +135,18 @@ Rectangle {
                 spacing: 4
 
                 Label {
-                    text: "Unpopulated fields in this section (ESG consultant notice):"
+                    text: "Field notices in this section (ESG consultant validation):"
                     font.bold: true
                     font.pixelSize: 11
-                    color: "#fde047"
+                    color: Theme.badgeWarningText
                 }
 
                 Repeater {
-                    model: card.warnings
+                    model: card.activeIssues
                     delegate: Label {
                         Layout.fillWidth: true
-                        text: "• " + card.cleanFieldWarning(modelData)
-                        color: "#fef08a"
+                        text: "• " + card.formatIssueText(modelData)
+                        color: (modelData && modelData.severity === "ERROR") ? Theme.dangerColor : Theme.badgeWarningSubtleText
                         font.pixelSize: 11
                         wrapMode: Text.WordWrap
                     }
@@ -150,14 +154,12 @@ Rectangle {
             }
         }
 
-        // Section Separator
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 1
-            color: appWindow.borderCol
+            color: Theme.borderCol
         }
 
-        // Scalar Data Fields: Modern 2-Column Responsive Form Grid
         GridLayout {
             Layout.fillWidth: true
             columns: width > 750 ? 2 : 1
@@ -173,7 +175,7 @@ Rectangle {
                     Label {
                         Layout.fillWidth: true
                         text: BrsrMeta.formatLabel(modelData)
-                        color: appWindow.textMain
+                        color: Theme.textMain
                         font.pixelSize: 11
                         font.weight: Font.Medium
                         elide: Text.ElideRight
@@ -185,16 +187,16 @@ Rectangle {
                         Layout.preferredHeight: 32
                         enabled: !card.locked
                         font.pixelSize: 12
-                        color: appWindow.textBright
+                        color: Theme.textBright
                         selectedTextColor: "#ffffff"
-                        selectionColor: appWindow.brandAccent
+                        selectionColor: Theme.brandAccent
                         selectByMouse: true
                         placeholderText: "— Not extracted / Click to enter"
-                        placeholderTextColor: appWindow.textMuted
+                        placeholderTextColor: Theme.textMuted
 
                         background: Rectangle {
-                            color: parent.activeFocus ? appWindow.bgActive : appWindow.bgInput
-                            border.color: parent.activeFocus ? appWindow.brandAccent : appWindow.borderSubtle
+                            color: parent.activeFocus ? Theme.bgActive : Theme.bgInput
+                            border.color: parent.activeFocus ? Theme.brandAccent : Theme.borderSubtle
                             border.width: 1
                             radius: 4
                         }
@@ -209,7 +211,6 @@ Rectangle {
             }
         }
 
-        // Narrative Disclosures (Long text fields)
         Repeater {
             model: (card.groupData && card.groupData.narrative_keys) ? card.groupData.narrative_keys : []
             delegate: ColumnLayout {
@@ -225,14 +226,14 @@ Rectangle {
                         text: BrsrMeta.formatLabel(modelData)
                         font.bold: true
                         font.pixelSize: 12
-                        color: appWindow.textMain
+                        color: Theme.textMain
                     }
 
                     Rectangle {
                         Layout.preferredHeight: 18
                         Layout.preferredWidth: narrativePillText.implicitWidth + 10
-                        color: "#1e293b"
-                        border.color: "#475569"
+                        color: Theme.badgeNarrativeBg
+                        border.color: Theme.badgeNarrativeBorder
                         border.width: 1
                         radius: 9
 
@@ -240,7 +241,7 @@ Rectangle {
                             id: narrativePillText
                             anchors.centerIn: parent
                             text: "Narrative"
-                            color: "#94a3b8"
+                            color: Theme.badgeNarrativeText
                             font.pixelSize: 10
                         }
                     }
@@ -256,16 +257,16 @@ Rectangle {
                         wrapMode: TextArea.Wrap
                         enabled: !card.locked
                         font.pixelSize: 12
-                        color: appWindow.textBright
+                        color: Theme.textBright
                         selectedTextColor: "#ffffff"
-                        selectionColor: appWindow.brandAccent
+                        selectionColor: Theme.brandAccent
                         selectByMouse: true
                         placeholderText: "Enter qualitative disclosure or management response..."
-                        placeholderTextColor: appWindow.textMuted
+                        placeholderTextColor: Theme.textMuted
 
                         background: Rectangle {
-                            color: parent.activeFocus ? appWindow.bgActive : appWindow.bgInput
-                            border.color: parent.activeFocus ? appWindow.brandAccent : appWindow.borderSubtle
+                            color: parent.activeFocus ? Theme.bgActive : Theme.bgInput
+                            border.color: parent.activeFocus ? Theme.brandAccent : Theme.borderSubtle
                             border.width: 1
                             radius: 4
                         }
@@ -280,7 +281,6 @@ Rectangle {
             }
         }
 
-        // Tabular & Loop Fields (Rendered via LoopFieldEditor)
         Repeater {
             model: (card.groupData && card.groupData.loop_keys) ? card.groupData.loop_keys : []
             delegate: LoopFieldEditor {

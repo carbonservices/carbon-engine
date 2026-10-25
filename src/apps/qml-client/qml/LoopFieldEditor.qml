@@ -1,15 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "BrsrMetadata.js" as BrsrMeta
+import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
-// Professional Tabular Data Grid for BRSR Disclosure Tables & Loop Fields.
-// Replaces raw JSON editing with an intuitive spreadsheet-style interface:
-// - Human-friendly SEBI disclosure table titles
-// - Clear column headers (e.g. "Product Name", "NIC Code", "% of Turnover")
-// - In-place editable cells with dark theme styling
-// - Add Row / Delete Row operations
-// - Collapsible raw JSON view preserved for power users / debugging
 ColumnLayout {
     id: loopField
     spacing: 6
@@ -41,10 +35,17 @@ ColumnLayout {
     }
 
     function updateCell(rowIdx, colKey, val) {
+        if (!loopField.rows || rowIdx < 0 || rowIdx >= loopField.rows.length) return
+        var currentObj = loopField.rows[rowIdx]
+        if (typeof currentObj === "object" && currentObj !== null) {
+            var oldVal = (currentObj[colKey] !== undefined && currentObj[colKey] !== null && currentObj[colKey] !== "null")
+                ? String(currentObj[colKey]) : ""
+            if (oldVal === String(val)) return
+            currentObj[colKey] = val
+        }
         var copy = cloneRows()
         if (rowIdx >= 0 && rowIdx < copy.length) {
             copy[rowIdx][colKey] = val
-            loopField.rows = copy
             loopField.edited(loopField.fieldKey, copy)
         }
     }
@@ -70,13 +71,12 @@ ColumnLayout {
         }
     }
 
-    // Table Header Bar (Title, Count Badge, Add Row, JSON toggle)
     Rectangle {
         Layout.fillWidth: true
         Layout.preferredHeight: 34
-        color: appWindow.bgSubtle
+        color: Theme.bgSubtle
         radius: 4
-        border.color: appWindow.borderSubtle
+        border.color: Theme.borderSubtle
         border.width: 1
 
         RowLayout {
@@ -89,22 +89,22 @@ ColumnLayout {
                 text: BrsrMeta.formatTableTitle(loopField.fieldKey)
                 font.bold: true
                 font.pixelSize: 12
-                color: appWindow.textBright
+                color: Theme.textBright
             }
 
             Rectangle {
                 Layout.preferredHeight: 18
                 Layout.preferredWidth: countText.implicitWidth + 10
-                color: loopField.rows && loopField.rows.length > 0 ? "#1e3a5f" : "#2d2d2d"
+                color: loopField.rows && loopField.rows.length > 0 ? Theme.badgePillBlueBg : Theme.bgHover
                 radius: 9
-                border.color: loopField.rows && loopField.rows.length > 0 ? "#3b82f6" : "#444444"
+                border.color: loopField.rows && loopField.rows.length > 0 ? Theme.badgePillBlueBorder : Theme.borderSubtle
                 border.width: 1
 
                 Text {
                     id: countText
                     anchors.centerIn: parent
                     text: (loopField.rows ? loopField.rows.length : 0) + " record" + ((loopField.rows && loopField.rows.length === 1) ? "" : "s")
-                    color: loopField.rows && loopField.rows.length > 0 ? "#93c5fd" : appWindow.textMuted
+                    color: loopField.rows && loopField.rows.length > 0 ? Theme.badgePillBlueText : Theme.textMuted
                     font.pixelSize: 10
                     font.weight: Font.Medium
                 }
@@ -117,7 +117,7 @@ ColumnLayout {
                 text: "+ Add Row"
                 Layout.preferredHeight: 24
                 background: Rectangle {
-                    color: parent.down ? "#166534" : (parent.hovered ? "#15803d" : "#16a34a")
+                    color: parent.down ? Theme.successBtnPressed : (parent.hovered ? Theme.successBtnHover : Theme.successBtnBg)
                     radius: 3
                 }
                 contentItem: Text {
@@ -135,14 +135,14 @@ ColumnLayout {
                 text: loopField.showJsonView ? "Table View" : "{ } Raw JSON"
                 Layout.preferredHeight: 24
                 background: Rectangle {
-                    color: parent.down ? appWindow.bgActive : (parent.hovered ? appWindow.bgHover : "transparent")
-                    border.color: appWindow.borderSubtle
+                    color: parent.down ? Theme.bgActive : (parent.hovered ? Theme.bgHover : "transparent")
+                    border.color: Theme.borderSubtle
                     border.width: 1
                     radius: 3
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: appWindow.textMuted
+                    color: Theme.textMuted
                     font.pixelSize: 10
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -152,18 +152,16 @@ ColumnLayout {
         }
     }
 
-    // Tabular Grid View
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 2
         visible: !loopField.showJsonView && loopField.rows && loopField.rows.length > 0
 
-        // Column Header Row
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 28
-            color: appWindow.bgHeader
-            border.color: appWindow.borderSubtle
+            color: Theme.bgHeader
+            border.color: Theme.borderSubtle
             border.width: 1
             radius: 3
 
@@ -181,7 +179,7 @@ ColumnLayout {
                         text: modelData.label
                         font.bold: true
                         font.pixelSize: 11
-                        color: appWindow.textMain
+                        color: Theme.textMain
                         elide: Text.ElideRight
                     }
                 }
@@ -194,7 +192,6 @@ ColumnLayout {
             }
         }
 
-        // Data Rows
         Repeater {
             model: loopField.rows
             delegate: Rectangle {
@@ -203,8 +200,8 @@ ColumnLayout {
                 readonly property var rowItem: modelData
                 Layout.fillWidth: true
                 Layout.preferredHeight: 34
-                color: index % 2 === 0 ? appWindow.bgBase : appWindow.bgCard
-                border.color: appWindow.borderSubtle
+                color: index % 2 === 0 ? Theme.bgBase : Theme.bgCard
+                border.color: Theme.borderSubtle
                 border.width: 1
                 radius: 3
 
@@ -224,16 +221,16 @@ ColumnLayout {
                             Layout.bottomMargin: 3
                             enabled: !loopField.locked
                             font.pixelSize: 11
-                            color: appWindow.textBright
+                            color: Theme.textBright
                             selectedTextColor: "#ffffff"
-                            selectionColor: appWindow.brandAccent
+                            selectionColor: Theme.brandAccent
                             selectByMouse: true
                             placeholderText: "—"
-                            placeholderTextColor: appWindow.textMuted
+                            placeholderTextColor: Theme.textMuted
 
                             background: Rectangle {
-                                color: parent.activeFocus ? appWindow.bgActive : appWindow.bgInput
-                                border.color: parent.activeFocus ? appWindow.brandAccent : appWindow.borderSubtle
+                                color: parent.activeFocus ? Theme.bgActive : Theme.bgInput
+                                border.color: parent.activeFocus ? Theme.brandAccent : Theme.borderSubtle
                                 border.width: 1
                                 radius: 3
                             }
@@ -247,7 +244,6 @@ ColumnLayout {
                         }
                     }
 
-                    // Delete Row Action
                     Button {
                         visible: !loopField.locked
                         Layout.preferredWidth: 26
@@ -257,12 +253,12 @@ ColumnLayout {
                         ToolTip.visible: hovered
                         ToolTip.text: "Delete this record"
                         background: Rectangle {
-                            color: parent.down ? "#b91c1c" : (parent.hovered ? "#dc2626" : "transparent")
+                            color: parent.down ? Theme.dangerBtnPressed : (parent.hovered ? Theme.dangerBtnBg : "transparent")
                             radius: 3
                         }
                         contentItem: Text {
                             text: "✕"
-                            color: parent.hovered ? "#ffffff" : appWindow.textMuted
+                            color: parent.hovered ? "#ffffff" : Theme.textMuted
                             font.pixelSize: 11
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
@@ -275,13 +271,12 @@ ColumnLayout {
         }
     }
 
-    // Empty State Box (When 0 rows)
     Rectangle {
         visible: !loopField.showJsonView && (!loopField.rows || loopField.rows.length === 0)
         Layout.fillWidth: true
         Layout.preferredHeight: 48
         color: "transparent"
-        border.color: appWindow.borderSubtle
+        border.color: Theme.borderSubtle
         border.width: 1
         radius: 4
 
@@ -290,7 +285,7 @@ ColumnLayout {
             spacing: 12
             Label {
                 text: "No records found for this disclosure."
-                color: appWindow.textMuted
+                color: Theme.textMuted
                 font.pixelSize: 11
             }
             Button {
@@ -298,7 +293,7 @@ ColumnLayout {
                 text: "+ Add Entry"
                 Layout.preferredHeight: 24
                 background: Rectangle {
-                    color: parent.down ? appWindow.brandAccentPressed : (parent.hovered ? appWindow.brandAccentHover : appWindow.brandAccent)
+                    color: parent.down ? Theme.brandAccentPressed : (parent.hovered ? Theme.brandAccentHover : Theme.brandAccent)
                     radius: 3
                 }
                 contentItem: Text {
@@ -314,22 +309,21 @@ ColumnLayout {
         }
     }
 
-    // Advanced Raw JSON View (when toggled)
     TextArea {
         visible: loopField.showJsonView
         Layout.fillWidth: true
         Layout.preferredHeight: 120
         font.family: "Consolas, monospace"
         font.pixelSize: 11
-        color: appWindow.textBright
+        color: Theme.textBright
         wrapMode: TextArea.Wrap
         enabled: !loopField.locked
         background: Rectangle {
-            color: appWindow.bgBase
-            border.color: appWindow.borderSubtle
+            color: Theme.bgBase
+            border.color: Theme.borderSubtle
             radius: 3
         }
-        text: JSON.stringify(loopField.rows, null, 2)
+        text: loopField.showJsonView ? JSON.stringify(loopField.rows, null, 2) : ""
         onEditingFinished: {
             try {
                 var parsed = JSON.parse(text)
@@ -338,7 +332,9 @@ ColumnLayout {
                     loopField.edited(loopField.fieldKey, parsed)
                 }
             } catch (e) {
-                appWindow.appendStatus("Invalid JSON syntax: " + e)
+                if (typeof appWindow !== "undefined" && appWindow) {
+                    appWindow.appendStatus("Invalid JSON syntax: " + e)
+                }
             }
         }
     }

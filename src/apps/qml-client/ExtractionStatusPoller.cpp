@@ -6,11 +6,9 @@
 #include <QJsonArray>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QUrl>
 #include <QUrlQuery>
 
-
-ExtractionStatusPoller::ExtractionStatusPoller(QObject *parent) : QObject(parent)
+ExtractionStatusPoller::ExtractionStatusPoller(QObject *parent) : ApiClientBase(parent)
 {
     connect(&_timer, &QTimer::timeout, this, &ExtractionStatusPoller::poll);
 }
@@ -26,17 +24,32 @@ void ExtractionStatusPoller::startPolling(int jobId)
     _timer.start(PollIntervalMs);
 }
 
+void ExtractionStatusPoller::stopPolling()
+{
+    _log.info(QString("Stopped polling extraction for job %1").arg(_jobId));
+    _timer.stop();
+    _jobId = -1;
+}
+
 void ExtractionStatusPoller::poll()
 {
-    QUrl url("http://localhost:8080/api/extraction/status");
+    int polledJobId = _jobId;
+    if (polledJobId < 0) {
+        return;
+    }
+
+    QUrl url = endpoint(ApiRoutes::ExtractionStatus);
     QUrlQuery query;
-    query.addQueryItem("job_id", QString::number(_jobId));
+    query.addQueryItem("job_id", QString::number(polledJobId));
     url.setQuery(query);
 
-    QNetworkReply *reply = _network.get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]()
+    QNetworkReply *reply = network().get(QNetworkRequest(url));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, polledJobId]()
     {
         reply->deleteLater();
+        if (_jobId != polledJobId || _jobId < 0) {
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError)
         {
             _log.error(QString("Extraction poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
@@ -76,16 +89,22 @@ void ExtractionStatusPoller::poll()
 
         _log.info(QString("Job %1 extraction status: %2 (step %3/%4: %5)").arg(_jobId).arg(status).arg(step).arg(total).arg(currentGroup));
 
-        if (status == "READY_FOR_REVIEW")
+        if (status == ExtractionStatus::ReadyForReview ||
+            status == ExtractionStatus::Completed ||
+            status == ExtractionStatus::Accepted)
         {
             _timer.stop();
             emit completed();
         }
-        else if (status == "FAILED")
+        else if (status == ExtractionStatus::Failed)
         {
             _timer.stop();
             emit failed("Extraction failed");
         }
+        else if (status == ExtractionStatus::Cancelled)
+        {
+            _timer.stop();
+            emit cancelled();
+        }
     });
 }
-

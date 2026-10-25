@@ -12,7 +12,23 @@ ColumnLayout {
     function showQueueTab() { documentsPanel.showQueueTab() }
     function showAttachedTab() { documentsPanel.showAttachedTab() }
 
-    DocumentsPanel { id: documentsPanel }
-    SystemStatusPanel { id: systemStatusPanel }
-    StatusLogPanel { id: statusLog }
+    DocumentsPanel {
+        id: documentsPanel
+        activeModel: activeDocumentsModel
+        queueModel: documentQueueModel
+        currentJobId: appWindow.currentJobId
+        batchConfirmed: appWindow.batchConfirmed
+        daemonConnected: appWindow.systemPoller.isConnected
+        onAddDocumentRequested: addDocDialog.open()
+        onStartProcessingRequested: appWindow.startProcessing()
+        onCancelActiveJobRequested: appWindow.cancelActiveJob()
+    }
+    SystemStatusPanel {
+        id: systemStatusPanel
+        poller: appWindow.systemPoller
+    }
+    StatusLogPanel {
+        id: statusLog
+        logModel: statusLogModel
+    }
 }

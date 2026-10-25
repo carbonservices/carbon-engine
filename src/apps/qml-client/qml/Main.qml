@@ -4,6 +4,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import CarbonEngineClient
+import "BRSRMetadata.js" as BrsrMeta
 
 ApplicationWindow {
     id: appWindow
@@ -12,7 +13,7 @@ ApplicationWindow {
     minimumWidth: 1080
     minimumHeight: 680
     visible: true
-    title: "Carbon Engine - BRSR ESG Analytics"
+    title: "Carbon ESG"
     flags: Qt.Window | Qt.FramelessWindowHint
 
     function safeMove() {
@@ -27,52 +28,56 @@ ApplicationWindow {
         }
     }
 
-    property bool isDarkMode: true
+    property bool isDarkMode: Theme.isDarkMode
+    onIsDarkModeChanged: {
+        if (Theme.isDarkMode !== isDarkMode) {
+            Theme.isDarkMode = isDarkMode
+        }
+    }
     property bool sidebarExpanded: true
     property string activeReportTitle: ""
     property string activeReportContent: ""
     property int currentJobId: -1
     property bool batchConfirmed: false
 
-    Material.theme: isDarkMode ? Material.Dark : Material.Light
-    Material.accent: brandAccent
+    Material.theme: Theme.isDarkMode ? Material.Dark : Material.Light
+    Material.accent: Theme.brandAccent
 
-    // VS Code Dark Modern Theme Colors
-    readonly property color bgBase: isDarkMode ? "#1e1e1e" : "#ffffff"
-    readonly property color bgSidebar: isDarkMode ? "#252526" : "#f3f3f3"
-    readonly property color bgCard: isDarkMode ? "#252526" : "#ffffff"
-    readonly property color bgHeader: isDarkMode ? "#181818" : "#f8f8f8"
-    readonly property color bgSubtle: isDarkMode ? "#2a2d2e" : "#e8e8e8"
-    readonly property color bgHover: isDarkMode ? "#313131" : "#e0e0e0"
-    readonly property color bgActive: isDarkMode ? "#37373d" : "#d0d0d0"
-    readonly property color bgInput: isDarkMode ? "#3c3c3c" : "#ffffff"
-    readonly property color borderCol: isDarkMode ? "#2d2d2d" : "#e0e0e0"
-    readonly property color borderSubtle: isDarkMode ? "#3c3c3c" : "#cccccc"
-    readonly property color textMain: isDarkMode ? "#cccccc" : "#24292f"
-    readonly property color textBright: isDarkMode ? "#ffffff" : "#000000"
-    readonly property color textMuted: isDarkMode ? "#858585" : "#6e7781"
-    readonly property color brandAccent: isDarkMode ? "#007acc" : "#005fb8" // VS Code Blue
-    readonly property color brandAccentHover: isDarkMode ? "#1177bb" : "#004990"
-    readonly property color brandAccentPressed: isDarkMode ? "#0d5c91" : "#003b75"
-    readonly property color dangerColor: isDarkMode ? "#f14c4c" : "#cf222e"
-    readonly property color successColor: isDarkMode ? "#89d185" : "#1a7f37"
-    readonly property color warningColor: isDarkMode ? "#cca700" : "#9a6700"
+    readonly property color bgBase: Theme.bgBase
+    readonly property color bgSidebar: Theme.bgSidebar
+    readonly property color bgCard: Theme.bgCard
+    readonly property color bgHeader: Theme.bgHeader
+    readonly property color bgSubtle: Theme.bgSubtle
+    readonly property color bgHover: Theme.bgHover
+    readonly property color bgActive: Theme.bgActive
+    readonly property color bgInput: Theme.bgInput
+    readonly property color borderCol: Theme.borderCol
+    readonly property color borderSubtle: Theme.borderSubtle
+    readonly property color textMain: Theme.textMain
+    readonly property color textBright: Theme.textBright
+    readonly property color textMuted: Theme.textMuted
+    readonly property color brandAccent: Theme.brandAccent
+    readonly property color brandAccentHover: Theme.brandAccentHover
+    readonly property color brandAccentPressed: Theme.brandAccentPressed
+    readonly property color dangerColor: Theme.dangerColor
+    readonly property color successColor: Theme.successColor
+    readonly property color warningColor: Theme.warningColor
 
     // Extraction Progress Tracking
     property bool isExtracting: false
     property int extractionStep: 0
-    property int extractionTotal: 14
+    property int extractionTotal: 0
     property string extractionCurrentGroup: ""
     property double extractionProgressPct: 0.0
     property var missingMetricsSummary: []
 
     background: Rectangle {
-        color: bgBase
-        border.color: appWindow.borderCol
+        color: Theme.bgBase
+        border.color: Theme.borderCol
         border.width: appWindow.visibility === Window.Maximized ? 0 : 1
     }
 
-    ListModel { id: statusLogModel; ListElement { entry: "System ready. Local engine standing by." } }
+    ListModel { id: statusLogModel; ListElement { entry: "Carbon ESG initialized. Connecting to Carbon Engine..." } }
     ListModel { id: documentQueueModel }
     ListModel { id: activeDocumentsModel }
     ListModel { id: reportsHistoryModel }
@@ -86,44 +91,42 @@ ApplicationWindow {
         rightPanel.scrollToBottom()
     }
 
-    function syncActiveDocuments(jobId) {
-        for (var i = 0; i < reportsHistoryModel.count; ++i) {
-            var item = reportsHistoryModel.get(i)
-            if (item.jobId === jobId) {
-                activeDocumentsModel.clear()
-                var docs = item.documents
-                if (docs) {
-                    for (var d = 0; d < docs.length; ++d) {
-                        var docObj = docs[d]
-                        var path = (typeof docObj === "string") ? docObj : (docObj.file_path || "")
-                        var name = (typeof docObj === "string")
-                            ? path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1)
-                            : (docObj.file_name || path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1))
-                        var chunks = (typeof docObj === "object" && docObj.chunk_count !== undefined) ? docObj.chunk_count : 0
-                        var pages = (typeof docObj === "object" && docObj.page_count !== undefined) ? docObj.page_count : 0
-                        var status = item.status === "COMPLETED" ? "INGESTED" : item.status
+    property var rawReportsMap: ({})
 
-                        activeDocumentsModel.append({
-                            "fileName": name,
-                            "filePath": path,
-                            "chunkCount": chunks,
-                            "pageCount": pages,
-                            "status": status
-                        })
-                    }
-                }
-                break
+    function syncActiveDocuments(jobId) {
+        if (jobId <= 0) return
+        var report = rawReportsMap[jobId]
+        if (report && report.documents && report.documents.length > 0) {
+            activeDocumentsModel.clear()
+            for (var d = 0; d < report.documents.length; ++d) {
+                var docObj = report.documents[d]
+                var path = (typeof docObj === "string") ? docObj : (docObj.file_path || "")
+                var name = (typeof docObj === "string")
+                    ? path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1)
+                    : (docObj.file_name || path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1))
+                var chunks = (typeof docObj === "object" && docObj.chunk_count !== undefined) ? docObj.chunk_count : 0
+                var pages = (typeof docObj === "object" && docObj.page_count !== undefined) ? docObj.page_count : 0
+                var status = (typeof docObj === "object" && docObj.status) ? docObj.status : (report.status === "COMPLETED" ? "INGESTED" : report.status)
+
+                activeDocumentsModel.append({
+                    "fileName": name,
+                    "filePath": path,
+                    "chunkCount": chunks,
+                    "pageCount": pages,
+                    "status": status
+                })
             }
         }
+        reportClient.fetchDocuments(jobId)
     }
 
     function selectReport(jobId) {
         currentJobId = jobId
+        syncActiveDocuments(jobId)
         for (var i = 0; i < reportsHistoryModel.count; ++i) {
             var item = reportsHistoryModel.get(i)
             if (item.jobId === jobId) {
                 activeReportTitle = item.title
-                syncActiveDocuments(jobId)
                 if (item.extractionStatus === "ACCEPTED" || item.status === "COMPLETED" || item.extractionStatus === "READY_FOR_REVIEW") {
                     reportClient.fetchReport(jobId)
                 } else {
@@ -140,7 +143,48 @@ ApplicationWindow {
         }
     }
 
+    function cancelActiveJob() {
+        if (currentJobId <= 0) return
+        var targetId = currentJobId
+        appendStatus("[Cancel Requested] Cancelling Job #" + targetId + "...")
+        if (isExtracting) {
+            extractionClient.cancelExtraction(targetId)
+            extractionPoller.stopPolling()
+            isExtracting = false
+        }
+        if (batchConfirmed) {
+            uploadClient.cancelJob(targetId)
+            poller.stopPolling()
+            batchConfirmed = false
+        }
+        for (var i = 0; i < activeDocumentsModel.count; ++i) {
+            activeDocumentsModel.setProperty(i, "status", "CANCELLED")
+        }
+        reportClient.fetchReports()
+    }
+
+    function cancelJobById(jobId) {
+        if (jobId <= 0) return
+        appendStatus("[Cancel Requested] Cancelling Job #" + jobId + " on server...")
+        uploadClient.cancelJob(jobId)
+        extractionClient.cancelExtraction(jobId)
+        if (jobId === currentJobId) {
+            isExtracting = false
+            batchConfirmed = false
+            extractionPoller.stopPolling()
+            poller.stopPolling()
+            for (var i = 0; i < activeDocumentsModel.count; ++i) {
+                activeDocumentsModel.setProperty(i, "status", "CANCELLED")
+            }
+        }
+        reportClient.fetchReports()
+    }
+
     function startProcessing() {
+        if (!systemPoller.isConnected) {
+            appendStatus("Cannot start processing: backend daemon is disconnected.")
+            return
+        }
         if (documentQueueModel.count === 0) return
         var paths = []
         activeDocumentsModel.clear()
@@ -156,6 +200,7 @@ ApplicationWindow {
             })
         }
         rightPanel.showAttachedTab()
+        appendStatus("Queued " + paths.length + " document(s) for local on-device processing via Qwen 2.5 / Gemma 2.")
         uploadClient.uploadDocuments(paths)
     }
 
@@ -166,7 +211,7 @@ ApplicationWindow {
             batchConfirmed = true
             appendStatus("Job #" + jobId + " queued with " + activeDocumentsModel.count + " document(s).")
             for (var i = 0; i < activeDocumentsModel.count; ++i) {
-                activeDocumentsModel.setProperty(i, "status", "PROCESSING")
+                activeDocumentsModel.setProperty(i, "status", "QUEUED")
             }
             documentQueueModel.clear()
             poller.startPolling(jobId)
@@ -176,31 +221,72 @@ ApplicationWindow {
             appendStatus("Upload failed: " + reason)
             batchConfirmed = false
         }
+        onJobCancelled: function(jobId) {
+            appendStatus("[Cancellation Confirmed] Job #" + jobId + " ingestion halted on server.")
+            batchConfirmed = false
+            for (var i = 0; i < activeDocumentsModel.count; ++i) {
+                activeDocumentsModel.setProperty(i, "status", "CANCELLED")
+            }
+            reportClient.fetchReports()
+        }
     }
 
     PipelineStatusPoller {
         id: poller
         onStatusUpdated: function(status, docs) {
-            if (docs && docs.length > 0 && activeDocumentsModel.count === docs.length) {
+            if (docs && docs.length > 0 && activeDocumentsModel.count > 0) {
                 for (var i = 0; i < docs.length; ++i) {
                     var d = docs[i]
-                    if (d.chunk_count !== undefined) {
-                        activeDocumentsModel.setProperty(i, "chunkCount", d.chunk_count)
+                    var targetIdx = -1
+                    for (var m = 0; m < activeDocumentsModel.count; ++m) {
+                        var existing = activeDocumentsModel.get(m)
+                        if ((d.file_path && existing.filePath === d.file_path) ||
+                            (d.file_name && existing.fileName === d.file_name)) {
+                            targetIdx = m
+                            break
+                        }
                     }
-                    if (d.page_count !== undefined) {
-                        activeDocumentsModel.setProperty(i, "pageCount", d.page_count)
+                    if (targetIdx < 0 && i < activeDocumentsModel.count) {
+                        targetIdx = i
+                    }
+                    if (targetIdx >= 0) {
+                        if (d.chunk_count !== undefined) {
+                            activeDocumentsModel.setProperty(targetIdx, "chunkCount", d.chunk_count)
+                        }
+                        if (d.page_count !== undefined) {
+                            activeDocumentsModel.setProperty(targetIdx, "pageCount", d.page_count)
+                        }
+                        if (d.status !== undefined) {
+                            activeDocumentsModel.setProperty(targetIdx, "status", d.status)
+                        }
                     }
                 }
             }
         }
         onCompleted: {
-            appendStatus("Ingestion complete. Starting per-section extraction...")
+            appendStatus("Ingestion complete. Vector embeddings persisted to local SQLite ('document_chunks') and indexed.")
+            appendStatus("Backend advancing automatically to statutory extraction...")
             batchConfirmed = false
             for (var i = 0; i < activeDocumentsModel.count; ++i) {
                 activeDocumentsModel.setProperty(i, "status", "INGESTED")
             }
+            appWindow.isExtracting = true
+            appWindow.extractionStep = 0
+            appWindow.extractionTotal = 0
+            appWindow.extractionCurrentGroup = "Initializing retrieval..."
+            appWindow.extractionProgressPct = 0.0
+            appWindow.missingMetricsSummary = []
             reportClient.fetchReports()
-            extractionClient.startExtraction(currentJobId)
+            reportClient.fetchDocuments(currentJobId)
+            extractionPoller.startPolling(currentJobId)
+        }
+        onCancelled: {
+            appendStatus("[Pipeline Cancelled] Job #" + currentJobId + " ingestion pipeline halted.")
+            batchConfirmed = false
+            for (var i = 0; i < activeDocumentsModel.count; ++i) {
+                activeDocumentsModel.setProperty(i, "status", "CANCELLED")
+            }
+            reportClient.fetchReports()
         }
         onFailed: function(reason) {
             appendStatus("Pipeline error: " + reason)
@@ -216,18 +302,41 @@ ApplicationWindow {
         onExtractionStarted: {
             appWindow.isExtracting = true
             appWindow.extractionStep = 0
-            appWindow.extractionTotal = 14
+            appWindow.extractionTotal = 0
             appWindow.extractionCurrentGroup = "Initializing retrieval..."
             appWindow.extractionProgressPct = 0.0
             appWindow.missingMetricsSummary = []
-            appendStatus("Extraction initiated across 14 BRSR statutory sections...")
+            appendStatus("Extraction initiated across statutory BRSR sections...")
             extractionPoller.startPolling(currentJobId)
+        }
+        onExtractionCancelled: function(jobId) {
+            appWindow.isExtracting = false
+            appendStatus("[Cancellation Confirmed] Job #" + jobId + " statutory extraction halted on server.")
+            reportClient.fetchReports()
         }
         onRequestFailed: function(reason) {
             appWindow.isExtracting = false
             appendStatus("Extraction request failed: " + reason)
         }
     }
+
+    SystemStatusPoller {
+        id: systemPoller
+        Component.onCompleted: startPolling()
+        onStatusUpdated: {
+            if (systemPoller.isConnected !== appWindow.lastKnownConnected) {
+                appWindow.lastKnownConnected = systemPoller.isConnected
+                if (!systemPoller.isConnected) {
+                    appendStatus("Backend daemon disconnected.")
+                } else {
+                    appendStatus("Connected to carbon-engine daemon (Offline, " + systemPoller.activeModel + ").")
+                }
+            }
+        }
+    }
+    property alias systemPoller: systemPoller
+    property alias extractionPoller: extractionPoller
+    property bool lastKnownConnected: false
 
     ExtractionStatusPoller {
         id: extractionPoller
@@ -252,9 +361,15 @@ ApplicationWindow {
         }
         onCompleted: {
             appWindow.isExtracting = false
-            appendStatus("Extraction complete (" + extractionTotal + "/" + extractionTotal + " sections processed). Opening review screen...")
+            var totalStr = extractionTotal > 0 ? (extractionTotal + "/" + extractionTotal + " sections") : (extractionStep + " sections");
+            appendStatus("Extraction complete (" + totalStr + " processed locally). Opening review screen...")
             reportClient.fetchReports()
             reviewScreen.openForJob(currentJobId)
+        }
+        onCancelled: {
+            appWindow.isExtracting = false
+            appendStatus("[Extraction Cancelled] Job #" + currentJobId + " extraction cancelled.")
+            reportClient.fetchReports()
         }
         onFailed: function(reason) {
             appWindow.isExtracting = false
@@ -282,6 +397,7 @@ ApplicationWindow {
             reportsHistoryModel.clear()
             for (var i = 0; i < reports.length; ++i) {
                 var r = reports[i]
+                rawReportsMap[r.job_id] = r
                 var docList = r.documents || []
                 reportsHistoryModel.append({
                     "jobId": r.job_id,
@@ -297,6 +413,12 @@ ApplicationWindow {
             if (reports.length > 0 && currentJobId === -1) {
                 selectReport(reports[0].job_id)
             } else if (currentJobId !== -1) {
+                for (var j = 0; j < reportsHistoryModel.count; ++j) {
+                    if (reportsHistoryModel.get(j).jobId === currentJobId) {
+                        activeReportTitle = reportsHistoryModel.get(j).title
+                        break
+                    }
+                }
                 syncActiveDocuments(currentJobId)
             }
         }
@@ -310,12 +432,15 @@ ApplicationWindow {
                         "filePath": d.file_path || "",
                         "chunkCount": d.chunk_count || 0,
                         "pageCount": d.page_count || 0,
-                        "status": "INGESTED"
+                        "status": d.status || "INGESTED"
                     })
                 }
             }
         }
         onReportDeleted: function(jobId) {
+            if (rawReportsMap && rawReportsMap[jobId] !== undefined) {
+                delete rawReportsMap[jobId]
+            }
             for (var i = 0; i < reportsHistoryModel.count; ++i) {
                 if (reportsHistoryModel.get(i).jobId === jobId) {
                     reportsHistoryModel.remove(i)
@@ -349,13 +474,7 @@ ApplicationWindow {
             }
             for (var i = 0; i < files.length; ++i) {
                 var raw = files[i].toString()
-                var decoded = decodeURIComponent(raw)
-                var cleanPath = decoded
-                if (cleanPath.indexOf("file:///") === 0) {
-                    cleanPath = cleanPath.substring(cleanPath.charAt(9) === ':' ? 8 : 7)
-                } else if (cleanPath.indexOf("file://") === 0) {
-                    cleanPath = cleanPath.substring(7)
-                }
+                var cleanPath = BrsrMeta.cleanFileUrl(raw)
                 var fileName = cleanPath.substring(Math.max(cleanPath.lastIndexOf('/'), cleanPath.lastIndexOf('\\')) + 1)
                 if (!fileName) fileName = "Document " + (documentQueueModel.count + 1)
 
@@ -381,9 +500,9 @@ ApplicationWindow {
 
     header: Rectangle {
         id: customTitleBar
-        height: 36
-        color: appWindow.bgHeader
-        border.color: appWindow.borderCol
+        height: 38
+        color: Theme.bgHeader
+        border.color: Theme.borderCol
         border.width: 1
 
         MouseArea {
@@ -421,22 +540,22 @@ ApplicationWindow {
                 }
 
                 Label {
-                    text: "Carbon Engine"
+                    text: "Carbon ESG"
                     font.pixelSize: 12
                     font.bold: true
-                    color: appWindow.textBright
+                    color: Theme.textBright
                 }
 
                 Label {
                     text: "•"
                     font.pixelSize: 10
-                    color: appWindow.borderSubtle
+                    color: Theme.borderSubtle
                 }
 
                 Label {
                     text: "BRSR ESG Analytics"
                     font.pixelSize: 11
-                    color: appWindow.textMuted
+                    color: Theme.textMuted
                 }
             }
 
@@ -448,48 +567,84 @@ ApplicationWindow {
                     ? ("Extracting: " + (appWindow.extractionCurrentGroup !== "" ? appWindow.extractionCurrentGroup : "BRSR Sections"))
                     : (appWindow.activeReportTitle !== "" ? appWindow.activeReportTitle : "Workspace")
                 font.pixelSize: 11
-                color: appWindow.textMuted
+                color: Theme.textMuted
                 elide: Text.ElideMiddle
                 Layout.maximumWidth: 450
+                Layout.alignment: Qt.AlignVCenter
             }
 
             Item { Layout.fillWidth: true }
 
+            // Mode Status Badge (Informational offline indicator)
+            Rectangle {
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 24
+                Layout.preferredWidth: modeBadgeLayout.implicitWidth + 18
+                radius: 12
+                color: !systemPoller.isConnected ? Theme.badgeDangerBg : Theme.bgSubtle
+                border.color: !systemPoller.isConnected ? Theme.badgeDangerBorder : Theme.borderCol
+                border.width: 1
+
+                RowLayout {
+                    id: modeBadgeLayout
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Text {
+                        text: !systemPoller.isConnected ? "●" : "⚡"
+                        font.pixelSize: !systemPoller.isConnected ? 10 : 11
+                        color: !systemPoller.isConnected ? Theme.badgeDangerText : Theme.brandAccent
+                    }
+
+                    Label {
+                        text: !systemPoller.isConnected
+                            ? "Backend Disconnected"
+                            : ("Offline (" + systemPoller.activeModel + ")")
+                        color: !systemPoller.isConnected ? Theme.badgeDangerText : Theme.textBright
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+                }
+            }
+
             // Theme Toggle
             Button {
-                text: appWindow.isDarkMode ? "🌙 Dark" : "☀️ Light"
+                text: Theme.isDarkMode ? "🌙 Dark" : "☀️ Light"
                 flat: true
+                Layout.alignment: Qt.AlignVCenter
                 Layout.preferredHeight: 26
                 background: Rectangle {
-                    color: parent.hovered ? appWindow.bgHover : "transparent"
-                    radius: 3
+                    color: parent.hovered ? Theme.bgHover : (parent.pressed ? Theme.bgActive : "transparent")
+                    border.color: parent.hovered ? Theme.borderSubtle : "transparent"
+                    border.width: 1
+                    radius: 4
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: appWindow.textMain
+                    color: Theme.textMain
                     font.pixelSize: 11
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
-                onClicked: appWindow.isDarkMode = !appWindow.isDarkMode
+                onClicked: Theme.isDarkMode = !Theme.isDarkMode
             }
 
             // Window Controls (Minimize, Maximize/Restore, Close)
             RowLayout {
                 spacing: 0
-                Layout.preferredHeight: 36
+                Layout.fillHeight: true
 
                 // Minimize
                 Rectangle {
                     Layout.preferredWidth: 46
-                    Layout.preferredHeight: 36
-                    color: minMouse.containsMouse ? appWindow.bgHover : "transparent"
+                    Layout.fillHeight: true
+                    color: minMouse.containsMouse ? Theme.bgHover : "transparent"
 
                     Text {
                         anchors.centerIn: parent
                         text: "—"
                         font.pixelSize: 11
-                        color: appWindow.textMain
+                        color: Theme.textMain
                     }
 
                     MouseArea {
@@ -503,14 +658,14 @@ ApplicationWindow {
                 // Maximize / Restore
                 Rectangle {
                     Layout.preferredWidth: 46
-                    Layout.preferredHeight: 36
-                    color: maxMouse.containsMouse ? appWindow.bgHover : "transparent"
+                    Layout.fillHeight: true
+                    color: maxMouse.containsMouse ? Theme.bgHover : "transparent"
 
                     Text {
                         anchors.centerIn: parent
                         text: appWindow.visibility === Window.Maximized ? "🗗" : "🗖"
                         font.pixelSize: 12
-                        color: appWindow.textMain
+                        color: Theme.textMain
                     }
 
                     MouseArea {
@@ -530,14 +685,14 @@ ApplicationWindow {
                 // Close
                 Rectangle {
                     Layout.preferredWidth: 46
-                    Layout.preferredHeight: 36
+                    Layout.fillHeight: true
                     color: closeMouse.containsMouse ? "#e81123" : "transparent"
 
                     Text {
                         anchors.centerIn: parent
                         text: "✕"
                         font.pixelSize: 11
-                        color: closeMouse.containsMouse ? "#ffffff" : appWindow.textMain
+                        color: closeMouse.containsMouse ? "#ffffff" : Theme.textMain
                     }
 
                     MouseArea {
@@ -559,6 +714,27 @@ ApplicationWindow {
 
         LeftSidebar {
             id: leftSidebar
+            sidebarExpanded: appWindow.sidebarExpanded
+            historyModel: reportsHistoryModel
+            currentJobId: appWindow.currentJobId
+            isExtracting: appWindow.isExtracting
+            batchConfirmed: appWindow.batchConfirmed
+            onToggleExpanded: appWindow.sidebarExpanded = !appWindow.sidebarExpanded
+            onReportSelected: function(jobId) {
+                appWindow.selectReport(jobId)
+                rightPanel.showAttachedTab()
+            }
+            onCancelJobRequested: function(jobId) {
+                if (jobId === appWindow.currentJobId) {
+                    appWindow.cancelActiveJob()
+                } else {
+                    appWindow.cancelJobById(jobId)
+                }
+            }
+            onDeleteReportRequested: function(jobId) {
+                reportClient.deleteReport(jobId)
+            }
+            onRefreshReportsRequested: reportClient.fetchReports()
         }
 
         CentralWorkspace {

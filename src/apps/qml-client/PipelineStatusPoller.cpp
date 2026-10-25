@@ -6,10 +6,9 @@
 #include <QJsonArray>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QUrl>
 #include <QUrlQuery>
 
-PipelineStatusPoller::PipelineStatusPoller(QObject *parent) : QObject(parent)
+PipelineStatusPoller::PipelineStatusPoller(QObject *parent) : ApiClientBase(parent)
 {
     connect(&_timer, &QTimer::timeout, this, &PipelineStatusPoller::poll);
 }
@@ -22,17 +21,32 @@ void PipelineStatusPoller::startPolling(int jobId)
     _timer.start(PollIntervalMs);
 }
 
+void PipelineStatusPoller::stopPolling()
+{
+    _log.info(QString("Stopped polling job %1").arg(_jobId));
+    _timer.stop();
+    _jobId = -1;
+}
+
 void PipelineStatusPoller::poll()
 {
-    QUrl url("http://localhost:8080/api/jobs");
+    int polledJobId = _jobId;
+    if (polledJobId < 0) {
+        return;
+    }
+
+    QUrl url = endpoint(ApiRoutes::Jobs);
     QUrlQuery query;
-    query.addQueryItem("job_id", QString::number(_jobId));
+    query.addQueryItem("job_id", QString::number(polledJobId));
     url.setQuery(query);
 
-    QNetworkReply *reply = _network.get(QNetworkRequest(url));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]()
+    QNetworkReply *reply = network().get(QNetworkRequest(url));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, polledJobId]()
     {
         reply->deleteLater();
+        if (_jobId != polledJobId || _jobId < 0) {
+            return;
+        }
         if (reply->error() != QNetworkReply::NoError)
         {
             _log.error(QString("Poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
@@ -40,21 +54,28 @@ void PipelineStatusPoller::poll()
         }
 
         auto doc = QJsonDocument::fromJson(reply->readAll());
-        QString status = doc.object().value("status").toString();
-        QJsonArray docs = doc.object().value("documents").toArray();
+        QJsonObject root = doc.object();
+        QString status = root.value("status").toString();
+        QJsonArray docs = root.value("documents").toArray();
+
         _log.info(QString("Job %1 status: %2, %3 document(s)").arg(_jobId).arg(status).arg(docs.size()));
 
         emit statusUpdated(status, docs);
 
-        if (status == "COMPLETED")
+        if (status == JobStatus::Completed)
         {
             _timer.stop();
             emit completed();
         }
-        else if (status == "FAILED")
+        else if (status == JobStatus::Failed)
         {
             _timer.stop();
             emit failed("Ingestion failed");
+        }
+        else if (status == JobStatus::Cancelled)
+        {
+            _timer.stop();
+            emit cancelled();
         }
     });
 }
