@@ -5,6 +5,7 @@
 #include <QtWebEngineQuick>
 
 #include "constants/CommonConstants.h"
+#include "logging/Logger.h"
 #include "system/SingleInstanceGuard.h"
 
 #ifdef _WIN32
@@ -43,6 +44,7 @@ int main(int argc, char *argv[])
     app.setOrganizationDomain(AppInfo::OrganizationDomain);
     app.setApplicationDisplayName(AppInfo::ClientAppName);
     app.setApplicationVersion(AppInfo::Version);
+    Logger log(AppInfo::ClientAppName);
 
     QQuickStyle::setStyle("Basic");
 
@@ -62,6 +64,7 @@ int main(int argc, char *argv[])
 
     if (engine.rootObjects().isEmpty())
     {
+        log.critical("Failed to load QML root component from module 'CarbonEngineClient'.");
         return -1;
     }
 

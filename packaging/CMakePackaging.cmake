@@ -31,29 +31,20 @@ if(WIN32)
         )
     endif()
 
-    # Install deployed Qt runtime DLLs and plugins into bin
+    # Install deployed Qt runtime DLLs, plugins, resources, and complete QML tree into bin
     install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        FILES_MATCHING
-        PATTERN "*.dll"
-        PATTERN "*.pak"
-        PATTERN "*.dat"
-        PATTERN "*.bin"
-        PATTERN "QtWebEngineProcess*"
-        PATTERN "platforms/*"
-        PATTERN "imageformats/*"
-        PATTERN "iconengines/*"
-        PATTERN "sqldrivers/*"
-        PATTERN "networkinformation/*"
-        PATTERN "tls/*"
-        PATTERN "styles/*"
-        PATTERN "resources/*"
-        PATTERN "translations/*"
-        PATTERN "qml/*"
-        PATTERN "CarbonEngineClient/*"
-        PATTERN "position/*"
-        PATTERN "generic/*"
-        PATTERN "vectorimageformats/*"
+        PATTERN "*.pdb" EXCLUDE
+        PATTERN "*.ilk" EXCLUDE
+        PATTERN "*.exp" EXCLUDE
+        PATTERN "*.lib" EXCLUDE
+        PATTERN "*.obj" EXCLUDE
+        PATTERN "template.html" EXCLUDE
+        PATTERN "qmltooling" EXCLUDE
+    )
+
+    install(FILES "${CMAKE_CURRENT_LIST_DIR}/windows/download-models.cmd"
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 
     install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
@@ -142,9 +133,8 @@ if(WIN32)
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
       CreateDirectory '$INSTDIR\\\\models'
-      DetailPrint 'Checking AI models...'
-      ExecWait 'cmd.exe /c if not exist \"$INSTDIR\\\\models\\\\bge-small-en-v1.5-f16.gguf\" curl.exe -f -L --create-dirs -o \"$INSTDIR\\\\models\\\\bge-small-en-v1.5-f16.gguf\" \"https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf\"'
-      ExecWait 'cmd.exe /c if not exist \"$INSTDIR\\\\models\\\\gemma-2-2b-it-q4_k_m.gguf\" curl.exe -f -L --create-dirs -o \"$INSTDIR\\\\models\\\\gemma-2-2b-it-q4_k_m.gguf\" \"https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf\"'
+      DetailPrint 'Downloading AI Models (bge-small-en-v1.5, gemma-2-2b)...'
+      ExecWait '\"$INSTDIR\\\\bin\\\\download-models.cmd\" \"$INSTDIR\"'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
       WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
