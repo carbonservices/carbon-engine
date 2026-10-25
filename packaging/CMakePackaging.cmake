@@ -104,7 +104,9 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
     endif()
 endif()
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/models")
+option(CARBON_ENGINE_EMBED_MODELS "Embed AI models statically inside the installer" OFF)
+
+if(CARBON_ENGINE_EMBED_MODELS AND EXISTS "${CMAKE_SOURCE_DIR}/models")
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/models"
         DESTINATION .
         FILES_MATCHING
@@ -121,17 +123,17 @@ set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Carbon ESG")
-set(CPACK_PACKAGE_CONTACT "support@carbonservices.io")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/README.md")
+set(CPACK_PACKAGE_CONTACT "carbon.esgreports@gmail.com")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE.txt")
 
 if(WIN32)
     set(CPACK_GENERATOR "NSIS;ZIP")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Windows-x64-${CARBON_WORKLOAD_TAG}")
-    set(CPACK_NSIS_PACKAGE_NAME "Carbon ESG Workspace (${CARBON_WORKLOAD_TITLE})")
-    set(CPACK_NSIS_DISPLAY_NAME "Carbon ESG Workspace (${CARBON_WORKLOAD_TITLE})")
-    set(CPACK_NSIS_HELP_LINK "https://carbonservices.io")
-    set(CPACK_NSIS_URL_INFO_ABOUT "https://carbonservices.io")
-    set(CPACK_NSIS_CONTACT "support@carbonservices.io")
+    set(CPACK_NSIS_PACKAGE_NAME "Carbon ESG")
+    set(CPACK_NSIS_DISPLAY_NAME "Carbon ESG")
+    set(CPACK_NSIS_HELP_LINK "https://carbonesg.online")
+    set(CPACK_NSIS_URL_INFO_ABOUT "https://carbonesg.online")
+    set(CPACK_NSIS_CONTACT "carbon.esgreports@gmail.com")
     set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico")
     set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico")
     set(CPACK_NSIS_MODIFY_PATH ON)
@@ -139,6 +141,10 @@ if(WIN32)
     set(CPACK_NSIS_DEFINES "RequestExecutionLevel admin")
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+      CreateDirectory '$INSTDIR\\\\models'
+      DetailPrint 'Checking AI models...'
+      ExecWait 'cmd.exe /c if not exist \"$INSTDIR\\\\models\\\\bge-small-en-v1.5-f16.gguf\" curl.exe -f -L --create-dirs -o \"$INSTDIR\\\\models\\\\bge-small-en-v1.5-f16.gguf\" \"https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf\"'
+      ExecWait 'cmd.exe /c if not exist \"$INSTDIR\\\\models\\\\gemma-2-2b-it-q4_k_m.gguf\" curl.exe -f -L --create-dirs -o \"$INSTDIR\\\\models\\\\gemma-2-2b-it-q4_k_m.gguf\" \"https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf\"'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
       WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
@@ -160,11 +166,11 @@ else()
     set(CPACK_GENERATOR "DEB;TGZ")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")
     set(CPACK_DEBIAN_PACKAGE_NAME "carbon-esg")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Carbon Services <support@carbonservices.io>")
-    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Carbon ESG statutory BRSR reporting engine and desktop application by Carbon Services (${CARBON_WORKLOAD_TITLE}).")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Carbon Services <carbon.esgreports@gmail.com>")
+    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Carbon ESG statutory BRSR reporting engine and desktop application by Carbon Services.")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonservices.io")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonesg.online")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libtesseract5, libopenblas0, libpulse0, libnss3, libasound2t64 | libasound2")
 endif()

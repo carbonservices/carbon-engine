@@ -85,7 +85,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=ON
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
@@ -199,7 +199,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="/home/runner/work/Qt/6.10.0/gcc_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=ON
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel

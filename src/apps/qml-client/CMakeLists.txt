@@ -12,6 +12,7 @@ target_link_libraries(carbon-engine-client PRIVATE
     Qt6::WebEngineQuick
     carbon-engine-logging
     carbon-engine-common
+    carbon-engine-system
 )
 
 if(WIN32)
@@ -26,12 +27,6 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-
-add_custom_command(TARGET carbon-engine-client POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
-        $<TARGET_FILE_DIR:carbon-engine-client>/template.html
-)
 
 add_custom_command(TARGET carbon-engine-client POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -89,7 +84,7 @@ if(WIN32)
 
     if(WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET carbon-engine-client POST_BUILD
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-translations --no-opengl-sw --compiler-runtime --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml" -widgets -httpserver -sql $<TARGET_FILE:carbon-engine-client>
+            COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-translations --no-opengl-sw --compiler-runtime --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml" -websockets -widgets -httpserver -sql $<TARGET_FILE:carbon-engine-client> $<TARGET_FILE:carbon-engine> $<TARGET_FILE:carbon-tray>
         )
     endif()
 endif()

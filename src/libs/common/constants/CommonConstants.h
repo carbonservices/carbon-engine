@@ -82,7 +82,9 @@ struct AppInfo {
 #endif
 
     static constexpr const char* OrganizationName = "Carbon Services";
-    static constexpr const char* OrganizationDomain = "carbonservices.io";
+    static constexpr const char* OrganizationDomain = "carbonesg.online";
+    static constexpr const char* SupportEmail = "carbon.esgreports@gmail.com";
+    static constexpr const char* WebsiteUrl = "https://carbonesg.online";
     static constexpr const char* ServerAppName = "Carbon Engine";
     static constexpr const char* ClientAppName = "Carbon ESG";
     static constexpr const char* WorkspaceAppName = "Carbon ESG Workspace";
@@ -90,6 +92,7 @@ struct AppInfo {
 
     static constexpr const char* DaemonMutexName = "CarbonEngine_Daemon_Mutex";
     static constexpr const char* TrayMutexName = "CarbonEngine_Tray_Mutex";
+    static constexpr const char* ClientMutexName = "CarbonEngine_Client_Mutex";
 
     static constexpr const char* ServerExecutableName = "carbon-engine.exe";
     static constexpr const char* ClientExecutableName = "carbon-engine-client.exe";

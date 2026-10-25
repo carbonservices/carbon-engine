@@ -1,0 +1,42 @@
+===============================================================================
+                    Carbon ESG - End User Notice & License
+===============================================================================
+
+Carbon ESG is an enterprise statutory ESG & BRSR reporting application developed
+by Carbon Services (https://carbonesg.online).
+
+1. AIR-GAPPED & ON-DEVICE PROCESSING ASSURANCE
+   Carbon ESG operates completely on-device. All document ingestion, text
+   extraction, vector indexing, AI inference, and report generation occur
+   strictly on your local machine. No documents, corporate data, or telemetry
+   are transmitted to cloud or external servers.
+
+2. SOFTWARE LICENSE (GNU GPLv3)
+   Carbon ESG and the underlying Carbon Engine are free software released
+   under the terms of the GNU General Public License Version 3 (GPLv3).
+
+   You are free to:
+   - Run the software for any purpose (commercial, personal, institutional).
+   - Study how the program works and modify it to suit your needs.
+   - Redistribute copies and improvements under the same GPLv3 terms.
+
+3. THIRD-PARTY COMPONENTS
+   This package incorporates open-source components including:
+   - Qt Framework (LGPLv3 / GPLv3)
+   - llama.cpp (MIT License)
+   - FAISS (MIT License)
+   - PDFium (Apache 2.0 / BSD)
+   - Tesseract OCR (Apache 2.0)
+   - Inja & nlohmann/json (MIT License)
+
+4. DISCLAIMER OF WARRANTY
+   This software is provided "AS IS", without warranty of any kind, express
+   or implied, including but not limited to the warranties of merchantability,
+   fitness for a particular purpose, and non-infringement. In no event shall
+   the authors or copyright holders be liable for any claim, damages, or other
+   liability arising from the software.
+
+===============================================================================
+ Support & Documentation: https://carbonesg.online | carbon.esgreports@gmail.com
+===============================================================================
+
