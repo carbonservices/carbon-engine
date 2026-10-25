@@ -76,16 +76,14 @@ inline const QString& getDatabaseFilePath()
     return s_dbPath;
 }
 
-inline const QString& getGenerationModelPath()
+inline QString getGenerationModelPath()
 {
-    static const QString s_genPath = resolveModelPath("CARBON_ENGINE_GEN_MODEL", defaultGenModel());
-    return s_genPath;
+    return resolveModelPath("CARBON_ENGINE_GEN_MODEL", defaultGenModel());
 }
 
-inline const QString& getEmbeddingModelPath()
+inline QString getEmbeddingModelPath()
 {
-    static const QString s_embdPath = resolveModelPath("CARBON_ENGINE_EMBD_MODEL", Models::LocalBgeEmbeddingFile);
-    return s_embdPath;
+    return resolveModelPath("CARBON_ENGINE_EMBD_MODEL", Models::LocalBgeEmbeddingFile);
 }
 
 #define kDatabaseFilePath getDatabaseFilePath()

@@ -70,8 +70,20 @@ Rectangle {
             }
             StatusRow {
                 label: "Model"
-                value: poller ? poller.activeModel : "—"
-                valueColor: (!poller || !poller.isConnected) ? Theme.textMuted : Theme.textBright
+                value: {
+                    if (typeof appWindow !== "undefined" && appWindow.modelDownloader) {
+                        if (appWindow.modelDownloader.isDownloading) {
+                            return "Downloading (" + appWindow.modelDownloader.progressPercent + "%)"
+                        }
+                        if (!appWindow.modelDownloader.modelsReady) {
+                            return "Not Downloaded"
+                        }
+                    }
+                    return poller ? poller.activeModel : "—"
+                }
+                valueColor: (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady)
+                    ? Theme.warningColor
+                    : ((!poller || !poller.isConnected) ? Theme.textMuted : Theme.textBright)
             }
             StatusRow { label: "Job queue"; value: poller ? poller.jobQueue : "—" }
             StatusRow { label: "CPU"; value: poller ? poller.cpuLoad : "—" }

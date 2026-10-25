@@ -146,6 +146,261 @@ Rectangle {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderCol }
 
+        // AI Model Setup & Management Card
+        Rectangle {
+            id: modelSetupCard
+            Layout.fillWidth: true
+            visible: (typeof appWindow !== "undefined" && appWindow.modelDownloader && (!appWindow.modelDownloader.modelsReady || appWindow.modelDownloader.isDownloading || appWindow.modelDownloader.hasError))
+            implicitHeight: setupCol.implicitHeight + 24
+            color: Theme.bgCard
+            radius: 6
+            border.color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError) ? Theme.dangerColor : Theme.borderCol
+            border.width: 1
+
+            ColumnLayout {
+                id: setupCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 14
+                spacing: 10
+
+                // Header Row
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Rectangle {
+                        width: 32
+                        height: 32
+                        radius: 16
+                        color: Theme.bgSubtle
+                        border.color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                            ? Theme.dangerColor
+                            : (appWindow.modelDownloader && appWindow.modelDownloader.isDownloading ? Theme.brandAccent : Theme.warningColor)
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: (appWindow.modelDownloader && appWindow.modelDownloader.hasError) ? "⚠️" : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading) ? "⬇️" : "🤖")
+                            font.pixelSize: 14
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: 2
+                        Label {
+                            text: "AI Models Setup (100% Offline Processing)"
+                            font.pixelSize: 14
+                            font.bold: true
+                            color: Theme.textBright
+                        }
+                        Label {
+                            text: (appWindow.modelDownloader && appWindow.modelDownloader.isDownloading)
+                                ? ("Downloading: " + (appWindow.modelDownloader.currentModelName !== "" ? appWindow.modelDownloader.currentModelName : "AI Models"))
+                                : ((appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                                    ? "Download interrupted. Please check connection and retry."
+                                    : "Required for on-device statutory ESG extraction and private document analysis.")
+                            font.pixelSize: 11
+                            color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                                ? Theme.dangerColor
+                                : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading) ? Theme.brandAccent : Theme.textMuted)
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // Status Badge
+                    Rectangle {
+                        radius: 10
+                        Layout.preferredHeight: 22
+                        Layout.preferredWidth: statusBadgeText.implicitWidth + 14
+                        color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                            ? Theme.badgeDangerBg
+                            : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading) ? Theme.bgSubtle : Theme.badgeWarningBg)
+                        border.color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                            ? Theme.badgeDangerBorder
+                            : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading) ? Theme.brandAccent : Theme.warningColor)
+                        border.width: 1
+
+                        Text {
+                            id: statusBadgeText
+                            anchors.centerIn: parent
+                            text: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                                ? "Download Error"
+                                : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading)
+                                    ? (appWindow.modelDownloader.progressPercent + "% • " + appWindow.modelDownloader.downloadSpeed)
+                                    : "Download Required")
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: (appWindow.modelDownloader && appWindow.modelDownloader.hasError)
+                                ? Theme.badgeDangerText
+                                : ((appWindow.modelDownloader && appWindow.modelDownloader.isDownloading) ? Theme.brandAccent : Theme.warningColor)
+                        }
+                    }
+                }
+
+                // Informative explanation
+                Label {
+                    Layout.fillWidth: true
+                    text: "Carbon ESG operates strictly air-gapped on your computer. To process BRSR reports locally, two AI models are saved to your user documents directory (" + (appWindow.modelDownloader ? appWindow.modelDownloader.targetDirectory : "") + "): Gemma 2 2B Instruct (1.71 GB) and BGE Small Embedding (67 MB). Total size: ~1.78 GB."
+                    font.pixelSize: 11
+                    color: Theme.textMuted
+                    wrapMode: Text.WordWrap
+                }
+
+                // Error Message Box
+                Rectangle {
+                    Layout.fillWidth: true
+                    visible: appWindow.modelDownloader && appWindow.modelDownloader.hasError
+                    implicitHeight: errorMsgText.implicitHeight + 16
+                    color: Theme.badgeDangerBg
+                    border.color: Theme.badgeDangerBorder
+                    border.width: 1
+                    radius: 4
+
+                    Text {
+                        id: errorMsgText
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 8
+                        text: (appWindow.modelDownloader && appWindow.modelDownloader.hasError) ? appWindow.modelDownloader.errorMessage : ""
+                        color: Theme.badgeDangerText
+                        font.pixelSize: 11
+                        font.family: "Consolas, monospace"
+                        wrapMode: Text.WrapAnywhere
+                    }
+                }
+
+                // Progress Bar Area (when downloading or progress > 0)
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: appWindow.modelDownloader && appWindow.modelDownloader.isDownloading
+                    spacing: 6
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 8
+                        radius: 4
+                        color: Theme.bgSubtle
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 4
+                            color: Theme.brandAccent
+                            width: Math.max(4, parent.width * (Math.min(1.0, Math.max(0.0, appWindow.modelDownloader ? appWindow.modelDownloader.progress : 0.0))))
+
+                            Behavior on width {
+                                NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            text: appWindow.modelDownloader ? appWindow.modelDownloader.statusText : ""
+                            font.pixelSize: 11
+                            color: Theme.textMain
+                        }
+                        Item { Layout.fillWidth: true }
+                        Label {
+                            text: (appWindow.modelDownloader ? (appWindow.modelDownloader.progressPercent + "% • ") : "") + (appWindow.modelDownloader ? appWindow.modelDownloader.downloadSpeed : "")
+                            font.pixelSize: 11
+                            font.bold: true
+                            color: Theme.brandAccent
+                        }
+                    }
+                }
+
+                // Action Buttons Row
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Button {
+                        text: (appWindow.modelDownloader && appWindow.modelDownloader.hasError) ? "↻ Retry Download" : "⬇ Download AI Models (1.78 GB)"
+                        visible: appWindow.modelDownloader && !appWindow.modelDownloader.isDownloading && !appWindow.modelDownloader.modelsReady
+                        Layout.preferredHeight: 30
+                        background: Rectangle {
+                            color: parent.down ? Theme.brandAccentPressed
+                                : (parent.hovered ? Theme.brandAccentHover : Theme.brandAccent)
+                            radius: 4
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: Theme.textBright
+                            font.pixelSize: 12
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            if (appWindow.modelDownloader.hasError) {
+                                appWindow.modelDownloader.retryDownload()
+                            } else {
+                                appWindow.modelDownloader.startDownload()
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "✕ Cancel Download"
+                        visible: appWindow.modelDownloader && appWindow.modelDownloader.isDownloading
+                        Layout.preferredHeight: 30
+                        background: Rectangle {
+                            color: parent.down ? "#991b1b"
+                                : (parent.hovered ? "#dc2626" : Theme.badgeDangerBg)
+                            border.color: Theme.badgeDangerBorder
+                            border.width: 1
+                            radius: 4
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: parent.hovered ? "#ffffff" : Theme.badgeDangerText
+                            font.pixelSize: 11
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: appWindow.modelDownloader.cancelDownload()
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "Check Models"
+                        visible: !appWindow.modelDownloader.isDownloading
+                        flat: true
+                        Layout.preferredHeight: 26
+                        background: Rectangle {
+                            color: parent.hovered ? Theme.bgHover : "transparent"
+                            border.color: parent.hovered ? Theme.borderSubtle : "transparent"
+                            border.width: 1
+                            radius: 3
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: Theme.textMuted
+                            font.pixelSize: 11
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: {
+                            var ok = appWindow.modelDownloader.checkModels()
+                            if (ok) {
+                                appWindow.appendStatus("Verified: AI models are installed on disk.")
+                            } else {
+                                appWindow.appendStatus("AI models are not yet downloaded.")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Subtle Missing Metrics Notice Banner in Preview Mode
         Rectangle {
             Layout.fillWidth: true

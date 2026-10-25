@@ -3,6 +3,10 @@
 // Qt
 #include <QMutexLocker>
 #include <QMetaObject>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
 
 // C++ standard
 #include <thread>
@@ -234,6 +238,14 @@ bool LlamaEngine::loadEmbdModel()
     _monitor.setEnginePhase(EnginePhase::LoadingModel);
     _log.info("Loading embedding model...");
 
+    if (!QFile::exists(QString::fromStdString(_embdPath))) {
+        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+        QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_embdPath)).fileName());
+        if (QFile::exists(docPath)) {
+            _embdPath = docPath.toStdString();
+        }
+    }
+
     llama_model_params mp = llama_model_default_params();
     int embdLayers = resolveEmbdGpuLayers();
     mp.n_gpu_layers = embdLayers;
@@ -312,6 +324,14 @@ bool LlamaEngine::loadGenModel()
     }
 
     _monitor.setEnginePhase(EnginePhase::LoadingModel);
+
+    if (!QFile::exists(QString::fromStdString(_genPath))) {
+        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+        QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_genPath)).fileName());
+        if (QFile::exists(docPath)) {
+            _genPath = docPath.toStdString();
+        }
+    }
 
     int targetGpuLayers = resolveGenGpuLayers();
     std::vector<int> attempts;

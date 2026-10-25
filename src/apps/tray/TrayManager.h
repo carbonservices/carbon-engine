@@ -6,6 +6,8 @@
 #include <QAction>
 #include <QTimer>
 
+class ModelDownloader;
+
 class TrayManager : public QObject {
     Q_OBJECT
 
@@ -22,6 +24,10 @@ public slots:
     void stopAndQuit();
     void quitTrayOnly();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+    void onDownloadModelsTriggered();
+    void onModelDownloadCompleted();
+    void onModelDownloadError();
+    void onModelDownloadProgress();
 
     // Backward-compatibility slot aliases
     void startService() { startBackend(); }
@@ -40,7 +46,9 @@ private:
     QAction* m_startAction{nullptr};
     QAction* m_stopAction{nullptr};
     QAction* m_restartAction{nullptr};
+    QAction* m_downloadModelsAction{nullptr};
     QAction* m_stopAndQuitAction{nullptr};
     QAction* m_quitTrayOnlyAction{nullptr};
     QTimer* m_pollTimer{nullptr};
+    ModelDownloader* m_modelDownloader{nullptr};
 };

@@ -326,7 +326,9 @@ Rectangle {
 
             Button {
                 id: ingestBtn
-                text: root.batchConfirmed ? "Cancel Ingestion" : "Start Ingestion"
+                text: (typeof appWindow !== "undefined" && appWindow.modelDownloader && appWindow.modelDownloader.isDownloading)
+                    ? "Downloading Models..."
+                    : (root.batchConfirmed ? "Cancel Ingestion" : "Start Ingestion")
                 enabled: root.batchConfirmed || (root.daemonConnected && root.queueCount > 0)
                 Layout.preferredHeight: 28
                 background: Rectangle {

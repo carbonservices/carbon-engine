@@ -185,6 +185,11 @@ ApplicationWindow {
             appendStatus("Cannot start processing: backend daemon is disconnected.")
             return
         }
+        if (!modelDownloader.modelsReady) {
+            appendStatus("[Action Required] AI models are not downloaded. Starting background download...")
+            modelDownloader.startDownload()
+            return
+        }
         if (documentQueueModel.count === 0) return
         var paths = []
         activeDocumentsModel.clear()
@@ -334,6 +339,22 @@ ApplicationWindow {
             }
         }
     }
+    ModelDownloader {
+        id: modelDownloader
+        onDownloadCompleted: {
+            appendStatus("All AI models have been downloaded and verified in local storage.")
+            if (systemPoller) {
+                systemPoller.startPolling()
+            }
+        }
+        onErrorChanged: {
+            if (modelDownloader.hasError) {
+                appendStatus("[Model Download Error] " + modelDownloader.errorMessage)
+            }
+        }
+    }
+
+    property alias modelDownloader: modelDownloader
     property alias systemPoller: systemPoller
     property alias extractionPoller: extractionPoller
     property bool lastKnownConnected: false
@@ -604,16 +625,19 @@ ApplicationWindow {
                     spacing: 6
 
                     Text {
-                        text: !systemPoller.isConnected ? "●" : "⚡"
+                        text: !systemPoller.isConnected ? "●" : (modelDownloader.isDownloading ? "⬇" : "⚡")
                         font.pixelSize: !systemPoller.isConnected ? 10 : 11
-                        color: !systemPoller.isConnected ? Theme.badgeDangerText : Theme.brandAccent
+                        color: !systemPoller.isConnected ? Theme.badgeDangerText : (!modelDownloader.modelsReady ? Theme.warningColor : Theme.brandAccent)
                     }
 
                     Label {
-                        text: !systemPoller.isConnected
-                            ? "Backend Disconnected"
-                            : ("Offline (" + systemPoller.activeModel + " • " + systemPoller.workloadTag + ")")
-                        color: !systemPoller.isConnected ? Theme.badgeDangerText : Theme.textBright
+                        text: {
+                            if (!systemPoller.isConnected) return "Backend Disconnected"
+                            if (modelDownloader.isDownloading) return "Downloading Models (" + modelDownloader.progressPercent + "% • " + modelDownloader.downloadSpeed + ")"
+                            if (!modelDownloader.modelsReady) return "Offline (Models Not Downloaded)"
+                            return "Offline (" + systemPoller.activeModel + " • " + systemPoller.workloadTag + ")"
+                        }
+                        color: !systemPoller.isConnected ? Theme.badgeDangerText : (!modelDownloader.modelsReady ? Theme.warningColor : Theme.textBright)
                         font.pixelSize: 10
                         font.bold: true
                     }

@@ -14,6 +14,8 @@ add_library(carbon-engine-common STATIC
     report/ReportService.cpp
     report/JsonRepairEngine.h
     report/JsonRepairEngine.cpp
+    model/ModelDownloader.h
+    model/ModelDownloader.cpp
 )
 
 target_compile_features(carbon-engine-common PUBLIC cxx_std_20)
@@ -26,6 +28,7 @@ target_include_directories(carbon-engine-common PUBLIC
 target_link_libraries(carbon-engine-common PUBLIC
     carbon-engine-logging
     Qt6::Sql
+    Qt6::Network
     inja
 )
 

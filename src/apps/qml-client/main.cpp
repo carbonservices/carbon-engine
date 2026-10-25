@@ -2,10 +2,12 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QtQml>
 #include <QtWebEngineQuick>
 
 #include "constants/CommonConstants.h"
 #include "logging/Logger.h"
+#include "model/ModelDownloader.h"
 #include "system/SingleInstanceGuard.h"
 
 #ifdef _WIN32
@@ -58,6 +60,8 @@ int main(int argc, char *argv[])
         appIcon = QIcon("logo.png");
     }
     app.setWindowIcon(appIcon);
+
+    qmlRegisterType<ModelDownloader>("CarbonEngineClient", 1, 0, "ModelDownloader");
 
     QQmlApplicationEngine engine;
     engine.loadFromModule("CarbonEngineClient", "Main");

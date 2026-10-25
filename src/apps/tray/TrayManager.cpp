@@ -1,5 +1,6 @@
 #include "TrayManager.h"
 #include "constants/CommonConstants.h"
+#include "model/ModelDownloader.h"
 #include "system/WindowsService.h"
 
 #include <QApplication>
@@ -48,6 +49,11 @@ TrayManager::TrayManager(QObject* parent)
 
     m_trayMenu->addSeparator();
 
+    m_downloadModelsAction = m_trayMenu->addAction("Download AI Models...");
+    connect(m_downloadModelsAction, &QAction::triggered, this, &TrayManager::onDownloadModelsTriggered);
+
+    m_trayMenu->addSeparator();
+
     m_stopAndQuitAction = m_trayMenu->addAction("Exit Workspace (Quit All)");
     connect(m_stopAndQuitAction, &QAction::triggered, this, &TrayManager::stopAndQuit);
 
@@ -60,6 +66,12 @@ TrayManager::TrayManager(QObject* parent)
     m_pollTimer = new QTimer(this);
     connect(m_pollTimer, &QTimer::timeout, this, &TrayManager::updateStatus);
     m_pollTimer->start(2500);
+
+    m_modelDownloader = new ModelDownloader(this);
+    connect(m_modelDownloader, &ModelDownloader::downloadCompleted, this, &TrayManager::onModelDownloadCompleted);
+    connect(m_modelDownloader, &ModelDownloader::errorChanged, this, &TrayManager::onModelDownloadError);
+    connect(m_modelDownloader, &ModelDownloader::progressChanged, this, &TrayManager::onModelDownloadProgress);
+    connect(m_modelDownloader, &ModelDownloader::modelsReadyChanged, this, &TrayManager::updateStatus);
 
     updateStatus();
     m_trayIcon->show();
@@ -131,6 +143,21 @@ void TrayManager::updateStatus()
     m_startAction->setEnabled(!anyRunning);
     m_stopAction->setEnabled(anyRunning);
     m_restartAction->setEnabled(anyRunning);
+
+    if (m_downloadModelsAction && m_modelDownloader) {
+        if (m_modelDownloader->isDownloading()) {
+            m_downloadModelsAction->setText(QString("Downloading Models (%1% • %2)")
+                                                .arg(m_modelDownloader->progressPercent())
+                                                .arg(m_modelDownloader->downloadSpeed()));
+            m_downloadModelsAction->setEnabled(false);
+        } else if (m_modelDownloader->areModelsPresent()) {
+            m_downloadModelsAction->setText("AI Models: Installed");
+            m_downloadModelsAction->setEnabled(true);
+        } else {
+            m_downloadModelsAction->setText("Download AI Models (1.78 GB)...");
+            m_downloadModelsAction->setEnabled(true);
+        }
+    }
 }
 
 void TrayManager::startBackend()
@@ -259,5 +286,66 @@ void TrayManager::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 {
     if (reason == QSystemTrayIcon::DoubleClick || reason == QSystemTrayIcon::Trigger) {
         openClient();
+    }
+}
+
+void TrayManager::onDownloadModelsTriggered()
+{
+    if (!m_modelDownloader) {
+        return;
+    }
+
+    if (m_modelDownloader->areModelsPresent()) {
+        m_trayIcon->showMessage(
+            AppInfo::WorkspaceAppName,
+            "All required AI models are already downloaded and present in local storage.",
+            QSystemTrayIcon::Information,
+            3000
+        );
+        return;
+    }
+
+    if (!m_modelDownloader->isDownloading()) {
+        m_modelDownloader->startDownload();
+        m_trayIcon->showMessage(
+            AppInfo::WorkspaceAppName,
+            "Starting background download of AI models (1.78 GB)...",
+            QSystemTrayIcon::Information,
+            3000
+        );
+    }
+    openClient();
+}
+
+void TrayManager::onModelDownloadProgress()
+{
+    if (m_downloadModelsAction && m_modelDownloader && m_modelDownloader->isDownloading()) {
+        m_downloadModelsAction->setText(QString("Downloading Models (%1% • %2)")
+                                            .arg(m_modelDownloader->progressPercent())
+                                            .arg(m_modelDownloader->downloadSpeed()));
+    }
+}
+
+void TrayManager::onModelDownloadCompleted()
+{
+    m_trayIcon->showMessage(
+        AppInfo::WorkspaceAppName,
+        "AI models downloaded successfully! Offline extraction engine is now active.",
+        QSystemTrayIcon::Information,
+        5000
+    );
+    updateStatus();
+}
+
+void TrayManager::onModelDownloadError()
+{
+    if (m_modelDownloader && m_modelDownloader->hasError()) {
+        m_trayIcon->showMessage(
+            AppInfo::WorkspaceAppName,
+            m_modelDownloader->errorMessage(),
+            QSystemTrayIcon::Warning,
+            6000
+        );
+        updateStatus();
     }
 }

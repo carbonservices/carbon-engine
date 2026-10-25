@@ -43,10 +43,6 @@ if(WIN32)
         PATTERN "qmltooling" EXCLUDE
     )
 
-    install(FILES "${CMAKE_CURRENT_LIST_DIR}/windows/download-models.cmd"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-
     install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
         DESTINATION templates
     )
@@ -81,9 +77,6 @@ else()
     )
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/linux/carbon-esg.png"
         DESTINATION share/icons/hicolor/256x256/apps
-    )
-    install(PROGRAMS "${CMAKE_CURRENT_LIST_DIR}/linux/download-models.sh"
-        DESTINATION share/carbon-esg
     )
 
     # Bundle Qt 6 runtime libraries, plugins, QML modules, and resources for self-contained Linux deployment
@@ -185,8 +178,6 @@ if(WIN32)
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
       CreateDirectory '$INSTDIR\\\\models'
-      DetailPrint 'Downloading AI Models (bge-small-en-v1.5, gemma-2-2b)...'
-      ExecWait '\"$SYSDIR\\\\cmd.exe\" /c \"\"$INSTDIR\\\\bin\\\\download-models.cmd\" \"$INSTDIR\"\"'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
       WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
@@ -215,7 +206,6 @@ else()
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonesg.online")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libtesseract5, libopenblas0, libpulse0, libnss3, libasound2t64 | libasound2")
-    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_LIST_DIR}/linux/postinst")
 endif()
 
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION FALSE)
