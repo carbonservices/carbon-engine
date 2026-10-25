@@ -221,7 +221,25 @@ QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerReq
 
     obj["cloud_enabled"]        = false;
     obj["active_engine_mode"]   = EngineMode::Offline;
-    obj["active_model"]         = QFileInfo(kGenerationModelPath).fileName();
+    bool genModelLoaded = _llama.isGenModelLoaded();
+    bool genModelPresent = QFile::exists(kGenerationModelPath);
+    bool embdModelPresent = QFile::exists(kEmbeddingModelPath);
+
+    QString activeModelName;
+    if (genModelLoaded) {
+        activeModelName = QFileInfo(kGenerationModelPath).fileName();
+    } else if (_llama.isEmbdModelLoaded()) {
+        activeModelName = QFileInfo(kEmbeddingModelPath).fileName();
+    } else if (genModelPresent) {
+        activeModelName = QString("Standby (%1)").arg(QFileInfo(kGenerationModelPath).fileName());
+    } else {
+        activeModelName = "None (Not Downloaded)";
+    }
+
+    obj["active_model"]         = activeModelName;
+    obj["model_loaded"]         = genModelLoaded;
+    obj["model_present"]        = genModelPresent;
+    obj["embedding_model_present"] = embdModelPresent;
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
 }
@@ -243,6 +261,14 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServer
         resp["job_id"] = jobId;
         resp["status"] = ExtractionStatus::Extracting;
         return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
+    }
+
+    if (!QFile::exists(kGenerationModelPath) || !QFile::exists(kEmbeddingModelPath)) {
+        _log.error("Cannot start extraction: required AI model files are missing from disk.");
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::ServiceUnavailable,
+            "AI model files not found on disk. Please run download-models or place GGUF models in '<Documents>/CarbonESG/models/'."
+        ));
     }
 
     _extractionService.startAsyncExtraction(jobId);

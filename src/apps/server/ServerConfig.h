@@ -38,6 +38,16 @@ inline QString resolveModelPath(const QString &name, const QString &fallback)
     if (QFile::exists(installRootRelative)) {
         return installRootRelative;
     }
+    // Check standard Linux installation share directory
+    QString shareDir = "/usr/share/carbon-esg/models";
+    QString shareModelPath = QDir(shareDir).filePath(QFileInfo(fallback).fileName());
+    if (QFile::exists(shareModelPath)) {
+        return shareModelPath;
+    }
+    QString appShareRelative = QDir(QCoreApplication::applicationDirPath() + "/../share/carbon-esg/models").filePath(QFileInfo(fallback).fileName());
+    if (QFile::exists(appShareRelative)) {
+        return appShareRelative;
+    }
     QString parentRelative = QDir(QCoreApplication::applicationDirPath() + "/../../..").filePath(fallback);
     if (QFile::exists(parentRelative)) {
         return parentRelative;

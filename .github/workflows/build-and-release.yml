@@ -90,7 +90,7 @@ jobs:
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
 
-      - name: Package with CPack (NSIS & ZIP)
+      - name: Package with CPack (NSIS)
         shell: bash
         working-directory: build
         run: |
@@ -99,7 +99,6 @@ jobs:
               echo "# Dummy install script" > "$d/cmake_install.cmake"
             fi
           done
-          cpack -C Release -G "ZIP"
           cpack -C Release -G "NSIS" || {
             echo "=== NSISOutput.log ==="
             cat _CPack_Packages/win64/NSIS/NSISOutput.log 2>/dev/null || true
@@ -110,9 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installers
-          path: |
-            build/CarbonESG-*-Windows-x64*.exe
-            build/CarbonESG-*-Windows-x64*.zip
+          path: build/CarbonESG-*-Windows-x64*.exe
           retention-days: 14
 
   # ─────────────────────────────────────────────────────────────
@@ -204,7 +201,7 @@ jobs:
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
 
-      - name: Package with CPack (DEB & TGZ)
+      - name: Package with CPack (DEB)
         working-directory: build
         run: |
           for d in ../third-party/*-build; do
@@ -212,15 +209,13 @@ jobs:
               echo "# Dummy install script" > "$d/cmake_install.cmake"
             fi
           done
-          cpack -C Release -G "DEB;TGZ"
+          cpack -C Release -G "DEB"
 
       - name: Upload Linux Package Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-installers
-          path: |
-            build/CarbonESG-*-Linux-x64*.deb
-            build/CarbonESG-*-Linux-x64*.tar.gz
+          path: build/CarbonESG-*-Linux-x64*.deb
           retention-days: 14
 
   # ─────────────────────────────────────────────────────────────
@@ -255,6 +250,4 @@ jobs:
           generate_release_notes: true
           files: |
             release-artifacts/windows/*.exe
-            release-artifacts/windows/*.zip
             release-artifacts/linux/*.deb
-            release-artifacts/linux/*.tar.gz

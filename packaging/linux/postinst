@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        echo "Carbon ESG: Initializing background service and models..."
+        if [ -x /usr/share/carbon-esg/download-models.sh ]; then
+            /usr/share/carbon-esg/download-models.sh /usr/share/carbon-esg/models || true
+        elif [ -x /opt/carbon-esg/share/carbon-esg/download-models.sh ]; then
+            /opt/carbon-esg/share/carbon-esg/download-models.sh /opt/carbon-esg/models || true
+        fi
+        ;;
+esac
+
+exit 0
+

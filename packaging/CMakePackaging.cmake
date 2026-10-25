@@ -63,7 +63,7 @@ if(WIN32)
         DESTINATION .
     )
 else()
-    set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:$ORIGIN")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:$ORIGIN/../lib:$ORIGIN")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
     # Linux dynamic dependencies & desktop integration
@@ -82,6 +82,58 @@ else()
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/linux/carbon-esg.png"
         DESTINATION share/icons/hicolor/256x256/apps
     )
+    install(PROGRAMS "${CMAKE_CURRENT_LIST_DIR}/linux/download-models.sh"
+        DESTINATION share/carbon-esg
+    )
+
+    # Bundle Qt 6 runtime libraries, plugins, QML modules, and resources for self-contained Linux deployment
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    if(_qmake_executable)
+        get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+        get_filename_component(_qt_root "${_qt_bin_dir}" DIRECTORY)
+
+        install(DIRECTORY "${_qt_root}/lib/"
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            FILES_MATCHING
+            PATTERN "libQt6*.so*"
+            PATTERN "cmake" EXCLUDE
+            PATTERN "pkgconfig" EXCLUDE
+            PATTERN "*.a" EXCLUDE
+            PATTERN "*.prl" EXCLUDE
+            PATTERN "*.la" EXCLUDE
+        )
+
+        if(EXISTS "${_qt_root}/plugins")
+            install(DIRECTORY "${_qt_root}/plugins/"
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}/plugins
+            )
+        endif()
+
+        if(EXISTS "${_qt_root}/qml")
+            install(DIRECTORY "${_qt_root}/qml/"
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}/qml
+            )
+        endif()
+
+        if(EXISTS "${_qt_root}/resources")
+            install(DIRECTORY "${_qt_root}/resources/"
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}/resources
+            )
+        endif()
+
+        if(EXISTS "${_qt_root}/libexec/QtWebEngineProcess")
+            install(PROGRAMS "${_qt_root}/libexec/QtWebEngineProcess"
+                DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            )
+        endif()
+
+        file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/qt.conf"
+            "[Paths]\nPrefix = ..\nLibraries = lib\nPlugins = lib/plugins\nQmlImports = lib/qml\nData = lib/resources\n"
+        )
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/qt.conf"
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+    endif()
 endif()
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
@@ -118,7 +170,7 @@ set(CPACK_PACKAGE_CONTACT "carbon.esgreports@gmail.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE.txt")
 
 if(WIN32)
-    set(CPACK_GENERATOR "NSIS;ZIP")
+    set(CPACK_GENERATOR "NSIS")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Windows-x64-${CARBON_WORKLOAD_TAG}")
     set(CPACK_NSIS_PACKAGE_NAME "Carbon ESG")
     set(CPACK_NSIS_DISPLAY_NAME "Carbon ESG")
@@ -134,7 +186,7 @@ if(WIN32)
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
       CreateDirectory '$INSTDIR\\\\models'
       DetailPrint 'Downloading AI Models (bge-small-en-v1.5, gemma-2-2b)...'
-      ExecWait '\"$INSTDIR\\\\bin\\\\download-models.cmd\" \"$INSTDIR\"'
+      ExecWait '\"$SYSDIR\\\\cmd.exe\" /c \"\"$INSTDIR\\\\bin\\\\download-models.cmd\" \"$INSTDIR\"\"'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
       WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
@@ -153,7 +205,7 @@ if(WIN32)
     )
     set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray")
 else()
-    set(CPACK_GENERATOR "DEB;TGZ")
+    set(CPACK_GENERATOR "DEB")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")
     set(CPACK_DEBIAN_PACKAGE_NAME "carbon-esg")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Carbon Services <carbon.esgreports@gmail.com>")
@@ -163,6 +215,7 @@ else()
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonesg.online")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libtesseract5, libopenblas0, libpulse0, libnss3, libasound2t64 | libasound2")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_LIST_DIR}/linux/postinst")
 endif()
 
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION FALSE)
