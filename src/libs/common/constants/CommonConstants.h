@@ -54,7 +54,6 @@ struct ApiRoutes {
 
 struct ServerDefaults {
     static constexpr quint16 DefaultPort = 8080;
-    static constexpr const char* DefaultDatabaseName = "ce-database";
     static constexpr int DefaultEmbeddingDim = 384;
 };
 
@@ -94,9 +93,15 @@ struct AppInfo {
     static constexpr const char* TrayMutexName = "CarbonEngine_Tray_Mutex";
     static constexpr const char* ClientMutexName = "CarbonEngine_Client_Mutex";
 
+#ifdef _WIN32
     static constexpr const char* ServerExecutableName = "carbon-engine.exe";
     static constexpr const char* ClientExecutableName = "carbon-engine-client.exe";
     static constexpr const char* TrayExecutableName = "carbon-tray.exe";
+#else
+    static constexpr const char* ServerExecutableName = "carbon-engine";
+    static constexpr const char* ClientExecutableName = "carbon-engine-client";
+    static constexpr const char* TrayExecutableName = "carbon-tray";
+#endif
     static constexpr const char* IconFileName = "app.ico";
     static constexpr const char* LogoFileName = "logo.png";
 };

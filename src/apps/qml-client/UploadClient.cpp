@@ -24,7 +24,12 @@ void UploadClient::uploadDocuments(const QVariantList &filePaths)
     for (const auto &item : filePaths)
     {
         QString pathStr = item.toString().trimmed();
-        if (pathStr.startsWith("file:///"))
+        QUrl url(pathStr);
+        if (url.isLocalFile())
+        {
+            pathStr = url.toLocalFile();
+        }
+        else if (pathStr.startsWith("file:///"))
         {
 #ifdef _WIN32
             pathStr = pathStr.mid(8);

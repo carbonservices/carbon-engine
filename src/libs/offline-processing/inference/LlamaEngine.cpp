@@ -139,10 +139,6 @@ int LlamaEngine::activeGenGpuLayers() const
     return _activeGenLayers.load();
 }
 
-int LlamaEngine::activeEmbdGpuLayers() const
-{
-    return _activeEmbdLayers.load();
-}
 
 QString LlamaEngine::offloadModeString() const
 {
@@ -211,10 +207,6 @@ bool LlamaEngine::isEmbdModelLoaded() const
     return (_embdModel != Q_NULLPTR);
 }
 
-bool LlamaEngine::isInferencing() const
-{
-    return _isInferencing.load();
-}
 
 // ─────────────────────────────────────────────────────────────
 bool LlamaEngine::initBackend()

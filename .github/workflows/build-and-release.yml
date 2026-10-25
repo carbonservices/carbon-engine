@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - 'v*'
       - '[0-9]*.[0-9]*.[0-9]*'
   pull_request:
     branches:
@@ -19,7 +19,7 @@ jobs:
   # Windows Build & Packaging Job
   # ─────────────────────────────────────────────────────────────
   build-windows:
-    name: Build & Package Windows (NSIS & ZIP)
+    name: Build & Package Windows (NSIS)
     runs-on: windows-2022
 
     steps:
@@ -54,7 +54,6 @@ jobs:
           if (-not (Test-Path "C:\Qt\6.10.0\msvc2022_64\bin\qmake.exe")) {
             aqt install-qt windows desktop 6.10.0 win64_msvc2022_64 --outputdir "C:\Qt" -m qtwebengine qtpositioning qtwebchannel qthttpserver qtwebsockets
           }
-          echo "QTBIN=C:\Qt\6.10.0\msvc2022_64\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "CMAKE_PREFIX_PATH=C:\Qt\6.10.0\msvc2022_64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "C:\Qt\6.10.0\msvc2022_64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -62,21 +61,13 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" =~ ^refs/tags/([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
-            V="${BASH_REMATCH[1]}"
-          elif [[ "$GITHUB_REF" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+          if [[ "$GITHUB_REF" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
             V="${BASH_REMATCH[1]}"
           else
             V="1.0.${GITHUB_RUN_NUMBER}"
           fi
           echo "VERSION=${V}" >> $GITHUB_OUTPUT
           echo "CARBON_ENGINE_VERSION=${V}" >> $GITHUB_ENV
-
-      - name: Cache AI Models
-        uses: actions/cache@v4
-        with:
-          path: models
-          key: ${{ runner.os }}-ai-models-v1
 
       - name: Configure CMake
         shell: bash
@@ -94,11 +85,6 @@ jobs:
         shell: bash
         working-directory: build
         run: |
-          for d in ../third-party/*-build; do
-            if [ -d "$d" ] && [ ! -f "$d/cmake_install.cmake" ]; then
-              echo "# Dummy install script" > "$d/cmake_install.cmake"
-            fi
-          done
           cpack -C Release -G "NSIS" || {
             echo "=== NSISOutput.log ==="
             cat _CPack_Packages/win64/NSIS/NSISOutput.log 2>/dev/null || true
@@ -116,7 +102,7 @@ jobs:
   # Linux Build & Packaging Job
   # ─────────────────────────────────────────────────────────────
   build-linux:
-    name: Build & Package Linux (DEB & TGZ)
+    name: Build & Package Linux (DEB)
     runs-on: ubuntu-24.04
 
     steps:
@@ -131,7 +117,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             python3-pip \
-            python3-venv \
             wget \
             ninja-build \
             build-essential \
@@ -142,8 +127,6 @@ jobs:
             libxcb-xinerama0-dev \
             libopenblas-dev \
             liblapack-dev \
-            libtesseract-dev \
-            libleptonica-dev \
             libegl1-mesa-dev \
             libglvnd-dev \
             libpulse-dev \
@@ -164,7 +147,6 @@ jobs:
           if [ ! -f "/home/runner/work/Qt/6.10.0/gcc_64/bin/qmake" ]; then
             aqt install-qt linux desktop 6.10.0 linux_gcc_64 --outputdir /home/runner/work/Qt -m qtwebengine qtpositioning qtwebchannel qthttpserver qtwebsockets
           fi
-          echo "QTBIN=/home/runner/work/Qt/6.10.0/gcc_64/bin" >> $GITHUB_ENV
           echo "QT_PLUGIN_PATH=/home/runner/work/Qt/6.10.0/gcc_64/plugins" >> $GITHUB_ENV
           echo "QML2_IMPORT_PATH=/home/runner/work/Qt/6.10.0/gcc_64/qml" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=/home/runner/work/Qt/6.10.0/gcc_64" >> $GITHUB_ENV
@@ -174,21 +156,13 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [[ "$GITHUB_REF" =~ ^refs/tags/([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
-            V="${BASH_REMATCH[1]}"
-          elif [[ "$GITHUB_REF" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+          if [[ "$GITHUB_REF" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
             V="${BASH_REMATCH[1]}"
           else
             V="1.0.${GITHUB_RUN_NUMBER}"
           fi
           echo "VERSION=${V}" >> $GITHUB_OUTPUT
           echo "CARBON_ENGINE_VERSION=${V}" >> $GITHUB_ENV
-
-      - name: Cache AI Models
-        uses: actions/cache@v4
-        with:
-          path: models
-          key: ${{ runner.os }}-ai-models-v1
 
       - name: Configure CMake
         run: |
@@ -203,13 +177,7 @@ jobs:
 
       - name: Package with CPack (DEB)
         working-directory: build
-        run: |
-          for d in ../third-party/*-build; do
-            if [ -d "$d" ] && [ ! -f "$d/cmake_install.cmake" ]; then
-              echo "# Dummy install script" > "$d/cmake_install.cmake"
-            fi
-          done
-          cpack -C Release -G "DEB"
+        run: cpack -C Release -G "DEB"
 
       - name: Upload Linux Package Artifacts
         uses: actions/upload-artifact@v4

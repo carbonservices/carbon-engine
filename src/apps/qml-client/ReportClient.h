@@ -22,7 +22,7 @@ public:
 
 signals:
     void reportReady(const QString& report);
-    void reportChunkReceived(const QString& chunk);
+
     void reportFailed(const QString& reason);
     void reportsReceived(const QJsonArray& reports);
     void documentsReceived(int jobId, const QJsonArray& documents);

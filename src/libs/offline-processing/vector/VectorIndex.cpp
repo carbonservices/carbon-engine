@@ -36,6 +36,6 @@ std::vector<int64_t> VectorIndex::search(const std::vector<float>& query, int k)
 }
 
 int VectorIndex::count() const {
-    QMutexLocker locker(&const_cast<QMutex&>(_mutex));
+    QMutexLocker locker(&_mutex);
     return static_cast<int>(_index.ntotal);
 }

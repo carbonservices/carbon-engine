@@ -23,13 +23,10 @@ class SystemStatusPoller : public ApiClientBase
     Q_PROPERTY(QString engineStatus READ engineStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString databaseStatus READ databaseStatus NOTIFY statusUpdated)
     Q_PROPERTY(QString tokenRate READ tokenRate NOTIFY statusUpdated)
-    Q_PROPERTY(bool cloudEnabled READ cloudEnabled CONSTANT)
-    Q_PROPERTY(QString activeEngineMode READ activeEngineMode CONSTANT)
     Q_PROPERTY(QString activeModel READ activeModel NOTIFY statusUpdated)
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY statusUpdated)
     Q_PROPERTY(QString workloadTitle READ workloadTitle CONSTANT)
     Q_PROPERTY(QString workloadTag READ workloadTag CONSTANT)
-    Q_PROPERTY(bool isGpuAccelerated READ isGpuAccelerated CONSTANT)
 
 public:
     explicit SystemStatusPoller(QObject *parent = nullptr);
@@ -43,17 +40,10 @@ public:
     QString engineStatus() const { return _engineStatus; }
     QString databaseStatus() const { return _databaseStatus; }
     QString tokenRate() const { return _tokenRate; }
-    bool cloudEnabled() const { return false; }
-    QString activeEngineMode() const { return QStringLiteral("OFFLINE"); }
     QString activeModel() const { return _activeModel; }
     bool isConnected() const { return _isConnected; }
     QString workloadTitle() const { return QString::fromUtf8(AppInfo::WorkloadTitle); }
     QString workloadTag() const { return QString::fromUtf8(AppInfo::WorkloadTag); }
-#ifdef CARBON_ENGINE_CUDA
-    bool isGpuAccelerated() const { return true; }
-#else
-    bool isGpuAccelerated() const { return false; }
-#endif
 
     Q_INVOKABLE void startPolling();
     Q_INVOKABLE void stopPolling();

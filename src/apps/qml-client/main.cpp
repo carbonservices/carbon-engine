@@ -1,6 +1,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QQuickStyle>
 #include <QtQml>
 #include <QtWebEngineQuick>
@@ -16,6 +17,26 @@
 #endif
 #include <windows.h>
 #endif
+
+static void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    Q_UNUSED(context);
+    Logger log(AppInfo::ClientAppName);
+    switch (type) {
+    case QtDebugMsg:
+        break;
+    case QtInfoMsg:
+        log.info(msg);
+        break;
+    case QtWarningMsg:
+        log.warn(msg);
+        break;
+    case QtCriticalMsg:
+    case QtFatalMsg:
+        log.critical(msg);
+        break;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -41,6 +62,7 @@ int main(int argc, char *argv[])
     QtWebEngineQuick::initialize();
 
     QGuiApplication app(argc, argv);
+    qInstallMessageHandler(qtMessageHandler);
     app.setApplicationName(AppInfo::ClientAppName);
     app.setOrganizationName(AppInfo::OrganizationName);
     app.setOrganizationDomain(AppInfo::OrganizationDomain);
@@ -61,9 +83,11 @@ int main(int argc, char *argv[])
     }
     app.setWindowIcon(appIcon);
 
-    qmlRegisterType<ModelDownloader>("CarbonEngineClient", 1, 0, "ModelDownloader");
+    ModelDownloader modelDownloader;
 
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("backendModelDownloader", &modelDownloader);
+    engine.rootContext()->setContextProperty("modelDownloader", &modelDownloader);
     engine.loadFromModule("CarbonEngineClient", "Main");
 
     if (engine.rootObjects().isEmpty())

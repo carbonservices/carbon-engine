@@ -27,7 +27,6 @@ QtObject {
     readonly property color successColor: isDarkMode ? "#89d185" : "#1a7f37"
     readonly property color warningColor: isDarkMode ? "#cca700" : "#9a6700"
 
-    readonly property color badgeCloudBg: isDarkMode ? "#1a3826" : "#e6f4ea"
     readonly property color badgePillBlueBg: isDarkMode ? "#1e3a5f" : "#dbeafe"
     readonly property color badgePillBlueBorder: isDarkMode ? "#3b82f6" : "#60a5fa"
     readonly property color badgePillBlueText: isDarkMode ? "#93c5fd" : "#1e40af"
@@ -41,7 +40,6 @@ QtObject {
     readonly property color badgeDangerBg: isDarkMode ? "#2c1c1f" : "#fef2f2"
     readonly property color badgeDangerBorder: isDarkMode ? "#70383b" : "#fca5a5"
     readonly property color badgeDangerText: isDarkMode ? "#e06c75" : "#b91c1c"
-    readonly property color badgeDangerPillBg: isDarkMode ? "#3d1b1e" : "#fee2e2"
     readonly property color badgeNarrativeBg: isDarkMode ? "#1e293b" : "#f1f5f9"
     readonly property color badgeNarrativeBorder: isDarkMode ? "#475569" : "#cbd5e1"
     readonly property color badgeNarrativeText: isDarkMode ? "#94a3b8" : "#475569"

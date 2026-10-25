@@ -44,10 +44,9 @@ public:
 
     bool isGenModelLoaded() const;
     bool isEmbdModelLoaded() const;
-    bool isInferencing() const;
 
     int activeGenGpuLayers() const;
-    int activeEmbdGpuLayers() const;
+
     QString offloadModeString() const;
 
     std::vector<float> generateEmbedding(const std::string& text);

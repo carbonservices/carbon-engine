@@ -52,12 +52,6 @@ if(WIN32)
     install(FILES "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico"
         DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
-    install(FILES "${CMAKE_SOURCE_DIR}/src/apps/qml-client/logo.png"
-        DESTINATION .
-    )
-    install(FILES "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico"
-        DESTINATION .
-    )
 else()
     set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:$ORIGIN/../lib:$ORIGIN")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -161,6 +155,7 @@ set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Carbon ESG")
 set(CPACK_PACKAGE_CONTACT "carbon.esgreports@gmail.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE.txt")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.txt")
 
 if(WIN32)
     set(CPACK_GENERATOR "NSIS")
@@ -193,8 +188,9 @@ if(WIN32)
     ")
     set(CPACK_PACKAGE_EXECUTABLES
         "carbon-tray" "Carbon ESG Workspace"
+        "carbon-engine-client" "Carbon ESG"
     )
-    set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray")
+    set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray" "carbon-engine-client")
 else()
     set(CPACK_GENERATOR "DEB")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")

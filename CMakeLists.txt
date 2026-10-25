@@ -56,8 +56,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${BUILD_ROOT}/lib")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}/cmake" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core WebEngineQuick WebChannel Positioning HttpServer Sql Concurrent Quick QuickControls2 Network Widgets)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
@@ -125,7 +124,7 @@ if(WIN32)
     set(MKL_INCLUDE_DIR "${mkl_devel_SOURCE_DIR}/build/native/include" CACHE PATH "" FORCE)
     set(MKL_LIB_DIR "${mkl_static_SOURCE_DIR}/build/native/win-x64" CACHE PATH "" FORCE)
 
-    file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindMKL.cmake" "
+    file(WRITE "${CMAKE_BINARY_DIR}/cmake/FindMKL.cmake" "
 set(MKL_FOUND TRUE)
 find_path(MKL_INCLUDE_DIRS NAMES mkl.h PATHS \"${MKL_INCLUDE_DIR}\" NO_DEFAULT_PATH)
 find_library(MKL_INTEL_LP64 NAMES mkl_intel_lp64 PATHS \"${MKL_LIB_DIR}\" NO_DEFAULT_PATH)

@@ -83,6 +83,11 @@ TrayManager::TrayManager(QObject* parent)
     openClient();
 }
 
+TrayManager::~TrayManager()
+{
+    delete m_trayMenu;
+}
+
 bool TrayManager::isBackendRunning() const
 {
     if (WindowsService::isServiceRunning()) {

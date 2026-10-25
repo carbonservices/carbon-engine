@@ -16,7 +16,7 @@ public:
 
 private:
     int _dim;
-    QMutex _mutex;
+    mutable QMutex _mutex;
     faiss::IndexHNSWFlat _hnsw;
     faiss::IndexIDMap _index;
 };

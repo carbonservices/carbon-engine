@@ -339,12 +339,6 @@ bool Database::updateDocumentStatus(int documentId, const QString& status) {
     return q.exec();
 }
 
-bool Database::updateDocumentStatsAndStatus(int documentId, int chunkCount, int pageCount, const QString& status) {
-    Q_UNUSED(chunkCount);
-    Q_UNUSED(pageCount);
-    return updateDocumentStatus(documentId, status);
-}
-
 int64_t Database::insertChunk(int jobId, int documentId, int pageNum, const QString& chunkText,
                               const std::vector<float>& embedding, const QString& embeddingModel) {
     QSqlQuery q(getDb());
@@ -402,35 +396,6 @@ QVector<int64_t> Database::insertChunksBatch(int jobId, const std::vector<ChunkR
     _log.info(QString("SQLite: Inserted batch of %1 chunk(s) and binary embedding BLOBs for Job %2 (model: %3)")
         .arg(insertedIds.size()).arg(jobId).arg(embeddingModel));
     return insertedIds;
-}
-
-QVector<QString> Database::getChunksForJob(int jobId) {
-    QSqlQuery q(getDb());
-    q.prepare("SELECT chunk_text FROM document_chunks WHERE job_id = :job ORDER BY page_num ASC;");
-    q.bindValue(":job", jobId);
-
-    QVector<QString> chunks;
-    if (q.exec()) {
-        while (q.next()) {
-            chunks.append(q.value(0).toString());
-        }
-    }
-    return chunks;
-}
-
-QVector<int64_t> Database::getChunkIdsOnPage(int jobId, int pageNumber) {
-    QVector<int64_t> ids;
-    if (pageNumber <= 0) return ids;
-    QSqlQuery q(getDb());
-    q.prepare("SELECT id FROM document_chunks WHERE job_id = :job AND page_num = :page ORDER BY id ASC;");
-    q.bindValue(":job", jobId);
-    q.bindValue(":page", pageNumber);
-    if (q.exec()) {
-        while (q.next()) {
-            ids.push_back(q.value(0).toLongLong());
-        }
-    }
-    return ids;
 }
 
 bool Database::upsertFact(int jobId, const QString& key, const QString& value, int64_t chunkId, int pageNumber) {

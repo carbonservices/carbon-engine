@@ -81,7 +81,6 @@ public:
     bool getNextPendingJob(int& outJobId, QVector<JobDocument>& outDocuments);
     bool updateJobStatus(int jobId, const QString& status, const QString& error = "");
     bool updateDocumentStatus(int documentId, const QString& status);
-    bool updateDocumentStatsAndStatus(int documentId, int chunkCount, int pageCount, const QString& status);
     
     // Phase 3 & 5: insertChunk persisting embeddings as BLOBs, returning chunk ID
     int64_t insertChunk(int jobId, int documentId, int pageNum, const QString& chunkText,
@@ -91,8 +90,6 @@ public:
     
     bool loadEmbeddingsForJob(int jobId, const std::function<void(int64_t id, const std::vector<float>& vec)>& consumer);
     QMap<int64_t, QString> getChunksByIds(const std::vector<int64_t>& ids);
-    QVector<QString> getChunksForJob(int jobId);
-    QVector<int64_t> getChunkIdsOnPage(int jobId, int pageNumber);
 
     // Provenance & FactStore persistence
     bool upsertFact(int jobId, const QString& key, const QString& value, int64_t chunkId = -1, int pageNumber = 0);

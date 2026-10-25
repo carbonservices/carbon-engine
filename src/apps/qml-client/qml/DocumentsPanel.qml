@@ -28,10 +28,6 @@ Rectangle {
     signal startProcessingRequested()
     signal cancelActiveJobRequested()
 
-    // Backward-compatibility no-op helpers
-    function showQueueTab() {}
-    function showAttachedTab() {}
-
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10

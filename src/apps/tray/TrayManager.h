@@ -13,7 +13,7 @@ class TrayManager : public QObject {
 
 public:
     explicit TrayManager(QObject* parent = nullptr);
-    ~TrayManager() override = default;
+    ~TrayManager() override;
 
 public slots:
     void updateStatus();
@@ -28,11 +28,6 @@ public slots:
     void onModelDownloadCompleted();
     void onModelDownloadError();
     void onModelDownloadProgress();
-
-    // Backward-compatibility slot aliases
-    void startService() { startBackend(); }
-    void stopService() { stopBackend(); }
-    void restartService() { restartBackend(); }
 
 private:
     bool isBackendRunning() const;

@@ -28,12 +28,6 @@ ApplicationWindow {
         }
     }
 
-    property bool isDarkMode: Theme.isDarkMode
-    onIsDarkModeChanged: {
-        if (Theme.isDarkMode !== isDarkMode) {
-            Theme.isDarkMode = isDarkMode
-        }
-    }
     property bool sidebarExpanded: true
     property string activeReportTitle: ""
     property string activeReportContent: ""
@@ -42,26 +36,6 @@ ApplicationWindow {
 
     Material.theme: Theme.isDarkMode ? Material.Dark : Material.Light
     Material.accent: Theme.brandAccent
-
-    readonly property color bgBase: Theme.bgBase
-    readonly property color bgSidebar: Theme.bgSidebar
-    readonly property color bgCard: Theme.bgCard
-    readonly property color bgHeader: Theme.bgHeader
-    readonly property color bgSubtle: Theme.bgSubtle
-    readonly property color bgHover: Theme.bgHover
-    readonly property color bgActive: Theme.bgActive
-    readonly property color bgInput: Theme.bgInput
-    readonly property color borderCol: Theme.borderCol
-    readonly property color borderSubtle: Theme.borderSubtle
-    readonly property color textMain: Theme.textMain
-    readonly property color textBright: Theme.textBright
-    readonly property color textMuted: Theme.textMuted
-    readonly property color brandAccent: Theme.brandAccent
-    readonly property color brandAccentHover: Theme.brandAccentHover
-    readonly property color brandAccentPressed: Theme.brandAccentPressed
-    readonly property color dangerColor: Theme.dangerColor
-    readonly property color successColor: Theme.successColor
-    readonly property color warningColor: Theme.warningColor
 
     // Extraction Progress Tracking
     property bool isExtracting: false
@@ -204,7 +178,6 @@ ApplicationWindow {
                 "status": "QUEUED"
             })
         }
-        rightPanel.showAttachedTab()
         appendStatus("Queued " + paths.length + " document(s) for local on-device processing via Gemma 2 2B.")
         uploadClient.uploadDocuments(paths)
     }
@@ -339,22 +312,22 @@ ApplicationWindow {
             }
         }
     }
-    ModelDownloader {
-        id: modelDownloader
-        onDownloadCompleted: {
+    Connections {
+        target: backendModelDownloader
+        function onDownloadCompleted() {
             appendStatus("All AI models have been downloaded and verified in local storage.")
             if (systemPoller) {
                 systemPoller.startPolling()
             }
         }
-        onErrorChanged: {
-            if (modelDownloader.hasError) {
-                appendStatus("[Model Download Error] " + modelDownloader.errorMessage)
+        function onErrorChanged() {
+            if (backendModelDownloader && backendModelDownloader.hasError) {
+                appendStatus("[Model Download Error] " + backendModelDownloader.errorMessage)
             }
         }
     }
 
-    property alias modelDownloader: modelDownloader
+    readonly property var modelDownloader: backendModelDownloader
     property alias systemPoller: systemPoller
     property alias extractionPoller: extractionPoller
     property bool lastKnownConnected: false
@@ -515,7 +488,6 @@ ApplicationWindow {
                     appendStatus("Added document: " + fileName)
                 }
             }
-            rightPanel.showQueueTab()
         }
     }
 
@@ -759,7 +731,6 @@ ApplicationWindow {
             onToggleExpanded: appWindow.sidebarExpanded = !appWindow.sidebarExpanded
             onReportSelected: function(jobId) {
                 appWindow.selectReport(jobId)
-                rightPanel.showAttachedTab()
             }
             onCancelJobRequested: function(jobId) {
                 if (jobId === appWindow.currentJobId) {
