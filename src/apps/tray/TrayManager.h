@@ -21,13 +21,15 @@ public slots:
     void stopBackend();
     void restartBackend();
     void openClient();
-    void stopAndQuit();
-    void quitTrayOnly();
+    void exitApplication();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void onDownloadModelsTriggered();
     void onModelDownloadCompleted();
     void onModelDownloadError();
     void onModelDownloadProgress();
+
+private slots:
+    void onAboutToQuit();
 
 private:
     bool isBackendRunning() const;
@@ -42,8 +44,7 @@ private:
     QAction* m_stopAction{nullptr};
     QAction* m_restartAction{nullptr};
     QAction* m_downloadModelsAction{nullptr};
-    QAction* m_stopAndQuitAction{nullptr};
-    QAction* m_quitTrayOnlyAction{nullptr};
+    QAction* m_exitAction{nullptr};
     QTimer* m_pollTimer{nullptr};
     ModelDownloader* m_modelDownloader{nullptr};
 };

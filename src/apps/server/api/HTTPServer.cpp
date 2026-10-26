@@ -264,6 +264,8 @@ QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerReq
     obj["force_cpu"]               = _llama.isForceCpu();
     obj["force_gpu"]               = _llama.isForceGpu();
     obj["system_specs_precedence"]  = (!_llama.isForceCpu() && !_llama.isForceGpu());
+    obj["workload_tag"]            = QString::fromUtf8(AppInfo::WorkloadTag);
+    obj["workload_title"]          = QString::fromUtf8(AppInfo::WorkloadTitle);
     obj["_links"]                  = Hateoas::systemLinks();
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
@@ -372,6 +374,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
     resp["active_model"] = QFileInfo(kGenerationModelPath).fileName();
 
     auto progress = _extractionService.currentProgress();
+    QJsonArray missingArr;
     if (_extractionService.activeJobId() == jobId || progress.currentStep > 0) {
         resp["current_step"] = progress.currentStep;
         resp["total_steps"] = progress.totalSteps;
@@ -381,7 +384,44 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
             ? (static_cast<double>(progress.currentStep) / progress.totalSteps) * 100.0
             : 0.0;
         resp["last_latency_ms"] = progress.lastLatencyMs;
+
+        for (const auto& sec : progress.missingSections) {
+            QJsonObject secObj;
+            secObj["group_id"] = sec.groupId;
+            secObj["group_label"] = sec.groupLabel;
+            QJsonArray keysArr;
+            for (const auto& k : sec.missingKeys) {
+                keysArr.append(k);
+            }
+            secObj["missing_keys"] = keysArr;
+            missingArr.append(secObj);
+        }
+    } else {
+        QVector<ReportSection> sections = _db.getReportSections(jobId);
+        for (const auto& sec : sections) {
+            const FieldGroup* grp = _catalog.findGroup(sec.groupId);
+            if (!grp) continue;
+            QJsonObject dataObj = QJsonDocument::fromJson(sec.dataJson.toUtf8()).object();
+            QStringList missing;
+            for (const QString& key : grp->allFieldKeys()) {
+                if (!dataObj.contains(key) || dataObj.value(key).isNull() || dataObj.value(key).toString().trimmed().isEmpty()) {
+                    missing.append(key);
+                }
+            }
+            if (!missing.isEmpty()) {
+                QJsonObject secObj;
+                secObj["group_id"] = grp->id;
+                secObj["group_label"] = grp->label;
+                QJsonArray keysArr;
+                for (const auto& k : missing) {
+                    keysArr.append(k);
+                }
+                secObj["missing_keys"] = keysArr;
+                missingArr.append(secObj);
+            }
+        }
     }
+    resp["missing_metrics"] = missingArr;
 
     resp["_links"] = Hateoas::extractionStatusLinks(jobId, status);
     return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
@@ -448,6 +488,8 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionSections(const QHttpSer
 
     QJsonObject resp = _reportService.getExtractionSections(jobId);
     bool isLocked = _db.isReportLocked(jobId);
+    resp["is_locked"] = isLocked;
+    resp["status"] = _db.getExtractionStatus(jobId);
     resp["_links"] = Hateoas::extractionSectionsLinks(jobId, isLocked);
     return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }

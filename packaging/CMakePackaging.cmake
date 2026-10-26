@@ -177,10 +177,9 @@ if(WIN32)
       DeleteRegValue HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray'
     ")
     set(CPACK_PACKAGE_EXECUTABLES
-        "carbon-tray" "Carbon ESG Workspace"
         "carbon-engine-client" "Carbon ESG"
     )
-    set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray" "carbon-engine-client")
+    set(CPACK_CREATE_DESKTOP_LINKS "carbon-engine-client")
 else()
     set(CPACK_GENERATOR "DEB")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")

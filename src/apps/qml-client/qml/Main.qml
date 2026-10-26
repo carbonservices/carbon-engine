@@ -32,6 +32,7 @@ ApplicationWindow {
     property string activeReportTitle: ""
     property string activeReportContent: ""
     property int currentJobId: -1
+    property bool isCurrentReportLocked: false
     property bool batchConfirmed: false
 
     Material.theme: Theme.isDarkMode ? Material.Dark : Material.Light
@@ -101,8 +102,10 @@ ApplicationWindow {
             var item = reportsHistoryModel.get(i)
             if (item.jobId === jobId) {
                 activeReportTitle = item.title
+                isCurrentReportLocked = (item.reportLocked === true || item.extractionStatus === "ACCEPTED")
                 if (item.extractionStatus === "ACCEPTED" || item.status === "COMPLETED" || item.extractionStatus === "READY_FOR_REVIEW") {
                     reportClient.fetchReport(jobId)
+                    extractionPoller.fetchStatusOnly(jobId)
                 } else {
                     activeReportContent = ""
                 }
@@ -113,7 +116,7 @@ ApplicationWindow {
 
     function openReviewForCurrentJob() {
         if (currentJobId > 0) {
-            reviewScreen.openForJob(currentJobId)
+            reviewScreen.openForJob(currentJobId, isCurrentReportLocked)
         }
     }
 
@@ -311,7 +314,7 @@ ApplicationWindow {
                 if (!systemPoller.isConnected) {
                     appendStatus("Backend daemon disconnected.")
                 } else {
-                    appendStatus("Connected to carbon-engine daemon (Offline, " + systemPoller.activeModel + ").")
+                    appendStatus("Connected to carbon-engine daemon (" + systemPoller.activeModel + ").")
                 }
             }
         }
@@ -348,6 +351,9 @@ ApplicationWindow {
                 appendStatus("Extracting " + group + " (" + step + "/" + total + " completed)...")
             }
         }
+        onMissingMetricsUpdated: function(list) {
+            appWindow.missingMetricsSummary = list
+        }
         onMissingMetricsReceived: function(groupLabel, missingKeys) {
             var updated = []
             for (var i = 0; i < missingMetricsSummary.length; ++i) {
@@ -378,7 +384,8 @@ ApplicationWindow {
     ReportReviewScreen {
         id: reviewScreen
         onReportAccepted: function(jobId) {
-            appendStatus("Report accepted. Generating final HTML...")
+            appendStatus("Report accepted and locked. Generating final HTML...")
+            appWindow.isCurrentReportLocked = true
             reportClient.fetchReport(jobId)
             reportClient.fetchReports()
         }
@@ -397,11 +404,13 @@ ApplicationWindow {
                 var r = reports[i]
                 rawReportsMap[r.job_id] = r
                 var docList = r.documents || []
+                var isLocked = (r.report_locked === true || r.extraction_status === "ACCEPTED")
                 reportsHistoryModel.append({
                     "jobId": r.job_id,
                     "title": r.title,
                     "status": r.status,
                     "extractionStatus": r.extraction_status,
+                    "reportLocked": isLocked,
                     "date": r.date,
                     "docCount": docList.length,
                     "documents": docList
@@ -414,6 +423,7 @@ ApplicationWindow {
                 for (var j = 0; j < reportsHistoryModel.count; ++j) {
                     if (reportsHistoryModel.get(j).jobId === currentJobId) {
                         activeReportTitle = reportsHistoryModel.get(j).title
+                        isCurrentReportLocked = (reportsHistoryModel.get(j).reportLocked === true || reportsHistoryModel.get(j).extractionStatus === "ACCEPTED")
                         break
                     }
                 }
@@ -606,17 +616,16 @@ ApplicationWindow {
                     spacing: 6
 
                     Text {
-                        text: !systemPoller.isConnected ? "●" : (modelDownloader.isDownloading ? "⬇" : "⚡")
+                        text: !systemPoller.isConnected ? "●" : "⚡"
                         font.pixelSize: !systemPoller.isConnected ? 10 : 11
                         color: !systemPoller.isConnected ? Theme.badgeDangerText : (!modelDownloader.modelsReady ? Theme.warningColor : Theme.brandAccent)
                     }
 
                     Label {
                         text: {
-                            if (!systemPoller.isConnected) return "Backend Disconnected"
-                            if (modelDownloader.isDownloading) return "Downloading Models (" + modelDownloader.progressPercent + "% • " + modelDownloader.downloadSpeed + ")"
-                            if (!modelDownloader.modelsReady) return "Offline (Models Not Downloaded)"
-                            return "Offline (" + systemPoller.activeModel + " • " + systemPoller.workloadTag + ")"
+                            if (!systemPoller.isConnected) return "Disconnected"
+                            if (!modelDownloader.modelsReady) return "Models Required"
+                            return systemPoller.activeModel + " • " + systemPoller.workloadTag
                         }
                         color: !systemPoller.isConnected ? Theme.badgeDangerText : (!modelDownloader.modelsReady ? Theme.warningColor : Theme.textBright)
                         font.pixelSize: 10

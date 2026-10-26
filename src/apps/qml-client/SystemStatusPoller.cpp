@@ -90,7 +90,11 @@ void SystemStatusPoller::onPollFinished()
         qint64 memTotal = obj.value("memory_total_mb_system").toInteger();
         if (memTotal > 0) {
             double sysUsedGb = static_cast<double>(memSys) / 1024.0;
-            _memoryUsage = QString("%1 MB (%2 GB sys)").arg(QString::number(memProc), QString::number(sysUsedGb, 'f', 1));
+            double sysTotalGb = static_cast<double>(memTotal) / 1024.0;
+            _memoryUsage = QString("%1 MB (%2 / %3 GB sys)").arg(
+                QString::number(memProc),
+                QString::number(sysUsedGb, 'f', 1),
+                QString::number(sysTotalGb, 'f', 1));
         } else if (memSys > 0) {
             _memoryUsage = QString("%1 MB (%2 MB sys)").arg(QString::number(memProc), QString::number(memSys));
         } else {
@@ -153,6 +157,8 @@ void SystemStatusPoller::onPollFinished()
         }
 
         _activeModel = obj.value("active_model").toString(Models::LocalGemmaName);
+        _workloadTitle = obj.value("workload_title").toString(_workloadTitle);
+        _workloadTag = obj.value("workload_tag").toString(_workloadTag);
 
         _activeInferenceMode = obj.value("inference_mode").toString(_gpuOffload);
         _forceCpu = obj.value("force_cpu").toBool(_forceCpu);

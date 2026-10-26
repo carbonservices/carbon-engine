@@ -8,6 +8,27 @@
 #include <QNetworkRequest>
 #include <QUrlQuery>
 
+static QVariantList parseMissingMetrics(const QJsonObject& root)
+{
+    QJsonArray missingArr = root.value("missing_metrics").toArray();
+    QVariantList fullList;
+    for (const auto& item : missingArr) {
+        QJsonObject secObj = item.toObject();
+        QString label = secObj.value("group_label").toString();
+        QStringList missingKeys;
+        for (const auto& k : secObj.value("missing_keys").toArray()) {
+            missingKeys.append(k.toString());
+        }
+        if (!missingKeys.isEmpty()) {
+            QVariantMap m;
+            m["group"] = label;
+            m["missing"] = missingKeys;
+            fullList.append(m);
+        }
+    }
+    return fullList;
+}
+
 ExtractionStatusPoller::ExtractionStatusPoller(QObject *parent) : ApiClientBase(parent)
 {
     connect(&_timer, &QTimer::timeout, this, &ExtractionStatusPoller::poll);
@@ -29,6 +50,38 @@ void ExtractionStatusPoller::stopPolling()
     _log.info(QString("Stopped polling extraction for job %1").arg(_jobId));
     _timer.stop();
     _jobId = -1;
+}
+
+void ExtractionStatusPoller::fetchStatusOnly(int jobId)
+{
+    if (jobId < 0) return;
+    QUrl url = endpoint(ApiRoutes::ExtractionStatus);
+    QUrlQuery query;
+    query.addQueryItem("job_id", QString::number(jobId));
+    url.setQuery(query);
+
+    QNetworkReply *reply = network().get(QNetworkRequest(url));
+    reply->setProperty("polledJobId", jobId);
+    connect(reply, &QNetworkReply::finished, this, &ExtractionStatusPoller::onFetchStatusFinished);
+}
+
+void ExtractionStatusPoller::onFetchStatusFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+    int polledJobId = reply->property("polledJobId").toInt();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        _log.error(QString("Fetch status failed for job %1: %2").arg(polledJobId).arg(reply->errorString()));
+        return;
+    }
+
+    auto doc = QJsonDocument::fromJson(reply->readAll());
+    QJsonObject root = doc.object();
+    QVariantList fullList = parseMissingMetrics(root);
+    emit missingMetricsUpdated(fullList);
+    _log.info(QString("Job %1 on-demand status fetched: missing %2 sections").arg(polledJobId).arg(fullList.size()));
 }
 
 void ExtractionStatusPoller::poll()
@@ -79,23 +132,19 @@ void ExtractionStatusPoller::onPollFinished()
         emit progressUpdated(step, total, currentGroup, pct);
     }
 
-    QJsonArray missingArr = root.value("missing_metrics").toArray();
-    for (const auto& item : missingArr) {
-        QJsonObject secObj = item.toObject();
-        QString label = secObj.value("group_label").toString();
+    QVariantList fullList = parseMissingMetrics(root);
+    for (const auto& item : fullList) {
+        QVariantMap m = item.toMap();
+        QString label = m.value("group").toString();
+        QStringList missingKeys = m.value("missing").toStringList();
         if (!_reportedMissingSections.contains(label)) {
             _reportedMissingSections.insert(label);
-            QStringList missingKeys;
-            for (const auto& k : secObj.value("missing_keys").toArray()) {
-                missingKeys.append(k.toString());
-            }
-            if (!missingKeys.isEmpty()) {
-                emit missingMetricsReceived(label, missingKeys);
-            }
+            emit missingMetricsReceived(label, missingKeys);
         }
     }
+    emit missingMetricsUpdated(fullList);
 
-    _log.info(QString("Job %1 extraction status: %2 (step %3/%4: %5)").arg(_jobId).arg(status).arg(step).arg(total).arg(currentGroup));
+    _log.info(QString("Job %1 extraction status: %2 (step %3/%4: %5, missing %6 sections)").arg(polledJobId).arg(status).arg(step).arg(total).arg(currentGroup).arg(fullList.size()));
 
     if (status == ExtractionStatus::ReadyForReview ||
         status == ExtractionStatus::Completed ||

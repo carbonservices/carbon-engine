@@ -40,6 +40,7 @@ public:
     static QString getModelsDirectory();
     static bool areModelsPresent();
     static bool isModelPresent(const QString& fileName);
+    static QString formattedTotalSize();
 
     bool isDownloading() const { return _isDownloading; }
     bool hasError() const { return _hasError; }

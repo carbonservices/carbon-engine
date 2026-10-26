@@ -25,8 +25,8 @@ class SystemStatusPoller : public ApiClientBase
     Q_PROPERTY(QString tokenRate READ tokenRate NOTIFY statusUpdated)
     Q_PROPERTY(QString activeModel READ activeModel NOTIFY statusUpdated)
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY statusUpdated)
-    Q_PROPERTY(QString workloadTitle READ workloadTitle CONSTANT)
-    Q_PROPERTY(QString workloadTag READ workloadTag CONSTANT)
+    Q_PROPERTY(QString workloadTitle READ workloadTitle NOTIFY statusUpdated)
+    Q_PROPERTY(QString workloadTag READ workloadTag NOTIFY statusUpdated)
     Q_PROPERTY(bool forceCpu READ forceCpu NOTIFY settingsUpdated)
     Q_PROPERTY(bool forceGpu READ forceGpu NOTIFY settingsUpdated)
     Q_PROPERTY(bool systemSpecsPrecedence READ systemSpecsPrecedence NOTIFY settingsUpdated)
@@ -48,8 +48,8 @@ public:
     QString tokenRate() const { return _tokenRate; }
     QString activeModel() const { return _activeModel; }
     bool isConnected() const { return _isConnected; }
-    QString workloadTitle() const { return QString::fromUtf8(AppInfo::WorkloadTitle); }
-    QString workloadTag() const { return QString::fromUtf8(AppInfo::WorkloadTag); }
+    QString workloadTitle() const { return _workloadTitle; }
+    QString workloadTag() const { return _workloadTag; }
 
     bool forceCpu() const { return _forceCpu; }
     bool forceGpu() const { return _forceGpu; }
@@ -82,6 +82,8 @@ private:
     QTimer _timer;
 
     bool _isConnected = false;
+    QString _workloadTitle = QString::fromUtf8(AppInfo::WorkloadTitle);
+    QString _workloadTag = QString::fromUtf8(AppInfo::WorkloadTag);
     QString _jobQueue = "—";
     QString _cpuLoad = "—";
     QString _memoryUsage = "—";

@@ -22,12 +22,21 @@ Rectangle {
         Label { text: label; color: Theme.textMuted; font.pixelSize: 11 }
         Item { Layout.fillWidth: true }
         Label {
+            id: valLabel
             text: value
             color: valueColor
             font.pixelSize: 11
             font.family: "Consolas, monospace"
             elide: Text.ElideRight
-            Layout.maximumWidth: 195
+            Layout.maximumWidth: 200
+            ToolTip.visible: valMouse.containsMouse && valLabel.truncated
+            ToolTip.text: value
+            ToolTip.delay: 300
+            MouseArea {
+                id: valMouse
+                anchors.fill: parent
+                hoverEnabled: true
+            }
         }
     }
 
@@ -46,28 +55,6 @@ Rectangle {
             }
             Item { Layout.fillWidth: true }
 
-            Rectangle {
-                width: 18; height: 18; radius: 3
-                color: gearMouse.containsMouse ? Theme.bgHover : "transparent"
-                Text {
-                    anchors.centerIn: parent
-                    text: "⚙"
-                    font.pixelSize: 11
-                    color: gearMouse.containsMouse ? Theme.textBright : Theme.textMuted
-                }
-                MouseArea {
-                    id: gearMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (typeof appWindow !== "undefined" && appWindow.openSettingsModal) {
-                            appWindow.openSettingsModal()
-                        }
-                    }
-                }
-            }
-
             Label {
                 text: (!poller || !poller.isConnected) ? "DISCONNECTED" : "ONLINE"
                 font.bold: true
@@ -83,7 +70,7 @@ Rectangle {
 
             StatusRow {
                 label: "Mode"
-                value: (!poller || !poller.isConnected) ? "Disconnected" : "Offline (Air-Gapped)"
+                value: (!poller || !poller.isConnected) ? "Disconnected" : "Local Daemon"
                 valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
             }
             StatusRow {
@@ -99,13 +86,8 @@ Rectangle {
             StatusRow {
                 label: "Model"
                 value: {
-                    if (typeof appWindow !== "undefined" && appWindow.modelDownloader) {
-                        if (appWindow.modelDownloader.isDownloading) {
-                            return "Downloading (" + appWindow.modelDownloader.progressPercent + "%)"
-                        }
-                        if (!appWindow.modelDownloader.modelsReady) {
-                            return "Not Downloaded"
-                        }
+                    if (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady) {
+                        return "Not Downloaded"
                     }
                     return poller ? poller.activeModel : "—"
                 }
@@ -122,7 +104,7 @@ Rectangle {
             StatusRow {
                 label: "Status"
                 value: poller ? poller.engineStatus : "—"
-                valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : ((poller && poller.engineStatus === "Processing") ? Theme.brandAccent : Theme.textBright)
+                valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : ((poller && poller.engineStatus !== "Idle" && poller.engineStatus !== "Unknown") ? Theme.brandAccent : Theme.textBright)
             }
             StatusRow {
                 label: "Database"

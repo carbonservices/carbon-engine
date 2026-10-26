@@ -26,7 +26,7 @@ public:
 signals:
     void extractionStarted();
     void extractionCancelled(int jobId);
-    void sectionsReady(const QJsonArray& sections, const QJsonArray& warnings, const QJsonArray& issues);
+    void sectionsReady(const QJsonArray& sections, const QJsonArray& warnings, const QJsonArray& issues, bool isLocked = false);
     void schemaReady(const QJsonObject& schema);
     void updateSucceeded(const QString& groupId);
     void acceptSucceeded();

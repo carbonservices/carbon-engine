@@ -91,9 +91,11 @@ void ExtractionClient::onFetchSectionsFinished()
     }
 
     auto doc = QJsonDocument::fromJson(reply->readAll());
+    bool isLocked = doc.object().value("is_locked").toBool(false);
     emit sectionsReady(doc.object().value("sections").toArray(),
                        doc.object().value("warnings").toArray(),
-                       doc.object().value("issues").toArray());
+                       doc.object().value("issues").toArray(),
+                       isLocked);
 }
 
 void ExtractionClient::fetchSchema()

@@ -35,12 +35,22 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${pdfium_SOURCE_DIR}/bin/pdfium.dll"
             $<TARGET_FILE_DIR:carbon-engine>/pdfium.dll
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:carbon-engine>/../templates
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
+            $<TARGET_FILE_DIR:carbon-engine>/../templates/template.html
     )
 else()
     add_custom_command(TARGET carbon-engine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${pdfium_SOURCE_DIR}/lib/libpdfium.so"
             $<TARGET_FILE_DIR:carbon-engine>/libpdfium.so
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:carbon-engine>/../templates
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
+            $<TARGET_FILE_DIR:carbon-engine>/../templates/template.html
     )
     set_target_properties(carbon-engine PROPERTIES
         INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"

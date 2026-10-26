@@ -20,24 +20,8 @@ inline QString resolveModelPath(const QString &name, const QString &fallback)
     if (!envVal.isEmpty()) {
         return envVal;
     }
-    // Check user Documents/Carbon ESG/models folder
     QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
-    QString docModelPath = QDir(docDir).filePath(QFileInfo(fallback).fileName());
-    if (QFile::exists(docModelPath)) {
-        return docModelPath;
-    }
-    if (QFile::exists(fallback)) {
-        return fallback;
-    }
-    QString appRelative = QDir(QCoreApplication::applicationDirPath()).filePath(fallback);
-    if (QFile::exists(appRelative)) {
-        return appRelative;
-    }
-    QString parentRelative = QDir(QCoreApplication::applicationDirPath() + "/../../..").filePath(fallback);
-    if (QFile::exists(parentRelative)) {
-        return parentRelative;
-    }
-    return fallback;
+    return QDir(docDir).filePath(QFileInfo(fallback).fileName());
 }
 
 inline QString resolveDatabasePath()

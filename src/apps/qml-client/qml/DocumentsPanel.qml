@@ -322,10 +322,8 @@ Rectangle {
 
             Button {
                 id: ingestBtn
-                text: (typeof appWindow !== "undefined" && appWindow.modelDownloader && appWindow.modelDownloader.isDownloading)
-                    ? "Downloading Models..."
-                    : (root.batchConfirmed ? "Cancel Ingestion" : "Start Ingestion")
-                enabled: root.batchConfirmed || (root.daemonConnected && root.queueCount > 0)
+                text: root.batchConfirmed ? "Cancel Ingestion" : "Start Ingestion"
+                enabled: root.batchConfirmed || (root.daemonConnected && root.queueCount > 0 && (typeof appWindow === "undefined" || !appWindow.modelDownloader || appWindow.modelDownloader.modelsReady))
                 Layout.preferredHeight: 28
                 background: Rectangle {
                     color: !ingestBtn.enabled ? Theme.bgSubtle
@@ -334,6 +332,9 @@ Rectangle {
                         : (ingestBtn.hovered ? Theme.brandAccentHover : Theme.brandAccent)))
                     radius: 3
                 }
+                ToolTip.visible: hovered && !enabled && root.daemonConnected && root.queueCount > 0 && typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady
+                ToolTip.text: "AI models must be downloaded before starting ingestion."
+                ToolTip.delay: 300
                 contentItem: Text {
                     text: ingestBtn.text
                     color: ingestBtn.enabled ? (root.batchConfirmed ? "#ffffff" : Theme.textBright) : Theme.textMuted

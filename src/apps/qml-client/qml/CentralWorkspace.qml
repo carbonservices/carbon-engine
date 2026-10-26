@@ -27,19 +27,41 @@ Rectangle {
 
             ColumnLayout {
                 spacing: 2
-                Label {
-                    text: appWindow.isExtracting
-                        ? "Extracting Report Data..."
-                        : (appWindow.activeReportTitle !== "" ? appWindow.activeReportTitle : "No Report Selected")
-                    font.pixelSize: 15
-                    font.bold: true
-                    color: (appWindow.isExtracting || appWindow.activeReportTitle !== "") ? Theme.textBright : Theme.textMuted
+                RowLayout {
+                    spacing: 8
+                    Label {
+                        text: appWindow.isExtracting
+                            ? "Extracting Report Data..."
+                            : (appWindow.activeReportTitle !== "" ? appWindow.activeReportTitle : "No Report Selected")
+                        font.pixelSize: 15
+                        font.bold: true
+                        color: (appWindow.isExtracting || appWindow.activeReportTitle !== "") ? Theme.textBright : Theme.textMuted
+                    }
+                    Rectangle {
+                        visible: appWindow.isCurrentReportLocked && !appWindow.isExtracting
+                        color: Theme.badgeSuccessBg
+                        border.color: Theme.successColor
+                        border.width: 1
+                        radius: 3
+                        implicitHeight: 18
+                        implicitWidth: lockBadgeText.implicitWidth + 10
+                        Text {
+                            id: lockBadgeText
+                            anchors.centerIn: parent
+                            text: "ACCEPTED & LOCKED"
+                            color: Theme.successColor
+                            font.pixelSize: 9
+                            font.bold: true
+                        }
+                    }
                 }
                 Label {
                     text: appWindow.isExtracting
                         ? ("Processing Section " + appWindow.extractionStep + (appWindow.extractionTotal > 0 ? (" of " + appWindow.extractionTotal) : "") + " (" + Math.round(appWindow.extractionProgressPct) + "%)")
                         : (appWindow.activeReportTitle !== ""
-                            ? ("Generated BRSR Report Preview" + (activeDocumentsModel.count > 0 ? (" • " + activeDocumentsModel.count + " document" + (activeDocumentsModel.count > 1 ? "s" : "")) : ""))
+                            ? (appWindow.isCurrentReportLocked
+                                ? ("Final statutory BRSR report (locked for audit)" + (activeDocumentsModel.count > 0 ? (" • " + activeDocumentsModel.count + " document" + (activeDocumentsModel.count > 1 ? "s" : "")) : ""))
+                                : ("Generated BRSR Report Preview" + (activeDocumentsModel.count > 0 ? (" • " + activeDocumentsModel.count + " document" + (activeDocumentsModel.count > 1 ? "s" : "")) : "")))
                             : "Standing by for document extraction")
                     font.pixelSize: 11
                     color: appWindow.isExtracting ? Theme.brandAccent : Theme.textMuted
@@ -49,7 +71,7 @@ Rectangle {
             Item { Layout.fillWidth: true }
 
             Button {
-                text: "Review & Edit"
+                text: appWindow.isCurrentReportLocked ? "View Report" : "Review & Edit"
                 visible: appWindow.currentJobId > 0 && !appWindow.isExtracting
                 Layout.preferredHeight: 28
                 background: Rectangle {
@@ -190,7 +212,7 @@ Rectangle {
                     ColumnLayout {
                         spacing: 2
                         Label {
-                            text: "AI Models Setup (100% Offline Processing)"
+                            text: "AI Models Setup"
                             font.pixelSize: 14
                             font.bold: true
                             color: Theme.textBright
@@ -244,7 +266,7 @@ Rectangle {
                 // Informative explanation
                 Label {
                     Layout.fillWidth: true
-                    text: "Carbon ESG operates strictly air-gapped on your computer. To process BRSR reports locally, two AI models are saved to your user documents directory (" + (appWindow.modelDownloader ? appWindow.modelDownloader.targetDirectory : "") + "): Gemma 2 2B Instruct (1.71 GB) and BGE Small Embedding (67 MB). Total size: ~1.78 GB."
+                    text: "Required models: Gemma 2 2B Instruct (1.71 GB) and BGE Small Embedding (67 MB). Destination: " + (appWindow.modelDownloader ? appWindow.modelDownloader.targetDirectory : "")
                     font.pixelSize: 11
                     color: Theme.textMuted
                     wrapMode: Text.WordWrap
@@ -427,7 +449,9 @@ Rectangle {
                     text: {
                         var total = 0
                         for (var i = 0; i < appWindow.missingMetricsSummary.length; ++i) {
-                            total += appWindow.missingMetricsSummary[i].missing.length
+                            if (appWindow.missingMetricsSummary[i] && appWindow.missingMetricsSummary[i].missing) {
+                                total += appWindow.missingMetricsSummary[i].missing.length
+                            }
                         }
                         return total + " statutory metric(s) were not found in source documents and require manual entry."
                     }
@@ -639,7 +663,9 @@ Rectangle {
                                     text: {
                                         var total = 0
                                         for (var i = 0; i < appWindow.missingMetricsSummary.length; ++i) {
-                                            total += appWindow.missingMetricsSummary[i].missing.length
+                                            if (appWindow.missingMetricsSummary[i] && appWindow.missingMetricsSummary[i].missing) {
+                                                total += appWindow.missingMetricsSummary[i].missing.length
+                                            }
                                         }
                                         return total + " unlocated"
                                     }

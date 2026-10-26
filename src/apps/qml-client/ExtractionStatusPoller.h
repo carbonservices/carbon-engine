@@ -18,6 +18,7 @@ public:
     explicit ExtractionStatusPoller(QObject *parent = nullptr);
     Q_INVOKABLE void startPolling(int jobId);
     Q_INVOKABLE void stopPolling();
+    Q_INVOKABLE void fetchStatusOnly(int jobId);
 
 signals:
     void completed();
@@ -25,9 +26,11 @@ signals:
     void failed(const QString &reason);
     void progressUpdated(int currentStep, int totalSteps, const QString &groupLabel, double progressPct);
     void missingMetricsReceived(const QString &groupLabel, const QStringList &missingKeys);
+    void missingMetricsUpdated(const QVariantList &missingSections);
 
 private slots:
     void onPollFinished();
+    void onFetchStatusFinished();
 
 private:
     void poll();

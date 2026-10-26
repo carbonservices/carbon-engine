@@ -54,14 +54,12 @@ TrayManager::TrayManager(QObject* parent)
 
     m_trayMenu->addSeparator();
 
-    m_stopAndQuitAction = m_trayMenu->addAction("Exit Workspace (Quit All)");
-    connect(m_stopAndQuitAction, &QAction::triggered, this, &TrayManager::stopAndQuit);
-
-    m_quitTrayOnlyAction = m_trayMenu->addAction("Exit Tray (Keep Engine Running)");
-    connect(m_quitTrayOnlyAction, &QAction::triggered, this, &TrayManager::quitTrayOnly);
+    m_exitAction = m_trayMenu->addAction("Exit");
+    connect(m_exitAction, &QAction::triggered, this, &TrayManager::exitApplication);
 
     m_trayIcon->setContextMenu(m_trayMenu);
     connect(m_trayIcon, &QSystemTrayIcon::activated, this, &TrayManager::onTrayActivated);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &TrayManager::onAboutToQuit);
 
     m_pollTimer = new QTimer(this);
     connect(m_pollTimer, &QTimer::timeout, this, &TrayManager::updateStatus);
@@ -159,7 +157,7 @@ void TrayManager::updateStatus()
             m_downloadModelsAction->setText("AI Models: Installed");
             m_downloadModelsAction->setEnabled(true);
         } else {
-            m_downloadModelsAction->setText("Download AI Models (1.78 GB)...");
+            m_downloadModelsAction->setText(QString("Download AI Models (%1)...").arg(ModelDownloader::formattedTotalSize()));
             m_downloadModelsAction->setEnabled(true);
         }
     }
@@ -223,9 +221,14 @@ void TrayManager::stopBackend()
         );
     } else if (isBackendRunning()) {
 #ifdef _WIN32
-        QProcess killProc;
-        killProc.start("taskkill", {"/F", "/IM", AppInfo::ServerExecutableName, "/T"});
-        killProc.waitForFinished(3000);
+        QProcess softKill;
+        softKill.start("taskkill", {"/IM", AppInfo::ServerExecutableName});
+        softKill.waitForFinished(1000);
+        if (isBackendRunning()) {
+            QProcess forceKill;
+            forceKill.start("taskkill", {"/F", "/IM", AppInfo::ServerExecutableName, "/T"});
+            forceKill.waitForFinished(2000);
+        }
 #endif
         m_trayIcon->showMessage(
             AppInfo::ServerAppName,
@@ -251,24 +254,32 @@ void TrayManager::restartBackend()
     startBackend();
 }
 
-void TrayManager::stopAndQuit()
+void TrayManager::exitApplication()
 {
-#ifdef _WIN32
-    // Terminate UI client if active
-    QProcess killClient;
-    killClient.start("taskkill", {"/F", "/IM", AppInfo::ClientExecutableName, "/T"});
-    killClient.waitForFinished(1500);
-#endif
-    if (isBackendRunning()) {
-        stopBackend();
-        QThread::msleep(500);
-    }
+    onAboutToQuit();
     qApp->quit();
 }
 
-void TrayManager::quitTrayOnly()
+void TrayManager::onAboutToQuit()
 {
-    qApp->quit();
+    static bool s_alreadyExiting = false;
+    if (s_alreadyExiting) {
+        return;
+    }
+    s_alreadyExiting = true;
+
+#ifdef _WIN32
+    // Send graceful close request to client UI first
+    QProcess softKillClient;
+    softKillClient.start("taskkill", {"/IM", AppInfo::ClientExecutableName});
+    softKillClient.waitForFinished(800);
+    QProcess forceKillClient;
+    forceKillClient.start("taskkill", {"/F", "/IM", AppInfo::ClientExecutableName, "/T"});
+    forceKillClient.waitForFinished(800);
+#endif
+    if (isBackendRunning()) {
+        stopBackend();
+    }
 }
 
 void TrayManager::openClient()
@@ -314,7 +325,7 @@ void TrayManager::onDownloadModelsTriggered()
         m_modelDownloader->startDownload();
         m_trayIcon->showMessage(
             AppInfo::WorkspaceAppName,
-            "Starting background download of AI models (1.78 GB)...",
+            QString("Starting background download of AI models (%1)...").arg(ModelDownloader::formattedTotalSize()),
             QSystemTrayIcon::Information,
             3000
         );

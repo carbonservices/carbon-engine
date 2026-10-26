@@ -48,7 +48,8 @@ Dialog {
                 reviewDialog.sectionOrder = schema.section_order
             }
         }
-        onSectionsReady: function(sections, warnings, issues) {
+        onSectionsReady: function(sections, warnings, issues, isLocked) {
+            reviewDialog.accepted = (isLocked === true)
             var byGroup = {}
             for (var i = 0; i < sections.length; ++i) {
                 byGroup[sections[i].group_id] = sections[i]
@@ -97,9 +98,9 @@ Dialog {
         return result
     }
 
-    function openForJob(id) {
+    function openForJob(id, isLocked) {
         jobId = id
-        accepted = false
+        accepted = (isLocked === true)
         extractionClient.fetchSchema()
         extractionClient.fetchSections(id)
         open()

@@ -43,19 +43,17 @@ QString ModelDownloader::getModelsDirectory()
 
 bool ModelDownloader::isModelPresent(const QString& fileName)
 {
-    // 1. Documents directory
-    QString docPath = QDir(getModelsDirectory()).filePath(fileName);
-    if (QFile::exists(docPath)) {
-        return true;
-    }
+    return QFile::exists(QDir(getModelsDirectory()).filePath(fileName));
+}
 
-    // 2. Fallback relative (for local development/build tree)
-    QString relPath = "models/" + fileName;
-    if (QFile::exists(relPath)) {
-        return true;
+QString ModelDownloader::formattedTotalSize()
+{
+    qint64 total = 0;
+    for (const ModelDownloadItem& item : kStandardModels) {
+        total += item.estimatedBytes;
     }
-
-    return false;
+    double gb = static_cast<double>(total) / (1024.0 * 1024.0 * 1024.0);
+    return QString("%1 GB").arg(QString::number(gb, 'f', 2));
 }
 
 bool ModelDownloader::areModelsPresent()

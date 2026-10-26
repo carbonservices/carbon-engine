@@ -166,10 +166,17 @@ Rectangle {
                                 color: Theme.textMuted
                             }
                             Label {
-                                text: (model.extractionStatus === "CANCELLED" || model.status === "CANCELLED") ? "CANCELLED" : (model.status || "")
+                                text: {
+                                    if (model.extractionStatus === "ACCEPTED" || model.reportLocked) return "ACCEPTED"
+                                    if (model.extractionStatus === "CANCELLED" || model.status === "CANCELLED") return "CANCELLED"
+                                    if (model.extractionStatus === "READY_FOR_REVIEW") return "READY FOR REVIEW"
+                                    if (model.extractionStatus === "EXTRACTING") return "EXTRACTING"
+                                    return model.status || ""
+                                }
                                 font.pixelSize: 9
                                 font.bold: true
                                 color: {
+                                    if (model.extractionStatus === "ACCEPTED" || model.reportLocked) return Theme.successColor
                                     if (model.status === BrsrMeta.JobStatus.Completed) return Theme.successColor
                                     if (model.status === "CANCELLED" || model.extractionStatus === "CANCELLED") return Theme.warningColor
                                     if (model.status === "FAILED" || model.extractionStatus === "FAILED") return Theme.dangerColor

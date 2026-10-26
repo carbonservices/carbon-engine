@@ -4,7 +4,6 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-#include <QStandardPaths>
 
 // Templating
 #include <inja/inja.hpp>
@@ -266,31 +265,16 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
         return "<h1>Error: report has not been accepted yet</h1>";
     }
 
-    QString tmplPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/templates/template.html";
+    QString tmplPath = QDir(QCoreApplication::applicationDirPath() + "/../templates").filePath("template.html");
+#ifdef __linux__
     if (!QFile::exists(tmplPath)) {
-        tmplPath = QDir(QCoreApplication::applicationDirPath() + "/../templates").filePath("template.html");
+        tmplPath = "/usr/share/carbon-esg/templates/template.html";
     }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = QCoreApplication::applicationDirPath() + "/templates/template.html";
-    }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = QCoreApplication::applicationDirPath() + "/template.html";
-    }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = QCoreApplication::applicationDirPath() + "/../share/carbon-esg/templates/template.html";
-    }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = "src/libs/common/templates/template.html";
-    }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = "templates/template.html";
-    }
-    if (!QFile::exists(tmplPath)) {
-        tmplPath = "template.html";
-    }
+#endif
+
     QFile file(tmplPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        _log.error("template.html not found on disk");
+        _log.error(QString("Fatal: template.html not found at installation path: %1").arg(tmplPath));
         return "<h1>Error: template.html not found on disk</h1>";
     }
 

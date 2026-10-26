@@ -245,9 +245,10 @@ void SystemMonitor::sample()
         ms.dwLength = sizeof(ms);
         if (GlobalMemoryStatusEx(&ms)) {
             _memTotalMbSystem = ms.ullTotalPhys / (1024ULL * 1024ULL);
-            _memUsedMbSystem  = (_memTotalMbSystem > ms.ullAvailPhys / (1024ULL * 1024ULL))
-                ? _memTotalMbSystem - ms.ullAvailPhys / (1024ULL * 1024ULL)
-                : 0;
+            quint64 usedBytes = (ms.ullTotalPhys > ms.ullAvailPhys)
+                ? (ms.ullTotalPhys - ms.ullAvailPhys)
+                : 0ULL;
+            _memUsedMbSystem = usedBytes / (1024ULL * 1024ULL);
         }
     }
 #elif defined(__linux__)
@@ -340,6 +341,9 @@ void SystemMonitor::sampleGpu()
         DXGI_QUERY_VIDEO_MEMORY_INFO vramInfo{};
         if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &vramInfo))) {
             _vramUsedMb = static_cast<quint64>(vramInfo.CurrentUsage / (1024ULL * 1024ULL));
+            if (_vramTotalMb == 0 && vramInfo.Budget > 0) {
+                _vramTotalMb = static_cast<quint64>(vramInfo.Budget / (1024ULL * 1024ULL));
+            }
         }
     }
 
@@ -366,25 +370,11 @@ void SystemMonitor::sampleGpu()
                 }
             }
         }
-    } else if (_gpuPresent && _vramTotalMb > 0) {
-        if (_phase.load() == EnginePhase::Inferencing) {
-            _gpuPct = 85.0;
-        } else {
-            _gpuPct = 0.0;
-        }
     } else {
         _gpuPct = 0.0;
     }
 #else
-    if (_gpuPresent && _vramTotalMb > 0) {
-        if (_phase.load() == EnginePhase::Inferencing) {
-            _gpuPct = 85.0;
-        } else {
-            _gpuPct = 0.0;
-        }
-    } else {
-        _gpuPct = 0.0;
-    }
+    _gpuPct = 0.0;
 #endif
 }
 

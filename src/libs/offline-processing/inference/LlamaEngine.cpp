@@ -161,25 +161,20 @@ int LlamaEngine::resolveGenGpuLayers(bool verbose) const
     }
 
     // Dynamic layer budgeting based on VRAM capacity:
-    // A 7B Q4_K_M model requires ~4.7 GB for weights + ~1.5 GB for KV cache = ~6.2 GB total for 100% offload.
-    if (vramMb >= 7500) {
+    // Gemma 2 2B (Q4_K_M) requires ~1.5 GB for weights + ~0.5 GB for KV cache = ~2.0 GB total for 100% offload.
+    if (vramMb >= 3000) {
         if (verbose) {
-            _log.info("Sufficient VRAM detected (>= 7.5GB). Offloading all layers (n_gpu_layers = 99).");
+            _log.info("Sufficient VRAM detected (>= 3.0GB). Offloading all layers (n_gpu_layers = 99).");
         }
         return 99;
-    } else if (vramMb >= 5500) {
+    } else if (vramMb >= 1800) {
         if (verbose) {
-            _log.info("Moderate VRAM detected (5.5GB - 7.5GB). Using hybrid partial offload (n_gpu_layers = 24).");
+            _log.info("Moderate VRAM detected (1.8GB - 3.0GB). Using hybrid partial offload (n_gpu_layers = 16).");
         }
-        return 24;
-    } else if (vramMb >= 3500) {
-        if (verbose) {
-            _log.info("Limited VRAM detected (3.5GB - 5.5GB). Using conservative partial offload (n_gpu_layers = 14).");
-        }
-        return 14;
+        return 16;
     } else {
         if (verbose) {
-            _log.info("Very low VRAM detected (< 3.5GB). Running on CPU to prevent out-of-memory crashes.");
+            _log.info("Very low VRAM detected (< 1.8GB). Running on CPU to prevent out-of-memory crashes.");
         }
         return 0;
     }
