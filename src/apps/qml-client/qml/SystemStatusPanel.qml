@@ -5,7 +5,7 @@ import CarbonEngineClient
 
 Rectangle {
     Layout.fillWidth: true
-    Layout.preferredHeight: 330
+    Layout.preferredHeight: 350
     color: Theme.bgSidebar
     radius: 4
     border.color: Theme.borderCol
@@ -45,6 +45,29 @@ Rectangle {
                 color: Theme.textMuted
             }
             Item { Layout.fillWidth: true }
+
+            Rectangle {
+                width: 18; height: 18; radius: 3
+                color: gearMouse.containsMouse ? Theme.bgHover : "transparent"
+                Text {
+                    anchors.centerIn: parent
+                    text: "⚙"
+                    font.pixelSize: 11
+                    color: gearMouse.containsMouse ? Theme.textBright : Theme.textMuted
+                }
+                MouseArea {
+                    id: gearMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (typeof appWindow !== "undefined" && appWindow.openSettingsModal) {
+                            appWindow.openSettingsModal()
+                        }
+                    }
+                }
+            }
+
             Label {
                 text: (!poller || !poller.isConnected) ? "DISCONNECTED" : "ONLINE"
                 font.bold: true
@@ -67,6 +90,11 @@ Rectangle {
                 label: "Workload"
                 value: poller ? poller.workloadTitle : "Non-GPU Workload"
                 valueColor: Theme.brandAccent
+            }
+            StatusRow {
+                label: "Inference Mode"
+                value: poller ? poller.activeInferenceMode : "Auto (System Specs)"
+                valueColor: (poller && !poller.systemSpecsPrecedence) ? Theme.warningColor : Theme.brandAccent
             }
             StatusRow {
                 label: "Model"

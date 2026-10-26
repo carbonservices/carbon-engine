@@ -3,6 +3,8 @@ set(SERVER_SOURCES
     main.cpp
     api/HTTPServer.h
     api/HTTPServer.cpp
+    api/Hateoas.h
+    api/Hateoas.cpp
     queue/JobQueue.h
     queue/JobQueue.cpp
     report/ReportExtractionService.h

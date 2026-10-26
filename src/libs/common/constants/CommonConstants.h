@@ -37,10 +37,12 @@ struct Models {
 };
 
 struct ApiRoutes {
+    static constexpr const char* Root = "/api";
     static constexpr const char* Ingest = "/api/ingest";
     static constexpr const char* Jobs = "/api/jobs";
     static constexpr const char* JobCancel = "/api/jobs/cancel";
     static constexpr const char* System = "/api/system";
+    static constexpr const char* Settings = "/api/settings";
     static constexpr const char* ExtractionStart = "/api/extraction/start";
     static constexpr const char* ExtractionStatus = "/api/extraction/status";
     static constexpr const char* ExtractionCancel = "/api/extraction/cancel";

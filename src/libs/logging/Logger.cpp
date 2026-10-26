@@ -44,10 +44,10 @@ QString resolveLogDirectory() {
         return configured;
     }
 
-    // 2. Default Documents directory: <Documents>/CarbonESG/logs
+    // 2. Default Documents directory: <Documents>/Carbon ESG/logs
     QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
     if (docsLocation.isEmpty()) docsLocation = QDir::homePath() + "/Documents";
-    QString docsLogDir = QDir::cleanPath(docsLocation + "/CarbonESG/logs");
+    QString docsLogDir = QDir::cleanPath(docsLocation + "/Carbon ESG/logs");
     if (testWritableDir(docsLogDir)) {
         return docsLogDir;
     }

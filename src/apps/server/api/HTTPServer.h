@@ -31,9 +31,12 @@ public:
     bool listen(quint16 port = 8080);
 
 private:
+    QFuture<QHttpServerResponse> handleApiRoot(const QHttpServerRequest& request);
     QFuture<QHttpServerResponse> handleIngest(const QHttpServerRequest& request);
     QFuture<QHttpServerResponse> handleJobStatus(const QHttpServerRequest& request);
     QFuture<QHttpServerResponse> handleSystemStatus(const QHttpServerRequest& request);
+    QFuture<QHttpServerResponse> handleGetSettings(const QHttpServerRequest& request);
+    QFuture<QHttpServerResponse> handlePostSettings(const QHttpServerRequest& request);
 
     QFuture<QHttpServerResponse> handleExtractionStart(const QHttpServerRequest& request);
     QFuture<QHttpServerResponse> handleExtractionStatus(const QHttpServerRequest& request);

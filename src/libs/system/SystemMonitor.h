@@ -51,6 +51,7 @@ public:
     quint64 memUsedMbSystem()  const;
     quint64 memTotalMbSystem() const;
     bool    gpuPresent()      const;
+    QString gpuDeviceName()   const;
     quint64 vramUsedMb()      const;
     quint64 vramTotalMb()     const;
     double  gpuPct()          const;
@@ -88,6 +89,7 @@ private:
 
     // Detected once
     bool    _gpuPresent  = false;
+    QString _gpuDeviceName;
     quint64 _vramTotalMb = 0;
 
     // Windows GPU and performance counter handles (stored as opaque pointers)

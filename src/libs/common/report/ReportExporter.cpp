@@ -266,7 +266,7 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
         return "<h1>Error: report has not been accepted yet</h1>";
     }
 
-    QString tmplPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/templates/template.html";
+    QString tmplPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/templates/template.html";
     if (!QFile::exists(tmplPath)) {
         tmplPath = QDir(QCoreApplication::applicationDirPath() + "/../templates").filePath("template.html");
     }

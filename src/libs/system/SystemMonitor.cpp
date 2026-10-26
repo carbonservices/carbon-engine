@@ -126,6 +126,7 @@ void SystemMonitor::detectGpu()
 
     if (foundGpu) {
         _gpuPresent = true;
+        _gpuDeviceName = bestGpuDesc;
         _vramTotalMb = maxVram;
         _pAdapter3 = selectedAdapter3;
         _log.info(QString("GPU detected: %1 (VRAM: %2 MB)").arg(bestGpuDesc).arg(_vramTotalMb));
@@ -140,6 +141,7 @@ void SystemMonitor::detectGpu()
     QFile nv("/proc/driver/nvidia/version");
     if (nv.exists()) {
         _gpuPresent = true;
+        _gpuDeviceName = "NVIDIA GPU";
         _vramTotalMb = 8192;
         _log.info("NVIDIA GPU detected via /proc/driver/nvidia");
     } else {
@@ -439,6 +441,12 @@ quint64 SystemMonitor::memTotalMbSystem() const
 bool SystemMonitor::gpuPresent() const
 {
     return _gpuPresent;
+}
+
+QString SystemMonitor::gpuDeviceName() const
+{
+    QMutexLocker locker(&_mutex);
+    return _gpuDeviceName.isEmpty() ? QStringLiteral("Dedicated GPU") : _gpuDeviceName;
 }
 
 quint64 SystemMonitor::vramUsedMb() const

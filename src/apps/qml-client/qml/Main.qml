@@ -137,6 +137,10 @@ ApplicationWindow {
         reportClient.fetchReports()
     }
 
+    function openSettingsModal() {
+        settingsModal.open()
+    }
+
     function cancelJobById(jobId) {
         if (jobId <= 0) return
         appendStatus("[Cancel Requested] Cancelling Job #" + jobId + " on server...")
@@ -454,6 +458,11 @@ ApplicationWindow {
         }
     }
 
+    SettingsModal {
+        id: settingsModal
+        poller: systemPoller
+    }
+
     FileDialog {
         id: addDocDialog
         title: "Select Documents for Ingestion"
@@ -614,6 +623,31 @@ ApplicationWindow {
                         font.bold: true
                     }
                 }
+            }
+
+            // Hardware / Testing Settings Toggle
+            Button {
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: 32
+                flat: true
+                hoverEnabled: true
+                background: Rectangle {
+                    color: parent.hovered ? Theme.bgHover : (parent.pressed ? Theme.bgActive : "transparent")
+                    border.color: parent.hovered ? Theme.borderSubtle : "transparent"
+                    border.width: 1
+                    radius: 4
+                }
+                contentItem: Text {
+                    text: "⚙"
+                    color: Theme.textMain
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: "Hardware & Inference Testing Settings"
+                onClicked: settingsModal.open()
             }
 
             // Theme Toggle

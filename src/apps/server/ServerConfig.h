@@ -20,8 +20,8 @@ inline QString resolveModelPath(const QString &name, const QString &fallback)
     if (!envVal.isEmpty()) {
         return envVal;
     }
-    // Check user Documents/CarbonESG/models folder
-    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+    // Check user Documents/Carbon ESG/models folder
+    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
     QString docModelPath = QDir(docDir).filePath(QFileInfo(fallback).fileName());
     if (QFile::exists(docModelPath)) {
         return docModelPath;
@@ -61,7 +61,7 @@ inline QString resolveDatabasePath()
     if (!envVal.isEmpty()) {
         return envVal;
     }
-    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/data";
+    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/data";
     QDir().mkpath(docDir);
     return docDir + "/ce-database.sqlite";
 }

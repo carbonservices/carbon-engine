@@ -14,7 +14,13 @@ public:
 
     void run() override {
         if (_queue) {
-            _queue->executeJob(_jobId, _documents);
+            try {
+                _queue->executeJob(_jobId, _documents);
+            } catch (const std::exception&) {
+                // Precautionary guard: executeJob handles its own exceptions
+            } catch (...) {
+                // Precautionary guard against non-standard exceptions
+            }
         }
     }
 
@@ -190,6 +196,18 @@ void JobQueue::executeJob(int jobId, const QVector<JobDocument>& documents)
             } else {
                 _log.error(QString("Job %1 FAILED: %2").arg(jobId).arg(e.what()));
             }
+        }
+        catch (...)
+        {
+            if (inTx) {
+                _db.rollback();
+            }
+            QString finalStatus = _cancelRequested.load() ? JobStatus::Cancelled : JobStatus::Failed;
+            _db.updateJobStatus(jobId, finalStatus, "Unknown internal error");
+            for (const auto& doc : documents) {
+                _db.updateDocumentStatus(doc.id, _cancelRequested.load() ? "CANCELLED" : "FAILED");
+            }
+            _log.error(QString("Job %1 FAILED: Unknown internal exception").arg(jobId));
         }
 
         _currentProcessingJobId.store(-1);

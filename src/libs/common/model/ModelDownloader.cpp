@@ -36,7 +36,7 @@ ModelDownloader::~ModelDownloader()
 
 QString ModelDownloader::getModelsDirectory()
 {
-    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
     QDir().mkpath(docDir);
     return docDir;
 }

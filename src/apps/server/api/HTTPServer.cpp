@@ -1,4 +1,5 @@
 #include "HTTPServer.h"
+#include "Hateoas.h"
 #include "ServerConfig.h"
 #include "constants/CommonConstants.h"
 #include "report/ReportValidator.h"
@@ -91,9 +92,13 @@ HttpServer::HttpServer(Database &db, LlamaEngine &llama,
     // Global OPTIONS preflight and 404 JSON fallback handler
     _server.setMissingHandler(this, &HttpServer::handleMissingRequest);
 
+    _server.route(ApiRoutes::Root, QHttpServerRequest::Method::Get, this, &HttpServer::handleApiRoot);
+    _server.route("/", QHttpServerRequest::Method::Get, this, &HttpServer::handleApiRoot);
     _server.route(ApiRoutes::Ingest, QHttpServerRequest::Method::Post, this, &HttpServer::handleIngest);
     _server.route(ApiRoutes::Jobs, QHttpServerRequest::Method::Get, this, &HttpServer::handleJobStatus);
     _server.route(ApiRoutes::System, QHttpServerRequest::Method::Get, this, &HttpServer::handleSystemStatus);
+    _server.route(ApiRoutes::Settings, QHttpServerRequest::Method::Get, this, &HttpServer::handleGetSettings);
+    _server.route(ApiRoutes::Settings, QHttpServerRequest::Method::Post, this, &HttpServer::handlePostSettings);
     _server.route(ApiRoutes::ExtractionStart, QHttpServerRequest::Method::Post, this, &HttpServer::handleExtractionStart);
     _server.route(ApiRoutes::ExtractionStatus, QHttpServerRequest::Method::Get, this, &HttpServer::handleExtractionStatus);
     _server.route(ApiRoutes::ExtractionCancel, QHttpServerRequest::Method::Post, this, &HttpServer::handleExtractionCancel);
@@ -129,6 +134,16 @@ bool HttpServer::listen(quint16 port)
         _log.info(QString("Listening on %1:%2").arg(bindAddr.toString()).arg(port));
     }
     return bound;
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleApiRoot(const QHttpServerRequest &/*request*/)
+{
+    QJsonObject root;
+    root["service"] = "Carbon Engine REST API";
+    root["version"] = AppInfo::Version;
+    root["workload"] = QString::fromUtf8(AppInfo::WorkloadTitle);
+    root["_links"] = Hateoas::rootLinks();
+    return QtFuture::makeReadyFuture(QHttpServerResponse(root));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleIngest(const QHttpServerRequest &request)
@@ -170,7 +185,11 @@ QFuture<QHttpServerResponse> HttpServer::handleIngest(const QHttpServerRequest &
 
     _log.info(QString("Job %1 queued for %2 document(s)").arg(jobId).arg(filePaths.size()));
     _jobQueue.notifyNewJob();
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "QUEUED"}, {"job_id", jobId}}));
+    QJsonObject resp;
+    resp["status"] = "QUEUED";
+    resp["job_id"] = jobId;
+    resp["_links"] = Hateoas::ingestLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleJobStatus(const QHttpServerRequest &request)
@@ -201,6 +220,7 @@ QFuture<QHttpServerResponse> HttpServer::handleJobStatus(const QHttpServerReques
     obj["extraction_status"] = _db.getExtractionStatus(jobId);
     obj["report_locked"] = _db.isReportLocked(jobId);
     obj["documents"] = _reportService.getJobDocumentsJson(jobId);
+    obj["_links"] = Hateoas::jobLinks(jobId, status, obj["extraction_status"].toString(), obj["report_locked"].toBool());
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
 }
@@ -240,8 +260,53 @@ QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerReq
     obj["model_loaded"]         = genModelLoaded;
     obj["model_present"]        = genModelPresent;
     obj["embedding_model_present"] = embdModelPresent;
+    obj["inference_mode"]          = _llama.activeInferenceModeString();
+    obj["force_cpu"]               = _llama.isForceCpu();
+    obj["force_gpu"]               = _llama.isForceGpu();
+    obj["system_specs_precedence"]  = (!_llama.isForceCpu() && !_llama.isForceGpu());
+    obj["_links"]                  = Hateoas::systemLinks();
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handleGetSettings(const QHttpServerRequest& /*request*/)
+{
+    QJsonObject obj;
+    bool forceCpu = _llama.isForceCpu();
+    bool forceGpu = _llama.isForceGpu();
+    bool systemSpecsPrecedence = (!forceCpu && !forceGpu);
+
+    obj["force_cpu"] = forceCpu;
+    obj["force_gpu"] = forceGpu;
+    obj["system_specs_precedence"] = systemSpecsPrecedence;
+    obj["active_mode"] = _llama.activeInferenceModeString();
+    obj["gpu_present"] = _monitor.gpuPresent();
+    obj["gpu_name"] = _monitor.gpuDeviceName();
+    obj["vram_total_mb"] = static_cast<qint64>(_monitor.vramTotalMb());
+    obj["workload_title"] = QString::fromUtf8(AppInfo::WorkloadTitle);
+    obj["_links"] = Hateoas::settingsLinks();
+
+    return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
+}
+
+QFuture<QHttpServerResponse> HttpServer::handlePostSettings(const QHttpServerRequest& request)
+{
+    auto doc = QJsonDocument::fromJson(request.body());
+    if (!doc.isObject()) {
+        return QtFuture::makeReadyFuture(jsonError(
+            QHttpServerResponder::StatusCode::BadRequest,
+            "Invalid JSON payload for /api/settings"));
+    }
+
+    QJsonObject reqObj = doc.object();
+    if (reqObj.contains("force_cpu")) {
+        _llama.setForceCpu(reqObj.value("force_cpu").toBool());
+    }
+    if (reqObj.contains("force_gpu")) {
+        _llama.setForceGpu(reqObj.value("force_gpu").toBool());
+    }
+
+    return handleGetSettings(request);
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServerRequest &request)
@@ -260,6 +325,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServer
         QJsonObject resp;
         resp["job_id"] = jobId;
         resp["status"] = ExtractionStatus::Extracting;
+        resp["_links"] = Hateoas::extractionStartLinks(jobId);
         return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
     }
 
@@ -267,7 +333,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServer
         _log.error("Cannot start extraction: required AI model files are missing from disk.");
         return QtFuture::makeReadyFuture(jsonError(
             QHttpServerResponder::StatusCode::ServiceUnavailable,
-            "AI model files not found on disk. Please run download-models or place GGUF models in '<Documents>/CarbonESG/models/'."
+            "AI model files not found on disk. Please run download-models or place GGUF models in '<Documents>/Carbon ESG/models/'."
         ));
     }
 
@@ -276,6 +342,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServer
     QJsonObject resp;
     resp["job_id"] = jobId;
     resp["status"] = ExtractionStatus::Extracting;
+    resp["_links"] = Hateoas::extractionStartLinks(jobId);
     return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
@@ -316,6 +383,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
         resp["last_latency_ms"] = progress.lastLatencyMs;
     }
 
+    resp["_links"] = Hateoas::extractionStatusLinks(jobId, status);
     return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
@@ -332,11 +400,12 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionCancel(const QHttpServe
     _extractionService.cancelJob(jobId);
     _db.setExtractionStatus(jobId, ExtractionStatus::Cancelled);
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{
-        {"status", "CANCELLED"},
-        {"job_id", jobId},
-        {"message", "Extraction halted. All in-flight tasks cancelled."}
-    }));
+    QJsonObject resp;
+    resp["status"] = "CANCELLED";
+    resp["job_id"] = jobId;
+    resp["message"] = "Extraction halted. All in-flight tasks cancelled.";
+    resp["_links"] = Hateoas::extractionCancelLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleJobCancel(const QHttpServerRequest &request)
@@ -352,11 +421,12 @@ QFuture<QHttpServerResponse> HttpServer::handleJobCancel(const QHttpServerReques
     _jobQueue.cancelJob(jobId);
     _db.updateJobStatus(jobId, JobStatus::Cancelled);
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{
-        {"status", "CANCELLED"},
-        {"job_id", jobId},
-        {"message", "Ingestion halted. All in-flight tasks cancelled."}
-    }));
+    QJsonObject resp;
+    resp["status"] = "CANCELLED";
+    resp["job_id"] = jobId;
+    resp["message"] = "Ingestion halted. All in-flight tasks cancelled.";
+    resp["_links"] = Hateoas::jobCancelLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleExtractionSections(const QHttpServerRequest &request)
@@ -376,7 +446,10 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionSections(const QHttpSer
             QString("Job %1 not found").arg(jobId)));
     }
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(_reportService.getExtractionSections(jobId)));
+    QJsonObject resp = _reportService.getExtractionSections(jobId);
+    bool isLocked = _db.isReportLocked(jobId);
+    resp["_links"] = Hateoas::extractionSectionsLinks(jobId, isLocked);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleExtractionSectionUpdate(const QHttpServerRequest &request)
@@ -401,7 +474,12 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionSectionUpdate(const QHt
             errMsg));
     }
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", ReportSectionStatus::Updated}, {"group_id", groupId}}));
+    QJsonObject resp;
+    resp["status"] = ReportSectionStatus::Updated;
+    resp["group_id"] = groupId;
+    resp["job_id"] = jobId;
+    resp["_links"] = Hateoas::extractionSectionUpdateLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleExtractionAccept(const QHttpServerRequest &request)
@@ -421,7 +499,11 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionAccept(const QHttpServe
             QHttpServerResponder::StatusCode::InternalServerError,
             errMsg));
     }
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", ExtractionStatus::Accepted}, {"job_id", jobId}}));
+    QJsonObject resp;
+    resp["status"] = ExtractionStatus::Accepted;
+    resp["job_id"] = jobId;
+    resp["_links"] = Hateoas::extractionAcceptLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleReportExport(const QHttpServerRequest &request)
@@ -443,6 +525,7 @@ QFuture<QHttpServerResponse> HttpServer::handleReportExport(const QHttpServerReq
     resp["report"] = html;
     resp["job_id"] = jobId;
     resp["is_locked"] = isLocked;
+    resp["_links"] = Hateoas::reportExportLinks(jobId, isLocked);
     return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
@@ -452,7 +535,9 @@ QFuture<QHttpServerResponse> HttpServer::handleReportsList(const QHttpServerRequ
     int limit = request.query().queryItemValue("limit").toInt(&ok);
     int offset = request.query().queryItemValue("offset").toInt();
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(_reportService.listReports(ok ? limit : 0, offset)));
+    QJsonArray rawList = _reportService.listReports(ok ? limit : 0, offset);
+    QJsonArray enrichedList = Hateoas::enrichReportsList(rawList);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(enrichedList));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleReportDelete(const QHttpServerRequest &request)
@@ -484,7 +569,11 @@ QFuture<QHttpServerResponse> HttpServer::handleReportDelete(const QHttpServerReq
     }
     _indexRegistry.remove(jobId);
     _log.info(QString("Successfully deleted report / job %1").arg(jobId));
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{{"status", "DELETED"}, {"job_id", jobId}}));
+    QJsonObject resp;
+    resp["status"] = "DELETED";
+    resp["job_id"] = jobId;
+    resp["_links"] = Hateoas::reportDeleteLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleJobDocuments(const QHttpServerRequest &request)
@@ -506,15 +595,18 @@ QFuture<QHttpServerResponse> HttpServer::handleJobDocuments(const QHttpServerReq
             QString("Job %1 not found").arg(jobId)));
     }
 
-    return QtFuture::makeReadyFuture(QHttpServerResponse(QJsonObject{
-        {"job_id", jobId},
-        {"documents", _reportService.getJobDocumentsJson(jobId)}
-    }));
+    QJsonObject resp;
+    resp["job_id"] = jobId;
+    resp["documents"] = _reportService.getJobDocumentsJson(jobId);
+    resp["_links"] = Hateoas::jobDocumentsLinks(jobId);
+    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleGetSchemaBrsr(const QHttpServerRequest &request)
 {
     Q_UNUSED(request);
-    return QtFuture::makeReadyFuture(QHttpServerResponse(_catalog.schemaMetadata()));
+    QJsonObject schemaObj = _catalog.schemaMetadata();
+    schemaObj["_links"] = Hateoas::schemaBrsrLinks();
+    return QtFuture::makeReadyFuture(QHttpServerResponse(schemaObj));
 }
 

@@ -47,6 +47,13 @@ public:
 
     int activeGenGpuLayers() const;
 
+    void setForceCpu(bool force);
+    bool isForceCpu() const;
+
+    void setForceGpu(bool force);
+    bool isForceGpu() const;
+
+    QString activeInferenceModeString() const;
     QString offloadModeString() const;
 
     std::vector<float> generateEmbedding(const std::string& text);
@@ -63,8 +70,8 @@ private slots:
 private:
     bool initGenContext();
     bool initEmbdContext();
-    int  resolveGenGpuLayers() const;
-    int  resolveEmbdGpuLayers() const;
+    int  resolveGenGpuLayers(bool verbose = true) const;
+    int  resolveEmbdGpuLayers(bool verbose = true) const;
 
     std::string _genPath;
     std::string _embdPath;
@@ -83,6 +90,8 @@ private:
     std::atomic<bool> _isInferencing{false};
     std::atomic<int>  _activeGenLayers{-1};
     std::atomic<int>  _activeEmbdLayers{0};
+    std::atomic<bool> _forceCpu{false};
+    std::atomic<bool> _forceGpu{false};
 
     SystemMonitor& _monitor;
     Logger _log{"LlamaEngine"};

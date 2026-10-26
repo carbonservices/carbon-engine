@@ -76,7 +76,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF \
+            -DGGML_BACKEND_DL=ON \
+            -DGGML_CPU_ALL_VARIANTS=ON
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
@@ -91,10 +93,10 @@ jobs:
             exit 1
           }
 
-      - name: Upload Windows Installer Artifacts
+      - name: Upload Windows Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installers
+          name: windows-installer
           path: build/CarbonESG-*-Windows-x64*.exe
           retention-days: 14
 
@@ -170,7 +172,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="/home/runner/work/Qt/6.10.0/gcc_64" \
             -DCARBON_ENGINE_VERSION="${{ steps.ver.outputs.VERSION }}" \
-            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF
+            -DCARBON_ENGINE_DOWNLOAD_MODELS=OFF \
+            -DGGML_BACKEND_DL=ON \
+            -DGGML_CPU_ALL_VARIANTS=ON
 
       - name: Build Carbon ESG & Carbon Engine
         run: cmake --build build --config Release --parallel
@@ -179,10 +183,10 @@ jobs:
         working-directory: build
         run: cpack -C Release -G "DEB"
 
-      - name: Upload Linux Package Artifacts
+      - name: Upload Linux Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-installers
+          name: linux-installer
           path: build/CarbonESG-*-Linux-x64*.deb
           retention-days: 14
 
@@ -196,16 +200,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Windows Artifacts
+      - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: windows-installers
+          name: windows-installer
           path: release-artifacts/windows
 
-      - name: Download Linux Artifacts
+      - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
-          name: linux-installers
+          name: linux-installer
           path: release-artifacts/linux
 
       - name: Publish GitHub Release

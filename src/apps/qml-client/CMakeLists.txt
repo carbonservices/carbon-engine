@@ -49,6 +49,7 @@ set(QML_FILES
     qml/DocumentsPanel.qml
     qml/SystemStatusPanel.qml
     qml/StatusLogPanel.qml
+    qml/SettingsModal.qml
     qml/ReportReviewScreen.qml
     qml/FieldGroupCard.qml
     qml/LoopFieldEditor.qml

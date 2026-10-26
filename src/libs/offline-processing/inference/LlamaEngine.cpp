@@ -72,49 +72,139 @@ void LlamaEngine::shutdown()
     unloadEmbdModel();
 }
 
-int LlamaEngine::resolveGenGpuLayers() const
+void LlamaEngine::setForceCpu(bool force)
 {
+    if (_forceCpu.load() != force) {
+        _forceCpu.store(force);
+        if (force) {
+            _forceGpu.store(false);
+        }
+        _log.info(QString("Testing override updated: Force CPU = %1").arg(force ? "true" : "false"));
+        unloadGenModel();
+        unloadEmbdModel();
+    }
+}
+
+bool LlamaEngine::isForceCpu() const
+{
+    return _forceCpu.load();
+}
+
+void LlamaEngine::setForceGpu(bool force)
+{
+    if (_forceGpu.load() != force) {
+        _forceGpu.store(force);
+        if (force) {
+            _forceCpu.store(false);
+        }
+        _log.info(QString("Testing override updated: Force GPU = %1").arg(force ? "true" : "false"));
+        unloadGenModel();
+        unloadEmbdModel();
+    }
+}
+
+bool LlamaEngine::isForceGpu() const
+{
+    return _forceGpu.load();
+}
+
+QString LlamaEngine::activeInferenceModeString() const
+{
+    if (_forceCpu.load()) {
+        return QStringLiteral("Forced CPU Mode (Testing)");
+    }
+    if (_forceGpu.load()) {
+        return QStringLiteral("Forced GPU Mode (Testing)");
+    }
+    if (_monitor.gpuPresent()) {
+        return QString("Auto (System Specs: %1)").arg(_monitor.gpuDeviceName());
+    }
+    return QStringLiteral("Auto (System Specs: CPU Multi-Variant)");
+}
+
+int LlamaEngine::resolveGenGpuLayers(bool verbose) const
+{
+    if (_forceCpu.load()) {
+        if (verbose) {
+            _log.info("Testing override active: Force CPU mode enabled (n_gpu_layers = 0).");
+        }
+        return 0;
+    }
+    if (_forceGpu.load() && _monitor.gpuPresent()) {
+        if (verbose) {
+            _log.info("Testing override active: Force GPU mode enabled (n_gpu_layers = 99).");
+        }
+        return 99;
+    }
     bool ok = false;
     int envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_GEN_GPU_LAYERS", &ok);
     if (!ok) {
         envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_GPU_LAYERS", &ok);
     }
     if (ok) {
-        _log.info(QString("Generative GPU layers overridden: %1").arg(envVal));
+        if (verbose) {
+            _log.info(QString("Generative GPU layers overridden: %1").arg(envVal));
+        }
         return envVal;
     }
 
     if (!_monitor.gpuPresent()) {
-        _log.info("No dedicated GPU detected. Defaulting to CPU backend for generation (n_gpu_layers = 0).");
+        if (verbose) {
+            _log.info("No dedicated GPU detected. Defaulting to CPU backend for generation (n_gpu_layers = 0).");
+        }
         return 0;
     }
 
     quint64 vramMb = _monitor.vramTotalMb();
-    _log.info(QString("Dedicated GPU detected with %1 MB VRAM for budgeting").arg(vramMb));
+    if (verbose) {
+        _log.info(QString("Dedicated GPU detected with %1 MB VRAM for budgeting").arg(vramMb));
+    }
 
     // Dynamic layer budgeting based on VRAM capacity:
     // A 7B Q4_K_M model requires ~4.7 GB for weights + ~1.5 GB for KV cache = ~6.2 GB total for 100% offload.
     if (vramMb >= 7500) {
-        _log.info("Sufficient VRAM detected (>= 7.5GB). Offloading all layers (n_gpu_layers = 99).");
+        if (verbose) {
+            _log.info("Sufficient VRAM detected (>= 7.5GB). Offloading all layers (n_gpu_layers = 99).");
+        }
         return 99;
     } else if (vramMb >= 5500) {
-        _log.info("Moderate VRAM detected (5.5GB - 7.5GB). Using hybrid partial offload (n_gpu_layers = 24).");
+        if (verbose) {
+            _log.info("Moderate VRAM detected (5.5GB - 7.5GB). Using hybrid partial offload (n_gpu_layers = 24).");
+        }
         return 24;
     } else if (vramMb >= 3500) {
-        _log.info("Limited VRAM detected (3.5GB - 5.5GB). Using conservative partial offload (n_gpu_layers = 14).");
+        if (verbose) {
+            _log.info("Limited VRAM detected (3.5GB - 5.5GB). Using conservative partial offload (n_gpu_layers = 14).");
+        }
         return 14;
     } else {
-        _log.info("Very low VRAM detected (< 3.5GB). Running on CPU to prevent out-of-memory crashes.");
+        if (verbose) {
+            _log.info("Very low VRAM detected (< 3.5GB). Running on CPU to prevent out-of-memory crashes.");
+        }
         return 0;
     }
 }
 
-int LlamaEngine::resolveEmbdGpuLayers() const
+int LlamaEngine::resolveEmbdGpuLayers(bool verbose) const
 {
+    if (_forceCpu.load()) {
+        if (verbose) {
+            _log.info("Testing override active: Force CPU mode enabled for embeddings.");
+        }
+        return 0;
+    }
+    if (_forceGpu.load() && _monitor.gpuPresent()) {
+        if (verbose) {
+            _log.info("Testing override active: Force GPU mode enabled for embeddings.");
+        }
+        return 99;
+    }
     bool ok = false;
     int envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_EMBD_GPU_LAYERS", &ok);
     if (ok) {
-        _log.info(QString("Embedding GPU layers overridden: %1").arg(envVal));
+        if (verbose) {
+            _log.info(QString("Embedding GPU layers overridden: %1").arg(envVal));
+        }
         return envVal;
     }
 
@@ -122,16 +212,12 @@ int LlamaEngine::resolveEmbdGpuLayers() const
         return 0;
     }
 
-    quint64 vramMb = _monitor.vramTotalMb();
-    // Joint budgeting: if VRAM >= 8GB, there is ample room for both 7B generative model and 67MB embedding model
-    if (vramMb >= 8000) {
-        _log.info("VRAM >= 8GB: Joint offload enabled for embedding model on GPU.");
-        return 99;
+    // Embedding model (bge-small-en-v1.5) requires only ~67 MB of VRAM.
+    // When a dedicated GPU is present, offload to GPU directly.
+    if (verbose) {
+        _log.info("Dedicated GPU detected. Offloading embedding model to GPU (n_gpu_layers = 99).");
     }
-
-    // For GPUs with < 8GB VRAM (4GB / 6GB), keep embedding on CPU to preserve 100% of VRAM for the 7B model
-    _log.info("VRAM < 8GB: Embedding model assigned to CPU to preserve VRAM for generative model.");
-    return 0;
+    return 99;
 }
 
 int LlamaEngine::activeGenGpuLayers() const
@@ -142,6 +228,12 @@ int LlamaEngine::activeGenGpuLayers() const
 
 QString LlamaEngine::offloadModeString() const
 {
+    if (_forceCpu.load()) {
+        return QStringLiteral("Forced CPU Mode (Testing)");
+    }
+    if (_forceGpu.load()) {
+        return QStringLiteral("Forced GPU Mode (Testing)");
+    }
     if (!_monitor.gpuPresent()) {
         return QStringLiteral("CPU Only");
     }
@@ -150,7 +242,7 @@ QString LlamaEngine::offloadModeString() const
     int embdLayers = _activeEmbdLayers.load();
 
     if (genLayers < 0) {
-        int target = resolveGenGpuLayers();
+        int target = resolveGenGpuLayers(false);
         if (target >= 99) return QStringLiteral("Ready (Full GPU)");
         if (target > 0) return QString("Ready (Hybrid %1L)").arg(target);
         return QStringLiteral("Ready (CPU)");
@@ -231,7 +323,7 @@ bool LlamaEngine::loadEmbdModel()
     _log.info("Loading embedding model...");
 
     if (!QFile::exists(QString::fromStdString(_embdPath))) {
-        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
         QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_embdPath)).fileName());
         if (QFile::exists(docPath)) {
             _embdPath = docPath.toStdString();
@@ -318,7 +410,7 @@ bool LlamaEngine::loadGenModel()
     _monitor.setEnginePhase(EnginePhase::LoadingModel);
 
     if (!QFile::exists(QString::fromStdString(_genPath))) {
-        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/CarbonESG/models";
+        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
         QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_genPath)).fileName());
         if (QFile::exists(docPath)) {
             _genPath = docPath.toStdString();

@@ -95,6 +95,11 @@ FetchContent_Declare(llama GIT_REPOSITORY https://github.com/ggerganov/llama.cpp
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
+# Enable dynamic backend loading and multi-variant CPU dispatch
+set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
+set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+
 find_package(CUDAToolkit QUIET)
 if(CUDAToolkit_FOUND)
     message(STATUS "CUDA Toolkit found (${CUDAToolkit_VERSION}). Enabling GGML_CUDA hardware acceleration.")
@@ -105,7 +110,7 @@ if(CUDAToolkit_FOUND)
     add_compile_definitions(CARBON_WORKLOAD_TITLE="GPU Accelerated")
     add_compile_definitions(CARBON_WORKLOAD_TAG="CUDA")
 else()
-    message(STATUS "CUDA Toolkit not found. Building llama.cpp with CPU backend.")
+    message(STATUS "CUDA Toolkit not found. Building llama.cpp with dynamic CPU multi-variant dispatch.")
     set(GGML_CUDA OFF CACHE BOOL "" FORCE)
     set(CARBON_WORKLOAD_TAG "Non-GPU" CACHE STRING "" FORCE)
     set(CARBON_WORKLOAD_TITLE "Non-GPU Workload" CACHE STRING "" FORCE)
@@ -115,6 +120,9 @@ else()
 endif()
 
 FetchContent_MakeAvailable(llama)
+
+# Restore default static linkage for subsequent dependencies (Faiss, Leptonica, Tesseract)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 if(WIN32)
     FetchContent_Declare(mkl_static URL https://api.nuget.org/v3-flatcontainer/intelmkl.static.win-x64/2026.1.0.226/intelmkl.static.win-x64.2026.1.0.226.nupkg DOWNLOAD_NAME mkl_static.zip EXCLUDE_FROM_ALL)

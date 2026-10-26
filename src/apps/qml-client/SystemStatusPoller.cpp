@@ -154,5 +154,112 @@ void SystemStatusPoller::onPollFinished()
 
         _activeModel = obj.value("active_model").toString(Models::LocalGemmaName);
 
+        _activeInferenceMode = obj.value("inference_mode").toString(_gpuOffload);
+        _forceCpu = obj.value("force_cpu").toBool(_forceCpu);
+        _forceGpu = obj.value("force_gpu").toBool(_forceGpu);
+        _systemSpecsPrecedence = obj.value("system_specs_precedence").toBool(!_forceCpu && !_forceGpu);
+        _gpuName = obj.value("gpu_device_name").toString(obj.value("gpu_name").toString(_gpuName));
+        _gpuPresent = gpuPresent;
+
         emit statusUpdated();
+}
+
+void SystemStatusPoller::setForceCpuMode(bool enabled)
+{
+    QJsonObject req;
+    req["force_cpu"] = enabled;
+    if (enabled) {
+        req["force_gpu"] = false;
+    }
+    QByteArray body = QJsonDocument(req).toJson(QJsonDocument::Compact);
+
+    QNetworkRequest request(endpoint(ApiRoutes::Settings));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = network().post(request, body);
+    connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onSettingsPostFinished);
+}
+
+void SystemStatusPoller::setForceGpuMode(bool enabled)
+{
+    QJsonObject req;
+    req["force_gpu"] = enabled;
+    if (enabled) {
+        req["force_cpu"] = false;
+    }
+    QByteArray body = QJsonDocument(req).toJson(QJsonDocument::Compact);
+
+    QNetworkRequest request(endpoint(ApiRoutes::Settings));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = network().post(request, body);
+    connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onSettingsPostFinished);
+}
+
+void SystemStatusPoller::resetToSystemSpecs()
+{
+    QJsonObject req;
+    req["force_cpu"] = false;
+    req["force_gpu"] = false;
+    QByteArray body = QJsonDocument(req).toJson(QJsonDocument::Compact);
+
+    QNetworkRequest request(endpoint(ApiRoutes::Settings));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = network().post(request, body);
+    connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onSettingsPostFinished);
+}
+
+void SystemStatusPoller::refreshSettings()
+{
+    QNetworkReply *reply = network().get(QNetworkRequest(endpoint(ApiRoutes::Settings)));
+    connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onSettingsGetFinished);
+}
+
+void SystemStatusPoller::onSettingsPostFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+
+    if (reply->error() == QNetworkReply::NoError) {
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            _forceCpu = obj.value("force_cpu").toBool(false);
+            _forceGpu = obj.value("force_gpu").toBool(false);
+            _systemSpecsPrecedence = obj.value("system_specs_precedence").toBool(true);
+            _activeInferenceMode = obj.value("active_mode").toString(_activeInferenceMode);
+            _gpuName = obj.value("gpu_name").toString(_gpuName);
+            _gpuPresent = obj.value("gpu_present").toBool(_gpuPresent);
+            emit settingsUpdated();
+            emit statusUpdated();
+        }
+    } else {
+        _log.warn(QString("Failed to update settings: %1").arg(reply->errorString()));
+    }
+}
+
+void SystemStatusPoller::onSettingsGetFinished()
+{
+    auto *reply = qobject_cast<QNetworkReply*>(sender());
+    if (!reply) return;
+    reply->deleteLater();
+
+    if (reply->error() == QNetworkReply::NoError) {
+        auto doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            _forceCpu = obj.value("force_cpu").toBool(false);
+            _forceGpu = obj.value("force_gpu").toBool(false);
+            _systemSpecsPrecedence = obj.value("system_specs_precedence").toBool(true);
+            _activeInferenceMode = obj.value("active_mode").toString(_activeInferenceMode);
+            _gpuName = obj.value("gpu_name").toString(_gpuName);
+            _gpuPresent = obj.value("gpu_present").toBool(_gpuPresent);
+            emit settingsUpdated();
+            emit statusUpdated();
+        }
+    } else {
+        _log.warn(QString("Failed to retrieve settings: %1").arg(reply->errorString()));
+    }
 }
