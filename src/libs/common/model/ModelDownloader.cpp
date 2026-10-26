@@ -49,19 +49,7 @@ bool ModelDownloader::isModelPresent(const QString& fileName)
         return true;
     }
 
-    // 2. App root directory (e.g. <InstallDir>/models/)
-    QString appRoot = QDir(QCoreApplication::applicationDirPath() + "/..").filePath("models/" + fileName);
-    if (QFile::exists(appRoot)) {
-        return true;
-    }
-
-    // 3. Linux share directory (/usr/share/carbon-esg/models/)
-    QString sharePath = "/usr/share/carbon-esg/models/" + fileName;
-    if (QFile::exists(sharePath)) {
-        return true;
-    }
-
-    // 4. Fallback relative
+    // 2. Fallback relative (for local development/build tree)
     QString relPath = "models/" + fileName;
     if (QFile::exists(relPath)) {
         return true;

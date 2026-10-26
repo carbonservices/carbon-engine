@@ -301,9 +301,16 @@ bool LlamaEngine::isEmbdModelLoaded() const
 
 
 // ─────────────────────────────────────────────────────────────
+static void llamaAbortCallback(const char* error_message)
+{
+    Logger log("LlamaEngine");
+    log.error(QString("GGML/LLAMA Fatal Error: %1").arg(error_message));
+}
+
 bool LlamaEngine::initBackend()
 {
     llama_backend_init();
+    ggml_set_abort_callback(llamaAbortCallback);
     _log.info(QString("LlamaEngine: backend initialised, using %1 threads (idle keep-alive: %2s)")
                   .arg(_nThreads).arg(_idleTimeoutSec));
     return true;
@@ -693,7 +700,7 @@ void LlamaEngine::streamCompletion(const std::string& prompt,
     }
     if (options.temperature <= 0.01f) {
         // Deterministic greedy argmax sampling for factual extraction
-        llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.0f));
+        llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
     } else {
         llama_sampler_chain_add(sampler, llama_sampler_init_top_k(options.topK));
         llama_sampler_chain_add(sampler, llama_sampler_init_top_p(options.topP, 1));

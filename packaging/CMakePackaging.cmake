@@ -134,15 +134,6 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
     endif()
 endif()
 
-option(CARBON_ENGINE_EMBED_MODELS "Embed AI models statically inside the installer" OFF)
-
-if(CARBON_ENGINE_EMBED_MODELS AND EXISTS "${CMAKE_SOURCE_DIR}/models")
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/models"
-        DESTINATION .
-        FILES_MATCHING
-        PATTERN "*.gguf"
-    )
-endif()
 
 # 3. CPack Configuration
 set(CPACK_PACKAGE_NAME "CarbonESG")
@@ -172,7 +163,6 @@ if(WIN32)
     set(CPACK_NSIS_DEFINES "RequestExecutionLevel admin")
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
-      CreateDirectory '$INSTDIR\\\\models'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
       ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
       WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
