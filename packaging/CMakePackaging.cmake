@@ -120,6 +120,14 @@ else()
         )
     endif()
 
+    # Bundle llama.cpp and ggml shared libraries built into output directory
+    install(DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FILES_MATCHING
+        PATTERN "libllama*.so*"
+        PATTERN "libggml*.so*"
+    )
+
     # Bundle Qt 6 runtime libraries, plugins, QML modules, and resources for self-contained Linux deployment
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
     if(_qmake_executable)
@@ -130,6 +138,7 @@ else()
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
             FILES_MATCHING
             PATTERN "libQt6*.so*"
+            PATTERN "libicu*.so*"
             PATTERN "cmake" EXCLUDE
             PATTERN "pkgconfig" EXCLUDE
             PATTERN "*.a" EXCLUDE
@@ -234,7 +243,7 @@ else()
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://carbonesg.online")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS OFF)
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libtesseract5, libopenblas0, libpulse0, libnss3, libasound2t64 | libasound2")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libgl1, libegl1, libopengl0, libxkbfile1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-xinerama0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libtesseract5, libopenblas0, libpulse0, libnss3, libasound2t64 | libasound2")
 endif()
 
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION FALSE)
