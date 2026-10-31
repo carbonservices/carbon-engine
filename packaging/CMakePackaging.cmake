@@ -181,7 +181,7 @@ endif()
 
 
 # 3. CPack Configuration
-set(CPACK_PACKAGE_NAME "CarbonESG")
+set(CPACK_PACKAGE_NAME "Carbon ESG")
 set(CPACK_PACKAGE_VENDOR "Carbon Services")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Carbon ESG - Enterprise Statutory BRSR Reporting Application")
 set(CPACK_PACKAGE_VERSION "${CARBON_ENGINE_VERSION}")
@@ -209,8 +209,13 @@ if(WIN32)
     string(REPLACE "/" "\\\\" CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP "${CMAKE_CURRENT_LIST_DIR}/windows/banner.bmp")
     set(CPACK_NSIS_MODIFY_PATH ON)
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
-    set(CPACK_NSIS_DEFINES "RequestExecutionLevel admin")
+    set(CPACK_NSIS_DEFINES "
+      RequestExecutionLevel admin
+      !define MUI_HEADERIMAGE_RIGHT
+      !define MUI_WELCOMEPAGE_TEXT 'Setup will guide you through installing Carbon ESG.$\r$\n$\r$\nCarbon ESG is an enterprise statutory BRSR reporting engine providing complete on-device data processing, automated metric extraction, and offline AI intelligence.$\r$\n$\r$\nClick Next to continue.'
+    ")
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
+    set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\carbon-tray.exe")
     set(CPACK_NSIS_BRANDING_TEXT "Carbon Services - ESG Statutory Reporting")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
       ExecWait '\\\"$INSTDIR\\\\bin\\\\carbon-engine.exe\\\" --stop-service'

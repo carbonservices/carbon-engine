@@ -1,6 +1,4 @@
-===============================================================================
-                    Carbon ESG - End User Notice & License
-===============================================================================
+Carbon ESG - End User Notice & License
 
 Carbon ESG is an enterprise statutory ESG & BRSR reporting application developed
 by Carbon Services (https://carbonesg.online).
@@ -36,7 +34,4 @@ by Carbon Services (https://carbonesg.online).
    the authors or copyright holders be liable for any claim, damages, or other
    liability arising from the software.
 
-===============================================================================
- Support & Documentation: https://carbonesg.online | carbon.esgreports@gmail.com
-===============================================================================
-
+Support & Documentation: https://carbonesg.online | carbon.esgreports@gmail.com
