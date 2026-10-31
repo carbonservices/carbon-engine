@@ -2,8 +2,11 @@
 
 // Qt
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+
+#include "constants/CommonConstants.h"
 
 // Templating
 #include <inja/inja.hpp>
@@ -310,6 +313,12 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
     }
 
     precomputeChartMetrics(reportData);
+
+    const std::string genTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString();
+    reportData["report_generation_time"] = genTime;
+    reportData["generation_time"] = genTime;
+    reportData["product_name"] = AppInfo::ClientAppName;
+    reportData["product_website"] = std::string("https://") + AppInfo::OrganizationDomain;
 
     try {
         std::string tmpl = file.readAll().toStdString();
