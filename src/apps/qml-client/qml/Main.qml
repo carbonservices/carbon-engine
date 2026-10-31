@@ -122,6 +122,14 @@ ApplicationWindow {
         }
     }
 
+    function openBugReportModal() {
+        bugReportModal.open()
+    }
+
+    function openFeedbackModal() {
+        feedbackModal.open()
+    }
+
     function cancelActiveJob() {
         if (currentJobId <= 0) return
         var targetId = currentJobId
@@ -336,6 +344,7 @@ ApplicationWindow {
     }
 
     readonly property var modelDownloader: backendModelDownloader
+    readonly property var gitHubClient: (typeof backendGitHubClient !== "undefined") ? backendGitHubClient : null
     property alias systemPoller: systemPoller
     property bool lastKnownConnected: false
 
@@ -384,6 +393,9 @@ ApplicationWindow {
             appWindow.isCurrentReportLocked = true
             reportClient.fetchReport(jobId)
             reportClient.fetchReports()
+            if (gitHubClient) {
+                gitHubClient.recordReportCompleted()
+            }
         }
     }
 
@@ -467,6 +479,14 @@ ApplicationWindow {
     SettingsModal {
         id: settingsModal
         poller: systemPoller
+    }
+
+    BugReportModal {
+        id: bugReportModal
+    }
+
+    FeedbackModal {
+        id: feedbackModal
     }
 
     FileDialog {
@@ -628,6 +648,68 @@ ApplicationWindow {
                         font.bold: true
                     }
                 }
+            }
+
+            // Update Notification Pill in Titlebar
+            Rectangle {
+                visible: gitHubClient && gitHubClient.updateAvailable
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 24
+                Layout.preferredWidth: updatePillLayout.implicitWidth + 16
+                radius: 12
+                color: Theme.badgePillBlueBg
+                border.color: Theme.brandAccent
+                border.width: 1
+
+                RowLayout {
+                    id: updatePillLayout
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Text { text: "🚀"; font.pixelSize: 10 }
+                    Label {
+                        text: "Update v" + (gitHubClient ? gitHubClient.latestVersion : "")
+                        color: Theme.badgePillBlueText
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+                }
+
+                MouseArea {
+                    id: updateMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (gitHubClient) gitHubClient.downloadAndInstallUpdate()
+                }
+                ToolTip.visible: updateMouse.containsMouse
+                ToolTip.text: "New release available! Click to download & install."
+                ToolTip.delay: 300
+            }
+
+            // Report Bug / Feedback Button
+            Button {
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: 32
+                flat: true
+                hoverEnabled: true
+                background: Rectangle {
+                    color: parent.hovered ? Theme.bgHover : (parent.pressed ? Theme.bgActive : "transparent")
+                    border.color: parent.hovered ? Theme.borderSubtle : "transparent"
+                    border.width: 1
+                    radius: 4
+                }
+                contentItem: Text {
+                    text: "🐞"
+                    color: Theme.textMain
+                    font.pixelSize: 13
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: "Report Bug / File Issue"
+                ToolTip.delay: 300
+                onClicked: appWindow.openBugReportModal()
             }
 
             // Hardware / Testing Settings Toggle

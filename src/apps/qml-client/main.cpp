@@ -12,6 +12,7 @@
 #include "logging/Logger.h"
 #include "model/ModelDownloader.h"
 #include "system/SingleInstanceGuard.h"
+#include "diagnostics/GitHubClient.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -115,9 +116,11 @@ int main(int argc, char *argv[])
     app.setWindowIcon(appIcon);
 
     ModelDownloader modelDownloader;
+    GitHubClient gitHubClient;
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("backendModelDownloader", &modelDownloader);
+    engine.rootContext()->setContextProperty("backendGitHubClient", &gitHubClient);
     engine.loadFromModule("CarbonEngineClient", "Main");
 
     if (engine.rootObjects().isEmpty())

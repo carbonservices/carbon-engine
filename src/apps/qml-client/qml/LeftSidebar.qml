@@ -278,5 +278,96 @@ Rectangle {
             Layout.fillHeight: true
             visible: !root.sidebarExpanded
         }
+
+        // Support & Feedback Footer
+        Rectangle {
+            Layout.fillWidth: true
+            height: 1
+            color: Theme.borderCol
+            visible: root.sidebarExpanded
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 30
+            spacing: 6
+            visible: root.sidebarExpanded
+
+            Button {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 26
+                flat: true
+                hoverEnabled: true
+                background: Rectangle {
+                    color: parent.hovered ? Theme.bgHover : "transparent"
+                    border.color: Theme.borderSubtle
+                    border.width: 1
+                    radius: 4
+                }
+                contentItem: RowLayout {
+                    anchors.centerIn: parent
+                    spacing: 5
+                    Text { text: "🐞"; font.pixelSize: 11 }
+                    Label { text: "Report Bug"; font.pixelSize: 10; color: Theme.textMain }
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: "File a bug report or issue to GitHub"
+                ToolTip.delay: 300
+                onClicked: if (typeof appWindow !== "undefined") appWindow.openBugReportModal()
+            }
+
+            Button {
+                Layout.preferredWidth: 30
+                Layout.preferredHeight: 26
+                flat: true
+                hoverEnabled: true
+                background: Rectangle {
+                    color: parent.hovered ? Theme.bgHover : "transparent"
+                    border.color: Theme.borderSubtle
+                    border.width: 1
+                    radius: 4
+                }
+                contentItem: Text {
+                    text: "⭐"
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: "Rate Carbon ESG & Share Feedback"
+                ToolTip.delay: 300
+                onClicked: if (typeof appWindow !== "undefined") appWindow.openFeedbackModal()
+            }
+        }
+
+        // Collapsed state icon button
+        Rectangle {
+            width: 28
+            height: 28
+            radius: 4
+            visible: !root.sidebarExpanded
+            Layout.alignment: Qt.AlignHCenter
+            color: collapsedBugMouse.containsMouse ? Theme.bgHover : "transparent"
+            border.color: collapsedBugMouse.containsMouse ? Theme.borderSubtle : "transparent"
+            border.width: 1
+
+            Text {
+                anchors.centerIn: parent
+                text: "🐞"
+                font.pixelSize: 13
+            }
+
+            ToolTip.visible: collapsedBugMouse.containsMouse
+            ToolTip.text: "Report Bug / Feedback"
+            ToolTip.delay: 300
+
+            MouseArea {
+                id: collapsedBugMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: if (typeof appWindow !== "undefined") appWindow.openBugReportModal()
+            }
+        }
     }
 }

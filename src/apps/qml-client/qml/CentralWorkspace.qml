@@ -21,6 +21,12 @@ Rectangle {
         anchors.margins: 12
         spacing: 10
 
+        NotificationBanner {
+            id: notificationBanner
+            onOpenFeedbackRequested: if (typeof appWindow !== "undefined") appWindow.openFeedbackModal()
+            onOpenBugReportRequested: if (typeof appWindow !== "undefined") appWindow.openBugReportModal()
+        }
+
         RowLayout {
             Layout.fillWidth: true
             spacing: 12

@@ -13,6 +13,7 @@ target_link_libraries(carbon-engine-client PRIVATE
     carbon-engine-logging
     carbon-engine-common
     carbon-engine-system
+    carbon-engine-diagnostics
 )
 
 if(WIN32)
@@ -53,6 +54,9 @@ set(QML_FILES
     qml/ReportReviewScreen.qml
     qml/FieldGroupCard.qml
     qml/LoopFieldEditor.qml
+    qml/NotificationBanner.qml
+    qml/BugReportModal.qml
+    qml/FeedbackModal.qml
     qml/BRSRMetadata.js
 )
 foreach(qml_file IN LISTS QML_FILES)
