@@ -32,25 +32,33 @@ if(WIN32)
     endif()
 
     # Explicitly install Qt TLS plugins into bin/tls for reliable HTTPS downloads
+    # NOTE: Qt TLS plugins end in 'backend.dll' which matches generic '*d.dll' patterns.
+    # We explicitly match '*backend.dll' (release) and '*backendd.dll' (debug) to prevent accidental exclusion.
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
     if(_qmake_executable)
         get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
         get_filename_component(_qt_root "${_qt_bin_dir}" DIRECTORY)
-        if(EXISTS "${_qt_root}/plugins/tls")
-            if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-                install(DIRECTORY "${_qt_root}/plugins/tls/"
-                    DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
-                    FILES_MATCHING
-                    PATTERN "*d.dll"
-                )
-            else()
-                install(DIRECTORY "${_qt_root}/plugins/tls/"
-                    DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
-                    FILES_MATCHING
-                    PATTERN "*.dll"
-                    PATTERN "*d.dll" EXCLUDE
-                )
-            endif()
+    endif()
+
+    if(EXISTS "${_qt_root}/plugins/tls")
+        set(_tls_plugins_src "${_qt_root}/plugins/tls")
+    elseif(EXISTS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tls")
+        set(_tls_plugins_src "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/tls")
+    endif()
+
+    if(_tls_plugins_src)
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            install(DIRECTORY "${_tls_plugins_src}/"
+                DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
+                FILES_MATCHING
+                PATTERN "*backendd.dll"
+            )
+        else()
+            install(DIRECTORY "${_tls_plugins_src}/"
+                DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
+                FILES_MATCHING
+                PATTERN "*backend.dll"
+            )
         endif()
     endif()
 
@@ -75,6 +83,7 @@ if(WIN32)
         PATTERN "*.sqlite*" EXCLUDE
         PATTERN "template.html" EXCLUDE
         PATTERN "qmltooling" EXCLUDE
+        PATTERN "tls" EXCLUDE
     )
 
     install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
