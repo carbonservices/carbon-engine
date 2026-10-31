@@ -24,11 +24,20 @@ void SystemStatusPoller::startPolling()
 void SystemStatusPoller::stopPolling()
 {
     _timer.stop();
+    if (_activeReply) {
+        _activeReply->abort();
+        _activeReply->deleteLater();
+        _activeReply = nullptr;
+    }
 }
 
 void SystemStatusPoller::poll()
 {
+    if (_activeReply) {
+        return; // Discard polling tick if previous status query is still in-flight
+    }
     QNetworkReply *reply = network().get(QNetworkRequest(endpoint(ApiRoutes::System)));
+    _activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, &SystemStatusPoller::onPollFinished);
 }
 
@@ -36,7 +45,10 @@ void SystemStatusPoller::onPollFinished()
 {
     auto *reply = qobject_cast<QNetworkReply*>(sender());
     if (!reply) return;
-        reply->deleteLater();
+    if (reply == _activeReply) {
+        _activeReply = nullptr;
+    }
+    reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             if (_isConnected) {
                 _log.warn(QString("Lost connection to carbon-engine daemon: %1").arg(reply->errorString()));

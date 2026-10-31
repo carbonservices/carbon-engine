@@ -2,6 +2,7 @@
 #include "constants/CommonConstants.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -11,13 +12,15 @@ static const ModelDownloadItem kStandardModels[] = {
         "bge-small-en-v1.5-f16.gguf",
         "BGE Small Embedding Model",
         "https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf",
-        67308128
+        67308128,
+        "f0b2fef971e8366438bfd2d9aefea1b0115919389448806d290237f638bae999"
     },
     {
         "gemma-2-2b-it-q4_k_m.gguf",
         "Gemma 2 2B Instruct LLM",
         "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
-        1836000000
+        1708582752,
+        "e0aee85060f168f0f2d8473d7ea41ce2f3230c1bc1374847505ea599288a7787"
     }
 };
 
@@ -43,7 +46,7 @@ QString ModelDownloader::getModelsDirectory()
 
 bool ModelDownloader::isModelPresent(const QString& fileName)
 {
-    return QFile::exists(QDir(getModelsDirectory()).filePath(fileName));
+    return QFile::exists(QDir(getModelsDirectory()).filePath(QFileInfo(fileName).fileName()));
 }
 
 QString ModelDownloader::formattedTotalSize()
@@ -292,6 +295,30 @@ void ModelDownloader::onDownloadFinished()
     _currentReply->deleteLater();
     _currentReply = nullptr;
 
+    // Cryptographic SHA-256 verification before promoting .part to final
+    if (_currentIndex >= 0 && _currentIndex < _queue.size()) {
+        const ModelDownloadItem& item = _queue[_currentIndex];
+        if (!item.sha256.isEmpty()) {
+            _log.info(QString("Verifying SHA-256 integrity for %1...").arg(item.fileName));
+            QFile partFile(_partFilePath);
+            if (partFile.open(QIODevice::ReadOnly)) {
+                QCryptographicHash hasher(QCryptographicHash::Sha256);
+                if (hasher.addData(&partFile)) {
+                    QString calculated = QString::fromLatin1(hasher.result().toHex()).toLower();
+                    if (calculated != item.sha256.toLower()) {
+                        partFile.close();
+                        QFile::remove(_partFilePath);
+                        setError(QString("Cryptographic SHA-256 integrity failure for %1 (expected: %2, got: %3)")
+                                     .arg(item.fileName, item.sha256, calculated));
+                        return;
+                    }
+                    _log.info(QString("SHA-256 verification passed for %1 (%2)").arg(item.fileName, calculated));
+                }
+                partFile.close();
+            }
+        }
+    }
+
     // Remove old final file if present, then rename .part to final
     if (QFile::exists(_finalFilePath)) {
         QFile::remove(_finalFilePath);
@@ -345,10 +372,8 @@ void ModelDownloader::onSslErrors(const QList<QSslError>& errors)
         }
         details += err.errorString();
     }
-    _log.warn(QString("SSL warnings during download: %1").arg(details));
-    if (_currentReply) {
-        _currentReply->ignoreSslErrors();
-    }
+    _log.error(QString("SSL certificate verification error during model download: %1").arg(details));
+    setError(QString("SSL certificate verification failed: %1").arg(details));
 }
 
 void ModelDownloader::setError(const QString& msg)

@@ -7,6 +7,9 @@
 #include <QQmlEngine>
 #include <QTimer>
 #include <QJsonArray>
+#include <QPointer>
+
+class QNetworkReply;
 
 class PipelineStatusPoller : public ApiClientBase
 {
@@ -33,7 +36,8 @@ private:
     static constexpr int PollIntervalMs = 1000;
 
     QTimer _timer;
-    int _jobId = -1;
+    int _jobId = CoreConstants::InvalidJobId;
+    QPointer<QNetworkReply> _activeReply;
     Logger _log{"QmlClient.PipelineStatusPoller"};
 };
 

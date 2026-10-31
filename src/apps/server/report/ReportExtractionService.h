@@ -28,6 +28,7 @@ public:
     };
 
     struct ProgressInfo {
+        int jobId{CoreConstants::NoActiveJobId};
         int currentStep{0};
         int totalSteps{0};
         QString currentGroupId;
@@ -77,7 +78,7 @@ private:
     FactStore _factStore;
 
     std::atomic<bool> _isExtracting{false};
-    std::atomic<int> _activeJobId{-1};
+    std::atomic<int> _activeJobId{CoreConstants::NoActiveJobId};
     std::atomic<bool> _cancelRequested{false};
 
     mutable QMutex _progressMutex;

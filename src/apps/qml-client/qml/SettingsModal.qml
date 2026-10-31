@@ -182,7 +182,7 @@ Popup {
                 color: gpuCheck.checked ? Theme.bgSubtle : "transparent"
                 border.color: gpuCheck.checked ? Theme.brandAccent : Theme.borderSubtle
                 border.width: 1
-                opacity: (poller && poller.gpuPresent) ? 1.0 : 0.5
+                opacity: (poller && poller.gpuPresent && poller.workloadTag !== "Non-GPU") ? 1.0 : 0.5
 
                 RowLayout {
                     anchors.fill: parent
@@ -191,8 +191,8 @@ Popup {
 
                     CheckBox {
                         id: gpuCheck
-                        enabled: poller ? poller.gpuPresent : false
-                        checked: poller ? poller.forceGpu : false
+                        enabled: (poller && poller.gpuPresent && poller.workloadTag !== "Non-GPU") ? true : false
+                        checked: (poller && poller.workloadTag !== "Non-GPU") ? poller.forceGpu : false
                         onToggled: {
                             if (poller) poller.setForceGpuMode(checked)
                         }
@@ -208,9 +208,15 @@ Popup {
                             color: Theme.textBright
                         }
                         Label {
-                            text: (poller && poller.gpuPresent)
-                                ? ("Forces 99 layers offload to dedicated GPU: " + poller.gpuName)
-                                : "No dedicated GPU detected on this system."
+                            text: {
+                                if (poller && poller.workloadTag === "Non-GPU") {
+                                    return "Dedicated GPU acceleration is disabled in this Non-GPU application build."
+                                }
+                                if (poller && poller.gpuPresent) {
+                                    return "Forces full GPU offload (all layers) to dedicated GPU: " + poller.gpuName
+                                }
+                                return "No dedicated GPU detected or supported on this system."
+                            }
                             font.pixelSize: 10
                             color: Theme.textMuted
                             wrapMode: Text.WordWrap

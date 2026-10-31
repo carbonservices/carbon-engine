@@ -4,8 +4,6 @@
 #include "report/JsonRepairEngine.h"
 
 // Qt
-#include <QFutureSynchronizer>
-#include <QtConcurrent>
 #include <nlohmann/json.hpp>
 #include <unordered_set>
 
@@ -125,15 +123,13 @@ ReportExtractionService::GroupContext ReportExtractionService::retrieveContextFo
         return {group.id, QString(), QVector<int64_t>(), 0};
     }
 
-    // 2. Locality-anchored chunks from FactStore (topic anchors + immediate +/- 1 neighbors)
+    // 2. Locality-anchored chunks from FactStore (verified document-partitioned neighbors)
     QVector<int64_t> anchorIds = _factStore.getAnchorChunksForTopic(jobId, group.section);
-    for (int64_t anchorId : anchorIds) {
-        if (anchorId > 0) {
-            for (int64_t delta = -1; delta <= 1; ++delta) {
-                int64_t neighborId = anchorId + delta;
-                if (neighborId > 0 && seenVectorIds.insert(neighborId).second) {
-                    allIds.push_back(neighborId);
-                }
+    if (!anchorIds.isEmpty()) {
+        QVector<int64_t> neighborIds = _db.getDocumentNeighborChunkIds(jobId, anchorIds);
+        for (int64_t nid : neighborIds) {
+            if (nid > 0 && seenVectorIds.insert(nid).second) {
+                allIds.push_back(nid);
             }
         }
     }
@@ -208,6 +204,53 @@ std::string ReportExtractionService::buildPrompt(int jobId, const FieldGroup& gr
            "<|im_start|>assistant\n{";
 }
 
+static bool isJsonFieldMissing(const nlohmann::json& obj, const std::string& key)
+{
+    if (!obj.contains(key)) {
+        return true;
+    }
+    const auto& val = obj[key];
+    if (val.is_null()) {
+        return true;
+    }
+    if (val.is_string()) {
+        std::string s = val.get<std::string>();
+        size_t start = s.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) {
+            return true;
+        }
+        size_t end = s.find_last_not_of(" \t\r\n");
+        std::string trimmed = s.substr(start, end - start + 1);
+        if (trimmed.empty() || trimmed == "null" || trimmed == "NULL" ||
+            trimmed == "<Not provided>" || trimmed == "<not provided>" ||
+            trimmed == "N/A" || trimmed == "n/a" || trimmed == "NA" ||
+            trimmed == "-" || trimmed == "--" ||
+            trimmed == "None" || trimmed == "none" ||
+            trimmed.rfind("Not specified in the provided context", 0) == 0 ||
+            trimmed == "Not Reported" || trimmed == "not reported" ||
+            trimmed == "Not Available" || trimmed == "not available" ||
+            trimmed == "Not applicable" || trimmed == "Not Applicable" ||
+            trimmed == "Not disclosed" || trimmed == "not disclosed") {
+            return true;
+        }
+        return false;
+    }
+    if (val.is_array()) {
+        if (val.empty()) {
+            return true;
+        }
+        bool allEmpty = true;
+        for (const auto& elem : val) {
+            if (!elem.is_null() && (!elem.is_object() || !elem.empty())) {
+                allEmpty = false;
+                break;
+            }
+        }
+        return allEmpty;
+    }
+    return false;
+}
+
 void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGroup& group,
                                                      const GroupContext& ctx,
                                                      qint64& outPrefillMs, qint64& outDecodeMs,
@@ -271,17 +314,17 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
     _db.upsertReportSection(jobId, group.id, sectionJson, ReportSectionStatus::Draft, sourceChunksStr);
 
     int nonNullFacts = 0;
-    int64_t primaryChunkId = ctx.sourceChunkIds.isEmpty() ? -1 : ctx.sourceChunkIds.first();
+    int64_t primaryChunkId = ctx.sourceChunkIds.isEmpty() ? CoreConstants::NoSourceChunkId : ctx.sourceChunkIds.first();
 
     for (auto it = parsed.begin(); it != parsed.end(); ++it) {
-        if (!it.value().is_null()) {
+        if (!isJsonFieldMissing(parsed, it.key())) {
             std::string valStr;
             if (it.value().is_string()) {
                 valStr = it.value().get<std::string>();
             } else if (it.value().is_number()) {
                 valStr = it.value().dump();
             }
-            if (!valStr.empty() && valStr != "null" && valStr != "N/A") {
+            if (!valStr.empty()) {
                 _factStore.put(jobId, QString::fromStdString(it.key()), QString::fromStdString(valStr), primaryChunkId);
                 nonNullFacts++;
             }
@@ -295,7 +338,7 @@ void ReportExtractionService::generateAndPersistGroup(int jobId, const FieldGrou
     QStringList missing;
     for (const auto& key : group.allFieldKeys()) {
         std::string k = key.toStdString();
-        if (!parsed.contains(k) || parsed[k].is_null()) {
+        if (isJsonFieldMissing(parsed, k)) {
             missing.append(key);
         }
     }
@@ -333,7 +376,7 @@ void ReportExtractionService::extractJob(int jobId)
         std::atomic<int>& activeJobId;
         std::atomic<bool>& cancelRequested;
         ~ExtractionGuard() {
-            activeJobId.store(-1);
+            activeJobId.store(CoreConstants::NoActiveJobId);
             cancelRequested.store(false);
             isExtracting.store(false);
         }
@@ -348,6 +391,7 @@ void ReportExtractionService::extractJob(int jobId)
 
         {
             QMutexLocker locker(&_progressMutex);
+            _progress.jobId = jobId;
             _progress.currentStep = 0;
             _progress.totalSteps = _catalog.groups().size();
             _progress.currentGroupId = "";

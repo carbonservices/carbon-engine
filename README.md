@@ -24,62 +24,49 @@
   <em>Carbon Engine Desktop Workspace: Real-time local extraction tracking, statutory gap cataloging, and live GPU/CPU telemetry.</em>
 </p>
 
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [System Requirements](#system-requirements)
-  - [Hardware Requirements](#hardware-requirements)
-  - [Software Toolchain](#software-toolchain)
-- [Build & Installation](#build--installation)
-  - [1. Clone Repository](#1-clone-repository)
-  - [2. Download Models](#2-download-models)
-  - [3. Build from Source](#3-build-from-source)
-- [Quick Start](#quick-start)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
 ## Overview
 
-Carbon Engine is an on-device, air-gapped C++ engine and Qt desktop client for statutory ESG reporting (SEBI BRSR, BRSR Core, GRI). It ingests corporate annual reports locally, extracts compliance metrics using local LLMs and vector search with zero cloud telemetry, and generates audit-ready reports.
+Carbon Engine is an on-device, air-gapped analytics platform and desktop client for statutory corporate sustainability reporting (SEBI BRSR, BRSR Core, GRI). It processes corporate annual reports locally, performs targeted metric extraction via local LLMs and vector search with zero cloud dependencies, and produces audit-ready disclosure reports.
 
-Most cloud AI services require uploading sensitive financial binders to third-party APIs. For public corporations handling Unpublished Price Sensitive Information (UPSI), Carbon Engine eliminates data leakage risks by keeping 100% of data and compute on the local machine.
+| Core Dimension | Technical Specification | Operational Guarantee |
+|---|---|---|
+| **Privacy & Security** | 100% On-device processing | Zero cloud telemetry, zero remote API calls, UPSI-safe |
+| **Compute Engine** | C++20, llama.cpp (CUDA/AVX2), FAISS | High-throughput local vector indexing & extraction |
+| **Statutory Framework** | SEBI BRSR & BRSR Core taxonomy | Consistent mapping, loop-field arrays, missing metric analysis |
+| **Storage Architecture**| SQLite WAL durability | Strictly located in `<Documents>/Carbon ESG/` |
+| **API Architecture** | RFC 8288 / HAL HATEOAS REST | State-aware dynamic hypermedia controls (`_links`) |
 
----
+## Key Capabilities
 
-## Key Features
+* **Air-Gapped Ingestion**: Ingests PDF binders, Excel spreadsheets, and raw text without internet access.
+* **Hybrid OCR & Vector Extraction**: Embedded PDF text parsing with fallback OCR via Tesseract for scanned exhibits.
+* **Local Generative Extraction**: Context-budgeted prompting on Gemma 2 2B Instruct with BGE-Small embeddings.
+* **Review & Verification UI**: Qt Quick desktop workspace with live telemetry, split-view resizing, and inline cell editing.
+* **Audit Reports**: Export standalone HTML and PDF reports with embedded styling and interactive charts.
 
-- **100% Air-Gapped**: Runs entirely on local hardware with zero outbound network calls or telemetry.
-- **Fast Document Ingestion**: Native PDF text extraction with OCR fallback for scanned pages.
-- **Hardware-Accelerated AI**: [llama.cpp](https://github.com/ggerganov/llama.cpp) (CUDA / AVX2) & [FAISS](https://github.com/facebookresearch/faiss) vector search for embeddings and extraction.
-- **Targeted Statutory Extraction**: Extracts and maps metrics directly to official SEBI BRSR sections and principles.
-- **Fault-Tolerant Processing**: Built-in sanitization to handle model token cutoffs and formatting anomalies.
-- **Consultant Desktop UI**: Qt Quick desktop application with editor support and device telemetry.
-- **Audit-Ready Reports**: Exports standalone HTML and PDF reports with interactive charts.
+## Executable Architecture
 
----
+Carbon Engine separates daemon compute, background management, and GUI presentation into three coordinated binaries:
 
-## Architecture
-
-The engine decouples document processing and model inference from the desktop interface via a lightweight local background daemon:
+| Binary | Role | Execution Mode & Boundaries |
+|---|---|---|
+| **`carbon-engine`** | Inference & Ingestion Daemon | Enforced tray or service launcher; direct user launch is blocked |
+| **`carbon-tray`** | System Tray Companion | Background process supervisor, autostart manager, model downloader |
+| **`carbon-engine-client`** | Qt Quick Desktop Client | Interactive desktop application for staging, editing, and report review |
 
 <p align="center">
-  <img src="docs/high_level_architecture.drawio.svg" width="940" alt="Carbon Engine Client-Server Architecture and Libraries"/>
-  <br/>
-  <em>Client-server communication over local REST and internal engine library architecture.</em>
+  <img src="docs/high_level_architecture.drawio.svg" width="940" alt="Carbon Engine Architecture and Libraries"/>
 </p>
 
-Detailed technical diagrams are available in `docs/`:
-- **[System Architecture](docs/architecture.drawio.svg)** - Multi-layer ingestion, chunking, [FAISS](https://github.com/facebookresearch/faiss) vector indexing, & local [llama.cpp](https://github.com/ggerganov/llama.cpp) inference.
-- **[Database Schema](docs/database_schema.drawio.svg)** - SQLite WAL relational tables, foreign key cascades, and embedding BLOB durability.
-- **[Statutory Extraction Pipeline](docs/extraction_pipeline.drawio.svg)** - Two-tier scoped retrieval, context budgeting.
+Detailed diagrams are maintained in `docs/`:
+* [System Architecture](docs/architecture.drawio.svg): Ingestion pipelines, chunking, FAISS vector indexing, and llama.cpp execution.
+* [Database Schema](docs/database_schema.drawio.svg): Relational SQLite tables, cascading foreign keys, and vector BLOBs.
+* [Statutory Extraction Pipeline](docs/extraction_pipeline.drawio.svg): Scoped retrieval, context budgeting, and JSON repair.
 
----
+## HATEOAS REST API
+
+The engine exposes a state-aware REST API on `http://localhost:8080` incorporating RFC 8288 / HAL-style `_links` controls. Dynamic actions (`self`, `ingest`, `cancel`, `start_extraction`, `sections`, `update_section`, `accept_report`, `export_report`, etc.) are advertised dynamically according to resource lifecycle states.
+* Consult the complete endpoint and relation matrix in [CONTRIBUTING.md#2-api-architecture--hateoas-standards](CONTRIBUTING.md#2-api-architecture--hateoas-standards).
 
 ## System Requirements
 
@@ -88,121 +75,87 @@ Detailed technical diagrams are available in `docs/`:
 | Component | Minimum | Recommended |
 |---|---|---|
 | **CPU** | x86_64 with AVX2 (4 cores) | 8+ cores (Intel Core i7/i9 or AMD Ryzen 7/9) |
-| **RAM** | 16 GB | 32 GB+ (for large 300+ page binders) |
-| **GPU** | *(Optional)* CPU inference supported | NVIDIA GPU with 8 GB+ VRAM (RTX 3060, 4060+, Compute 7.0+) |
-| **Disk** | 10 GB free space | SSD with 20 GB+ free space |
+| **RAM** | 16 GB (8 GB for pre-built installer) | 32 GB+ (for 300+ page annual reports) |
+| **GPU** | Optional (CPU inference supported) | NVIDIA GPU with 8 GB+ VRAM (RTX 3060/4060+, Compute 7.0+) |
+| **Disk** | 10 GB free space | NVMe SSD with 20 GB+ free space |
 
 ### Software Toolchain
 
 | Tool | Required Version | Purpose |
 |---|---|---|
-| **OS** | Windows 10/11 (64-bit) or Linux (Ubuntu 22.04+) | Host platform |
-| **Compiler** | MSVC 2022 (v143+) / GCC 11+ / Clang 14+ | C++20 compiler |
-| **CMake** | 3.24 or newer | Build system generator |
-| **Qt 6** | Qt 6.10 or newer | Core, Quick, QuickControls2, HttpServer, Sql, Concurrent |
-| **NASM** | 2.15+ *(Windows)* | SIMD image decoding assembler |
-| **CUDA Toolkit** | *(Optional)* CUDA 12.x | GPU acceleration (`GGML_CUDA=ON`) |
+| **Operating System** | Windows 10/11 (64-bit) or Ubuntu 22.04+ | Supported host operating system |
+| **Compiler** | MSVC 2022 (v143+), GCC 11+, or Clang 14+ | C++20 compiler |
+| **CMake** | 3.28 or newer | Build configuration and generation |
+| **Qt 6** | Qt 6.10 or newer | Core, Quick, HttpServer, Sql, Concurrent, WebEngine |
+| **NASM** | 2.15+ (Windows) | SIMD image decoding acceleration |
+| **CUDA Toolkit** | CUDA 12.x (Optional) | GPU hardware acceleration (`GGML_CUDA=ON`) |
 
----
+## Where Files Go
+
+* **User Data**: Your AI models, database, and logs are kept in your `Documents/Carbon ESG` folder.
+* **Installation Layout**: For details on where files and programs are installed, see [INSTALLATION.md](INSTALLATION.md).
 
 ## Build & Installation
 
 ### 1. Clone Repository
-
 ```bash
 git clone https://github.com/carbonservices/carbon-engine.git
 cd carbon-engine
 ```
 
-### 2. Download Models
-
-By default, CMake automatically downloads the required GGUF models during configuration (`-DCARBON_ENGINE_DOWNLOAD_MODELS=ON`). 
-
-If downloading manually or configuring an air-gapped machine, place the latest models in the `models/` directory:
-
+### 2. Configure and Build (Windows MSVC 2022)
 ```powershell
-mkdir models
-
-# Embedding model (BGE-Small-EN-v1.5, ~67 MB)
-curl -L -o models/bge-small-en-v1.5-f16.gguf https://huggingface.co/compendiumlabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-f16.gguf
-
-# Extraction & Generation model (Gemma 2 2B Instruct Q4_K_M, ~1.7 GB)
-curl -L -o models/gemma-2-2b-it-q4_k_m.gguf https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf
-```
-
-### 3. Build from Source
-
-Third-party dependencies including [llama.cpp](https://github.com/ggerganov/llama.cpp) and [FAISS](https://github.com/facebookresearch/faiss) are automatically fetched and built via CMake `FetchContent`.
-
-#### Windows (Visual Studio 2022 & Qt 6)
-
-```powershell
+# 1. Configure project with Qt 6 prefix
 cmake -S . -B __Builds/x64/_build -G "Visual Studio 17 2022" -A x64 `
-      -DCMAKE_PREFIX_PATH="C:/Qt/6.10.0/msvc2022_64"
+      -DCMAKE_PREFIX_PATH="C:/Qt/6.10.2/msvc2022_64"
 
-cmake --build __Builds/x64/_build --config Release --target carbon-engine --target carbon-engine-client --target carbon-tray
+# 2. Compile Release targets
+cmake --build __Builds/x64/_build --config Release `
+      --target carbon-engine --target carbon-engine-client --target carbon-tray
 ```
 
-Binaries are placed in `__Builds/x64/bin/`:
-- `carbon-engine.exe` - Background daemon & Windows Service
-- `carbon-engine-client.exe` - Native desktop GUI client
-- `carbon-tray.exe` - Windows system tray service manager
-
----
+Compiled executables are located in `__Builds/x64/bin/`.
 
 ## Quick Start
 
-### 1. Start the Engine Daemon or Windows Service
-**Console Mode**:
+### 1. Launch via System Tray Companion (Recommended)
 ```powershell
-./__Builds/x64/bin/carbon-engine.exe
+& "__Builds/x64/bin/carbon-tray.exe"
 ```
-The daemon initializes local models and listens on `http://localhost:8080`.
+* Sits in the Windows Notification Area.
+* Automatically verifies model presence and launches `carbon-engine` in managed background mode.
+* Provides immediate Start, Stop, Restart, and Status telemetry.
 
-**Windows Service Mode** *(Run as Administrator)*:
+### 2. Run as Registered Windows Service (Enterprise Mode)
 ```powershell
-# Install and register the Windows Service
-./__Builds/x64/bin/carbon-engine.exe --install-service
+# Register the Windows Service (Run as Administrator)
+& "__Builds/x64/bin/carbon-engine.exe" --install-service
 
-# Start the service
-./__Builds/x64/bin/carbon-engine.exe --start-service
-```
-
-### 2. Launch the System Tray Manager
-```powershell
-./__Builds/x64/bin/carbon-tray.exe
-```
-Provides instant engine status monitoring, start/stop/restart controls, and quick-launch access to the desktop client from the Windows Notification Area.
-
-### 3. Launch the Desktop Client
-```powershell
-./__Builds/x64/bin/carbon-engine-client.exe
+# Start the registered service
+& "__Builds/x64/bin/carbon-engine.exe" --start-service
 ```
 
-### Workflow
-1. **Stage Documents**: Drop corporate annual report PDFs into the staging panel.
-2. **Run Extraction**: Track live section extraction and system telemetry.
-3. **Review & Edit**: Inspect extracted fields, verify page citations, and edit tabular grids directly.
-4. **Lock & Export**: Finalize disclosures and export audit-ready HTML/PDF reports.
+### 3. Launch Desktop Workspace Client
+```powershell
+& "__Builds/x64/bin/carbon-engine-client.exe"
+```
 
----
+### Operational Workflow
+1. **Stage Documents**: Drag and drop PDF corporate filings or Excel workbooks into the left staging dock.
+2. **Execute Ingestion**: Monitor real-time text extraction, table preservation, and vector indexing.
+3. **Statutory Extraction**: Track structured disclosure extraction across BRSR Principles and Essential Indicators.
+4. **Audit Review**: Inspect page-level source citations, fill missing disclosures, and edit numeric values directly.
+5. **Lock & Export**: Accept disclosures to freeze report state and export standalone HTML/PDF audit deliverables.
 
 ## Contributing
 
-We welcome open-source contributions! Please review our [Contributing Guide](CONTRIBUTING.md) before starting.
+We welcome contributions from developers, ML engineers, and sustainability specialists. Please review [CONTRIBUTING.md](CONTRIBUTING.md) for architectural and coding standards.
 
-- **Discuss First**: Open an issue to discuss design and approach before submitting a PR for new features.
-- **Standards**: Follow modern C++20 conventions, RAII practices, and format code with `.clang-format`.
-- **Policies**: Adhere to our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md).
-
----
+* **Discuss First**: Open an issue before implementing major features or schema changes.
+* **Code Standards**: Follow modern C++20 conventions, strict RAII, and clang-format rules.
+* **HATEOAS**: Maintain state-aware hypermedia links on all API updates.
+* **Security & Conduct**: Review [SECURITY.md](SECURITY.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## License
 
-This project is licensed under the [GNU General Public License v3.0 (GPLv3)](LICENSE).
-
----
-
-<p align="center">
-  Built with ❤️ for a transparent, sustainable, and data-driven future.
-</p>
+Carbon Engine is licensed under the [GNU General Public License v3.0 (GPLv3)](LICENSE).

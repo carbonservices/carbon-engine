@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFileInfo>
+#include <QThread>
 
 Database::Database(const QString& dbPath) : _dbPath(dbPath) {}
 
@@ -85,193 +86,84 @@ bool Database::rollback() {
 
 bool Database::runMigrations() {
     QSqlQuery query(getDb());
-    query.exec("PRAGMA user_version;");
-    int currentVersion = 0;
-    if (query.next()) {
-        currentVersion = query.value(0).toInt();
-    }
+    query.exec("PRAGMA foreign_keys = ON;");
 
-    struct Migration {
-        int version;
-        const char* sql;
-    };
+    const QString schema = R"(
+        CREATE TABLE IF NOT EXISTS ingestion_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            status TEXT CHECK(status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED')) DEFAULT 'PENDING',
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            extraction_status TEXT DEFAULT 'NOT_STARTED',
+            report_locked_at DATETIME
+        );
+        CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);
 
-    const std::vector<Migration> migrations = {
-        {1, "CREATE TABLE IF NOT EXISTS ingestion_jobs ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "file_path TEXT NOT NULL, "
-            "status TEXT CHECK(status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')) DEFAULT 'PENDING', "
-            "error_message TEXT, "
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP);"},
-        {2, "CREATE TABLE IF NOT EXISTS document_chunks ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER, "
-            "page_num INTEGER, "
-            "chunk_text TEXT, "
-            "vector_id INTEGER, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id));"},
-        {3, "CREATE INDEX IF NOT EXISTS idx_document_chunks_vector_id ON document_chunks(vector_id);"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);"
-            "CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);"
-            // SQLite can't ALTER a FOREIGN KEY clause in place, so the cascade is added by
-            // rebuilding document_chunks and copying its rows across.
-            "CREATE TABLE document_chunks_new ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER, "
-            "page_num INTEGER, "
-            "chunk_text TEXT, "
-            "vector_id INTEGER, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE);"
-            "INSERT INTO document_chunks_new (id, job_id, page_num, chunk_text, vector_id) "
-            "SELECT id, job_id, page_num, chunk_text, vector_id FROM document_chunks;"
-            "DROP TABLE document_chunks;"
-            "ALTER TABLE document_chunks_new RENAME TO document_chunks;"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_vector_id ON document_chunks(vector_id);"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);"},
-        {4, // A job now stages one-to-many documents instead of a single file_path column, so
-            // ingestion_jobs loses that column (via rebuild, since SQLite can't drop columns with
-            // dependent constraints in place) and gains a job_documents table. Existing rows are
-            // backfilled into job_documents as document_index 0 before the column is dropped.
-            "CREATE TABLE job_documents ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER NOT NULL, "
-            "file_path TEXT NOT NULL, "
-            "document_index INTEGER NOT NULL, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE);"
-            "CREATE INDEX IF NOT EXISTS idx_job_documents_job_id ON job_documents(job_id);"
-            "INSERT INTO job_documents (job_id, file_path, document_index) "
-            "SELECT id, file_path, 0 FROM ingestion_jobs;"
+        CREATE TABLE IF NOT EXISTS job_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            file_path TEXT NOT NULL,
+            document_index INTEGER NOT NULL,
+            status TEXT DEFAULT 'QUEUED',
+            FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_documents_job_id ON job_documents(job_id);
 
-            "CREATE TABLE ingestion_jobs_new ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "status TEXT CHECK(status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')) DEFAULT 'PENDING', "
-            "error_message TEXT, "
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP);"
-            "INSERT INTO ingestion_jobs_new (id, status, error_message, created_at) "
-            "SELECT id, status, error_message, created_at FROM ingestion_jobs;"
-            "DROP TABLE ingestion_jobs;"
-            "ALTER TABLE ingestion_jobs_new RENAME TO ingestion_jobs;"
-            "CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);"
+        CREATE TABLE IF NOT EXISTS document_chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            document_id INTEGER NOT NULL,
+            page_num INTEGER,
+            chunk_text TEXT,
+            embedding BLOB,
+            embedding_model TEXT,
+            FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE,
+            FOREIGN KEY(document_id) REFERENCES job_documents(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);
+        CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
 
-            // document_chunks gains document_id so each chunk is traceable to the specific file
-            // it came from within a job's batch.
-            "CREATE TABLE document_chunks_new2 ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER, "
-            "document_id INTEGER, "
-            "page_num INTEGER, "
-            "chunk_text TEXT, "
-            "vector_id INTEGER, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE, "
-            "FOREIGN KEY(document_id) REFERENCES job_documents(id) ON DELETE CASCADE);"
-            "INSERT INTO document_chunks_new2 (id, job_id, document_id, page_num, chunk_text, vector_id) "
-            "SELECT dc.id, dc.job_id, jd.id, dc.page_num, dc.chunk_text, dc.vector_id "
-            "FROM document_chunks dc "
-            "LEFT JOIN job_documents jd ON jd.job_id = dc.job_id AND jd.document_index = 0;"
-            "DROP TABLE document_chunks;"
-            "ALTER TABLE document_chunks_new2 RENAME TO document_chunks;"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_vector_id ON document_chunks(vector_id);"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_job_id ON document_chunks(job_id);"
-            "CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);"},
-        {5, // Per-field-group extraction (Phase 4): a job's draft values live in report_sections,
-            // one row per field group, upserted as each group's extraction completes. Chunks gain
-            // a topic_labels column (ChunkRelevanceTracker's keyword-matched field-group tags) and
-            // jobs gain an extraction/lock lifecycle separate from their ingestion status.
-            "ALTER TABLE document_chunks ADD COLUMN topic_labels TEXT;"
-            "ALTER TABLE ingestion_jobs ADD COLUMN extraction_status TEXT DEFAULT 'NOT_STARTED';"
-            "ALTER TABLE ingestion_jobs ADD COLUMN report_locked_at DATETIME;"
-            "CREATE TABLE report_sections ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER NOT NULL, "
-            "group_id TEXT NOT NULL, "
-            "data_json TEXT NOT NULL, "
-            "status TEXT CHECK(status IN ('DRAFT', 'FAILED')) DEFAULT 'DRAFT', "
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE, "
-            "UNIQUE(job_id, group_id));"
-            "CREATE INDEX IF NOT EXISTS idx_report_sections_job_id ON report_sections(job_id);"},
-        {6, // Embedding durability + provenance (Phase 3):
-            // document_chunks gains an embedding BLOB column storing raw float32 vectors,
-            // and an embedding_model TEXT column recording model provenance.
-            "ALTER TABLE document_chunks ADD COLUMN embedding BLOB;"
-            "ALTER TABLE document_chunks ADD COLUMN embedding_model TEXT;"},
-        {7, // High-Precision RAG & FactStore Memoization (Phase 5):
-            // report_sections gains source_chunk_ids to record provenance coordinates.
-            // job_facts stores cross-section memoized metrics and document anchors.
-            "ALTER TABLE report_sections ADD COLUMN source_chunk_ids TEXT;"
-            "CREATE TABLE IF NOT EXISTS job_facts ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER NOT NULL, "
-            "metric_key TEXT NOT NULL, "
-            "metric_value TEXT NOT NULL, "
-            "source_chunk_id INTEGER, "
-            "page_number INTEGER DEFAULT 0, "
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE, "
-            "FOREIGN KEY(source_chunk_id) REFERENCES document_chunks(id) ON DELETE CASCADE, "
-            "UNIQUE(job_id, metric_key));"
-            "CREATE INDEX IF NOT EXISTS idx_job_facts_job_key ON job_facts(job_id, metric_key);"},
-        {8, // Granular Document Tracking & Expanded Check Constraints (Phase 1 / Option B):
-            // 1. Add status column to job_documents
-            // 2. Expand ingestion_jobs check constraint to include CANCELLED and RATE_LIMITED
-            // 3. Expand report_sections check constraint to include UPDATED
-            "ALTER TABLE job_documents ADD COLUMN status TEXT DEFAULT 'QUEUED';"
-            "CREATE TABLE ingestion_jobs_v8 ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "status TEXT CHECK(status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED', 'RATE_LIMITED')) DEFAULT 'PENDING', "
-            "error_message TEXT, "
-            "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-            "extraction_status TEXT DEFAULT 'NOT_STARTED', "
-            "report_locked_at DATETIME);"
-            "INSERT INTO ingestion_jobs_v8 (id, status, error_message, created_at, extraction_status, report_locked_at) "
-            "SELECT id, status, error_message, created_at, extraction_status, report_locked_at FROM ingestion_jobs;"
-            "DROP TABLE ingestion_jobs;"
-            "ALTER TABLE ingestion_jobs_v8 RENAME TO ingestion_jobs;"
-            "CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);"
-            "CREATE TABLE report_sections_v8 ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "job_id INTEGER NOT NULL, "
-            "group_id TEXT NOT NULL, "
-            "data_json TEXT NOT NULL, "
-            "status TEXT CHECK(status IN ('DRAFT', 'FAILED', 'UPDATED')) DEFAULT 'DRAFT', "
-            "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-            "source_chunk_ids TEXT, "
-            "FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE, "
-            "UNIQUE(job_id, group_id));"
-            "INSERT INTO report_sections_v8 (id, job_id, group_id, data_json, status, updated_at, source_chunk_ids) "
-            "SELECT id, job_id, group_id, data_json, status, updated_at, source_chunk_ids FROM report_sections;"
-            "DROP TABLE report_sections;"
-            "ALTER TABLE report_sections_v8 RENAME TO report_sections;"
-            "CREATE INDEX IF NOT EXISTS idx_report_sections_job_id ON report_sections(job_id);"}
-    };
+        CREATE TABLE IF NOT EXISTS report_sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            group_id TEXT NOT NULL,
+            data_json TEXT NOT NULL,
+            status TEXT CHECK(status IN ('DRAFT', 'FAILED', 'UPDATED')) DEFAULT 'DRAFT',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            source_chunk_ids TEXT,
+            FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE,
+            UNIQUE(job_id, group_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_report_sections_job_id ON report_sections(job_id);
 
-    query.exec("PRAGMA foreign_keys = OFF;");
-    for (const auto& m : migrations) {
-        if (m.version > currentVersion) {
-            transaction();
-            QStringList statements = QString(m.sql).split(';', Qt::SkipEmptyParts);
-            bool migrationOk = true;
-            for (const QString& statement : statements) {
-                const QString trimmed = statement.trimmed();
-                if (trimmed.isEmpty())
-                    continue;
-                if (!query.exec(trimmed)) {
-                    _log.error(QString("Migration failed at version %1: %2")
-                        .arg(m.version).arg(query.lastError().text()));
-                    migrationOk = false;
-                    break;
-                }
-            }
-            if (!migrationOk) {
-                rollback();
-                query.exec("PRAGMA foreign_keys = ON;");
-                return false;
-            }
-            query.exec(QString("PRAGMA user_version = %1;").arg(m.version));
-            commit();
+        CREATE TABLE IF NOT EXISTS job_facts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            metric_key TEXT NOT NULL,
+            metric_value TEXT NOT NULL,
+            source_chunk_id INTEGER,
+            page_number INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(job_id) REFERENCES ingestion_jobs(id) ON DELETE CASCADE,
+            FOREIGN KEY(source_chunk_id) REFERENCES document_chunks(id) ON DELETE CASCADE,
+            UNIQUE(job_id, metric_key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_facts_job_key ON job_facts(job_id, metric_key);
+    )";
+
+    transaction();
+    const QStringList statements = schema.split(';', Qt::SkipEmptyParts);
+    for (const QString& statement : statements) {
+        const QString trimmed = statement.trimmed();
+        if (trimmed.isEmpty())
+            continue;
+        if (!query.exec(trimmed)) {
+            _log.error(QString("Failed to initialize database schema: %1").arg(query.lastError().text()));
+            rollback();
+            return false;
         }
     }
-    query.exec("PRAGMA foreign_keys = ON;");
+    commit();
     return true;
 }
 
@@ -283,7 +175,7 @@ int Database::enqueueJob(const QStringList& filePaths) {
     jobQuery.prepare("INSERT INTO ingestion_jobs (status) VALUES ('PENDING');");
     if (!jobQuery.exec()) {
         rollback();
-        return -1;
+        return CoreConstants::InvalidJobId;
     }
     int jobId = jobQuery.lastInsertId().toInt();
 
@@ -295,11 +187,11 @@ int Database::enqueueJob(const QStringList& filePaths) {
         docQuery.bindValue(":idx", i);
         if (!docQuery.exec()) {
             rollback();
-            return -1;
+            return CoreConstants::InvalidJobId;
         }
     }
 
-    if (!commit()) return -1;
+    if (!commit()) return CoreConstants::InvalidJobId;
     return jobId;
 }
 
@@ -337,32 +229,6 @@ bool Database::updateDocumentStatus(int documentId, const QString& status) {
     q.bindValue(":st", status);
     q.bindValue(":id", documentId);
     return q.exec();
-}
-
-int64_t Database::insertChunk(int jobId, int documentId, int pageNum, const QString& chunkText,
-                              const std::vector<float>& embedding, const QString& embeddingModel) {
-    QSqlQuery q(getDb());
-    q.prepare("INSERT INTO document_chunks (job_id, document_id, page_num, chunk_text, embedding, embedding_model) "
-              "VALUES (:job, :doc, :page, :text, :emb, :model);");
-    q.bindValue(":job", jobId);
-    q.bindValue(":doc", documentId);
-    q.bindValue(":page", pageNum);
-    q.bindValue(":text", chunkText);
-
-    QByteArray blob;
-    if (!embedding.empty()) {
-        blob = QByteArray(reinterpret_cast<const char*>(embedding.data()),
-                          static_cast<qsizetype>(embedding.size() * sizeof(float)));
-    }
-    q.bindValue(":emb", blob);
-    q.bindValue(":model", embeddingModel);
-
-    if (!q.exec()) {
-        _log.error(QString("Failed to insert chunk for job %1: %2").arg(jobId).arg(q.lastError().text()));
-        return -1;
-    }
-
-    return q.lastInsertId().toLongLong();
 }
 
 QVector<int64_t> Database::insertChunksBatch(int jobId, const std::vector<ChunkRecord>& chunks, const QString& embeddingModel) {
@@ -423,7 +289,7 @@ QHash<QString, FactEntry> Database::getFactsForJob(int jobId) {
             FactEntry entry;
             entry.key = q.value(0).toString();
             entry.value = q.value(1).toString();
-            entry.sourceChunkId = q.value(2).isNull() ? -1 : q.value(2).toLongLong();
+            entry.sourceChunkId = q.value(2).isNull() ? CoreConstants::NoSourceChunkId : q.value(2).toLongLong();
             entry.pageNumber = q.value(3).toInt();
             result.insert(entry.key, entry);
         }
@@ -585,6 +451,59 @@ QMap<int64_t, QString> Database::getChunksByIds(const std::vector<int64_t>& ids)
     return result;
 }
 
+QVector<int64_t> Database::getDocumentNeighborChunkIds(int jobId, const QVector<int64_t>& anchorIds) {
+    QVector<int64_t> neighbors;
+    if (jobId <= 0 || anchorIds.isEmpty()) {
+        return neighbors;
+    }
+
+    QStringList placeholders;
+    for (int i = 0; i < anchorIds.size(); ++i) {
+        placeholders.append("?");
+    }
+
+    QString sql = QString(
+        "WITH ordered_chunks AS ("
+        "    SELECT id, document_id, "
+        "           LAG(id, 1) OVER (PARTITION BY document_id ORDER BY id ASC) AS prev_id, "
+        "           LEAD(id, 1) OVER (PARTITION BY document_id ORDER BY id ASC) AS next_id "
+        "    FROM document_chunks "
+        "    WHERE job_id = ? "
+        ") "
+        "SELECT id, prev_id, next_id "
+        "FROM ordered_chunks "
+        "WHERE id IN (%1);"
+    ).arg(placeholders.join(','));
+
+    QSqlQuery q(getDb());
+    q.prepare(sql);
+    q.addBindValue(jobId);
+    for (int64_t aid : anchorIds) {
+        q.addBindValue(static_cast<qint64>(aid));
+    }
+
+    if (q.exec()) {
+        while (q.next()) {
+            qint64 currentId = q.value(0).toLongLong();
+            QVariant prevVal = q.value(1);
+            QVariant nextVal = q.value(2);
+
+            if (!prevVal.isNull()) {
+                neighbors.append(prevVal.toLongLong());
+            }
+            neighbors.append(currentId);
+            if (!nextVal.isNull()) {
+                neighbors.append(nextVal.toLongLong());
+            }
+        }
+    } else {
+        _log.error(QString("Failed to query document neighbor chunks for job %1: %2")
+                       .arg(jobId).arg(q.lastError().text()));
+    }
+
+    return neighbors;
+}
+
 bool Database::deleteJob(int jobId) {
     QSqlQuery q(getDb());
     q.prepare("DELETE FROM ingestion_jobs WHERE id = :id;");
@@ -606,52 +525,61 @@ QVector<ReportSummary> Database::getAllReports() {
         _log.error(QString("Failed to query reports: %1").arg(q.lastError().text()));
         return list;
     }
+
+    // 1. Batch fetch all documents for all jobs in a single query
+    QHash<int, QStringList> docsByJob;
+    QSqlQuery docQ(getDb());
+    if (docQ.exec("SELECT job_id, file_path FROM job_documents ORDER BY job_id DESC, document_index ASC;")) {
+        while (docQ.next()) {
+            docsByJob[docQ.value(0).toInt()].append(docQ.value(1).toString());
+        }
+    }
+
+    // 2. Batch fetch entity names from job_facts
+    QHash<int, QString> entityByJob;
+    QSqlQuery factQ(getDb());
+    if (factQ.exec("SELECT job_id, metric_value FROM job_facts WHERE metric_key = 'entity_name';")) {
+        while (factQ.next()) {
+            QString val = factQ.value(1).toString().trimmed();
+            if (!val.isEmpty() && val != "null" && val != "N/A") {
+                entityByJob.insert(factQ.value(0).toInt(), val);
+            }
+        }
+    }
+
+    // 3. Batch fetch fallback corporate section JSON for jobs that still need title derivation
+    QHash<int, QString> sectionEntityByJob;
+    QSqlQuery secQ(getDb());
+    if (secQ.exec("SELECT job_id, data_json FROM report_sections WHERE group_id IN ('section_a_corporate', 'section_a_general', 'entity_details');")) {
+        while (secQ.next()) {
+            int jid = secQ.value(0).toInt();
+            if (!entityByJob.contains(jid) && !sectionEntityByJob.contains(jid)) {
+                QString jsonStr = secQ.value(1).toString();
+                auto doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+                if (doc.isObject()) {
+                    QString entity = doc.object().value("entity_name").toString();
+                    if (entity.isEmpty()) entity = doc.object().value("general_company_name").toString();
+                    if (!entity.isEmpty() && entity != "null" && entity != "N/A") {
+                        sectionEntityByJob.insert(jid, entity.trimmed());
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Assemble report summaries in memory
     while (q.next()) {
         ReportSummary summary;
         summary.jobId = q.value(0).toInt();
         summary.status = q.value(1).toString();
         summary.extractionStatus = q.value(2).toString();
         summary.createdAt = q.value(3).toString();
+        summary.documents = docsByJob.value(summary.jobId);
 
-        // Fetch documents for this job
-        QSqlQuery docQ(getDb());
-        docQ.prepare("SELECT file_path FROM job_documents WHERE job_id = :job ORDER BY document_index ASC;");
-        docQ.bindValue(":job", summary.jobId);
-        if (docQ.exec()) {
-            while (docQ.next()) {
-                summary.documents.append(docQ.value(0).toString());
-            }
-        }
-
-        // Try to derive entity / company name from job_facts or report_sections if available
-        QString derivedTitle;
-        QSqlQuery factQ(getDb());
-        factQ.prepare("SELECT metric_value FROM job_facts WHERE job_id = :job AND metric_key = 'entity_name' LIMIT 1;");
-        factQ.bindValue(":job", summary.jobId);
-        if (factQ.exec() && factQ.next()) {
-            QString entity = factQ.value(0).toString().trimmed();
-            if (!entity.isEmpty() && entity != "null" && entity != "N/A") {
-                derivedTitle = entity;
-            }
-        }
-
+        QString derivedTitle = entityByJob.value(summary.jobId);
         if (derivedTitle.isEmpty()) {
-            QSqlQuery secQ(getDb());
-            secQ.prepare("SELECT data_json FROM report_sections WHERE job_id = :job AND group_id IN ('section_a_corporate', 'section_a_general', 'entity_details') LIMIT 1;");
-            secQ.bindValue(":job", summary.jobId);
-            if (secQ.exec() && secQ.next()) {
-                QString jsonStr = secQ.value(0).toString();
-                auto doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-                if (doc.isObject()) {
-                    QString entity = doc.object().value("entity_name").toString();
-                    if (entity.isEmpty()) entity = doc.object().value("general_company_name").toString();
-                    if (!entity.isEmpty() && entity != "null" && entity != "N/A") {
-                        derivedTitle = entity;
-                    }
-                }
-            }
+            derivedTitle = sectionEntityByJob.value(summary.jobId);
         }
-
         if (derivedTitle.isEmpty() && !summary.documents.isEmpty()) {
             QString firstDoc = summary.documents.first();
             firstDoc.replace('\\', '/');
@@ -661,11 +589,9 @@ QVector<ReportSummary> Database::getAllReports() {
             base.replace('-', ' ');
             derivedTitle = base;
         }
-
         if (derivedTitle.isEmpty()) {
             derivedTitle = QString("Report #%1").arg(summary.jobId);
         }
-
         summary.title = derivedTitle;
         list.append(summary);
     }

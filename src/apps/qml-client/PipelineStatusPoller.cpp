@@ -15,6 +15,7 @@ PipelineStatusPoller::PipelineStatusPoller(QObject *parent) : ApiClientBase(pare
 
 void PipelineStatusPoller::startPolling(int jobId)
 {
+    stopPolling();
     _jobId = jobId;
     _log.info(QString("Started polling job %1").arg(jobId));
     poll();
@@ -25,13 +26,18 @@ void PipelineStatusPoller::stopPolling()
 {
     _log.info(QString("Stopped polling job %1").arg(_jobId));
     _timer.stop();
-    _jobId = -1;
+    _jobId = CoreConstants::InvalidJobId;
+    if (_activeReply) {
+        _activeReply->abort();
+        _activeReply->deleteLater();
+        _activeReply = nullptr;
+    }
 }
 
 void PipelineStatusPoller::poll()
 {
     int polledJobId = _jobId;
-    if (polledJobId < 0) {
+    if (polledJobId < 0 || _activeReply) {
         return;
     }
 
@@ -42,6 +48,7 @@ void PipelineStatusPoller::poll()
 
     QNetworkReply *reply = network().get(QNetworkRequest(url));
     reply->setProperty("polledJobId", polledJobId);
+    _activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, &PipelineStatusPoller::onPollFinished);
 }
 
@@ -49,6 +56,9 @@ void PipelineStatusPoller::onPollFinished()
 {
     auto *reply = qobject_cast<QNetworkReply*>(sender());
     if (!reply) return;
+    if (_activeReply == reply) {
+        _activeReply = nullptr;
+    }
     reply->deleteLater();
     int polledJobId = reply->property("polledJobId").toInt();
 
@@ -57,7 +67,9 @@ void PipelineStatusPoller::onPollFinished()
     }
     if (reply->error() != QNetworkReply::NoError)
     {
-        _log.error(QString("Poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
+        if (reply->error() != QNetworkReply::OperationCanceledError) {
+            _log.error(QString("Poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
+        }
         return;
     }
 
@@ -73,16 +85,19 @@ void PipelineStatusPoller::onPollFinished()
     if (status == JobStatus::Completed)
     {
         _timer.stop();
+        _jobId = CoreConstants::InvalidJobId;
         emit completed();
     }
     else if (status == JobStatus::Failed)
     {
         _timer.stop();
+        _jobId = CoreConstants::InvalidJobId;
         emit failed("Ingestion failed");
     }
     else if (status == JobStatus::Cancelled)
     {
         _timer.stop();
+        _jobId = CoreConstants::InvalidJobId;
         emit cancelled();
     }
 }

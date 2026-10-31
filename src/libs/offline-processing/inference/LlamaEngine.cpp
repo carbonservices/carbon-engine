@@ -1,4 +1,5 @@
 #include "LlamaEngine.h"
+#include "constants/CommonConstants.h"
 
 // Qt
 #include <QMutexLocker>
@@ -22,17 +23,19 @@ constexpr int kDefaultGenContextSize = 8192;
 // ─────────────────────────────────────────────────────────────
 static int resolveThreadCount()
 {
-    bool ok = false;
-    int envThreads = qEnvironmentVariableIntValue("CARBON_ENGINE_THREADS", &ok);
-    if (ok && envThreads > 0) {
-        return envThreads;
-    }
-
     unsigned hw = std::thread::hardware_concurrency();
     if (hw == 0) hw = 4;
     if (hw > 8)  hw = 8;
     if (hw < 2)  hw = 2;
     return static_cast<int>(hw);
+}
+
+static std::string resolveModelDocumentsPath(const QString& path)
+{
+    QString fileName = QFileInfo(path).fileName();
+    QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
+    QDir().mkpath(docDir);
+    return QDir(docDir).filePath(fileName).toStdString();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -41,16 +44,11 @@ LlamaEngine::LlamaEngine(const QString& genModelPath,
                          SystemMonitor& monitor,
                          QObject* parent)
     : QObject(parent)
-    , _genPath(genModelPath.toStdString())
-    , _embdPath(embdModelPath.toStdString())
+    , _genPath(resolveModelDocumentsPath(genModelPath))
+    , _embdPath(resolveModelDocumentsPath(embdModelPath))
     , _nThreads(resolveThreadCount())
     , _monitor(monitor)
 {
-    bool ok = false;
-    int envTimeout = qEnvironmentVariableIntValue("CARBON_ENGINE_IDLE_TIMEOUT_SEC", &ok);
-    if (ok && envTimeout >= 0) {
-        _idleTimeoutSec = envTimeout;
-    }
 
     _idleTimer = new QTimer(this);
     _idleTimer->setSingleShot(true);
@@ -92,6 +90,11 @@ bool LlamaEngine::isForceCpu() const
 
 void LlamaEngine::setForceGpu(bool force)
 {
+    if (!isGpuSupported()) {
+        _log.warn("Cannot enable Force GPU mode: Application is built without GPU acceleration.");
+        _forceGpu.store(false);
+        return;
+    }
     if (_forceGpu.load() != force) {
         _forceGpu.store(force);
         if (force) {
@@ -108,8 +111,20 @@ bool LlamaEngine::isForceGpu() const
     return _forceGpu.load();
 }
 
+bool LlamaEngine::isGpuSupported() const
+{
+#if defined(CARBON_ENGINE_CUDA) && !defined(CARBON_ENGINE_NON_GPU)
+    return (strcmp(AppInfo::WorkloadTag, "Non-GPU") != 0);
+#else
+    return false;
+#endif
+}
+
 QString LlamaEngine::activeInferenceModeString() const
 {
+    if (!isGpuSupported()) {
+        return QStringLiteral("Auto (System Specs: CPU Multi-Variant)");
+    }
     if (_forceCpu.load()) {
         return QStringLiteral("Forced CPU Mode (Testing)");
     }
@@ -124,6 +139,12 @@ QString LlamaEngine::activeInferenceModeString() const
 
 int LlamaEngine::resolveGenGpuLayers(bool verbose) const
 {
+    if (!isGpuSupported()) {
+        if (verbose) {
+            _log.info("Non-GPU build: GPU offload disabled (n_gpu_layers = 0).");
+        }
+        return 0;
+    }
     if (_forceCpu.load()) {
         if (verbose) {
             _log.info("Testing override active: Force CPU mode enabled (n_gpu_layers = 0).");
@@ -132,20 +153,9 @@ int LlamaEngine::resolveGenGpuLayers(bool verbose) const
     }
     if (_forceGpu.load() && _monitor.gpuPresent()) {
         if (verbose) {
-            _log.info("Testing override active: Force GPU mode enabled (n_gpu_layers = 99).");
+            _log.info("Testing override active: Force GPU mode enabled (all layers).");
         }
-        return 99;
-    }
-    bool ok = false;
-    int envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_GEN_GPU_LAYERS", &ok);
-    if (!ok) {
-        envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_GPU_LAYERS", &ok);
-    }
-    if (ok) {
-        if (verbose) {
-            _log.info(QString("Generative GPU layers overridden: %1").arg(envVal));
-        }
-        return envVal;
+        return CoreConstants::OffloadAllLayers;
     }
 
     if (!_monitor.gpuPresent()) {
@@ -164,9 +174,9 @@ int LlamaEngine::resolveGenGpuLayers(bool verbose) const
     // Gemma 2 2B (Q4_K_M) requires ~1.5 GB for weights + ~0.5 GB for KV cache = ~2.0 GB total for 100% offload.
     if (vramMb >= 3000) {
         if (verbose) {
-            _log.info("Sufficient VRAM detected (>= 3.0GB). Offloading all layers (n_gpu_layers = 99).");
+            _log.info("Sufficient VRAM detected (>= 3.0GB). Offloading all layers.");
         }
-        return 99;
+        return CoreConstants::OffloadAllLayers;
     } else if (vramMb >= 1800) {
         if (verbose) {
             _log.info("Moderate VRAM detected (1.8GB - 3.0GB). Using hybrid partial offload (n_gpu_layers = 16).");
@@ -182,6 +192,12 @@ int LlamaEngine::resolveGenGpuLayers(bool verbose) const
 
 int LlamaEngine::resolveEmbdGpuLayers(bool verbose) const
 {
+    if (!isGpuSupported()) {
+        if (verbose) {
+            _log.info("Non-GPU build: Embedding GPU offload disabled.");
+        }
+        return 0;
+    }
     if (_forceCpu.load()) {
         if (verbose) {
             _log.info("Testing override active: Force CPU mode enabled for embeddings.");
@@ -192,15 +208,7 @@ int LlamaEngine::resolveEmbdGpuLayers(bool verbose) const
         if (verbose) {
             _log.info("Testing override active: Force GPU mode enabled for embeddings.");
         }
-        return 99;
-    }
-    bool ok = false;
-    int envVal = qEnvironmentVariableIntValue("CARBON_ENGINE_EMBD_GPU_LAYERS", &ok);
-    if (ok) {
-        if (verbose) {
-            _log.info(QString("Embedding GPU layers overridden: %1").arg(envVal));
-        }
-        return envVal;
+        return CoreConstants::OffloadAllLayers;
     }
 
     if (!_monitor.gpuPresent()) {
@@ -210,9 +218,9 @@ int LlamaEngine::resolveEmbdGpuLayers(bool verbose) const
     // Embedding model (bge-small-en-v1.5) requires only ~67 MB of VRAM.
     // When a dedicated GPU is present, offload to GPU directly.
     if (verbose) {
-        _log.info("Dedicated GPU detected. Offloading embedding model to GPU (n_gpu_layers = 99).");
+        _log.info("Dedicated GPU detected. Offloading embedding model to GPU (all layers).");
     }
-    return 99;
+    return CoreConstants::OffloadAllLayers;
 }
 
 int LlamaEngine::activeGenGpuLayers() const
@@ -223,6 +231,9 @@ int LlamaEngine::activeGenGpuLayers() const
 
 QString LlamaEngine::offloadModeString() const
 {
+    if (!isGpuSupported()) {
+        return QStringLiteral("CPU Only");
+    }
     if (_forceCpu.load()) {
         return QStringLiteral("Forced CPU Mode (Testing)");
     }
@@ -236,15 +247,16 @@ QString LlamaEngine::offloadModeString() const
     int genLayers = _activeGenLayers.load();
     int embdLayers = _activeEmbdLayers.load();
 
-    if (genLayers < 0) {
+    if (genLayers == CoreConstants::ModelNotLoaded) {
         int target = resolveGenGpuLayers(false);
-        if (target >= 99) return QStringLiteral("Ready (Full GPU)");
+        if (target >= CoreConstants::OffloadAllLayers) return QStringLiteral("Ready (Full GPU)");
         if (target > 0) return QString("Ready (Hybrid %1L)").arg(target);
         return QStringLiteral("Ready (CPU)");
     }
 
-    if (genLayers >= 99) {
-        return (embdLayers >= 99) ? QStringLiteral("Full GPU (Dual)") : QStringLiteral("Full GPU (99L)");
+    int totalLayers = _genModel ? llama_model_n_layer(_genModel) : 0;
+    if ((totalLayers > 0 && genLayers >= totalLayers) || genLayers >= CoreConstants::OffloadAllLayers) {
+        return (embdLayers > 0) ? QStringLiteral("Full GPU (Dual)") : QStringLiteral("Full GPU (All Layers)");
     } else if (genLayers > 0) {
         return QString("Hybrid (%1L)").arg(genLayers);
     }
@@ -323,14 +335,6 @@ bool LlamaEngine::loadEmbdModel()
 
     _monitor.setEnginePhase(EnginePhase::LoadingModel);
     _log.info("Loading embedding model...");
-
-    if (!QFile::exists(QString::fromStdString(_embdPath))) {
-        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
-        QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_embdPath)).fileName());
-        if (QFile::exists(docPath)) {
-            _embdPath = docPath.toStdString();
-        }
-    }
 
     llama_model_params mp = llama_model_default_params();
     int embdLayers = resolveEmbdGpuLayers();
@@ -411,14 +415,6 @@ bool LlamaEngine::loadGenModel()
 
     _monitor.setEnginePhase(EnginePhase::LoadingModel);
 
-    if (!QFile::exists(QString::fromStdString(_genPath))) {
-        QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
-        QString docPath = QDir(docDir).filePath(QFileInfo(QString::fromStdString(_genPath)).fileName());
-        if (QFile::exists(docPath)) {
-            _genPath = docPath.toStdString();
-        }
-    }
-
     int targetGpuLayers = resolveGenGpuLayers();
     std::vector<int> attempts;
     attempts.push_back(targetGpuLayers);
@@ -451,14 +447,17 @@ bool LlamaEngine::loadGenModel()
         }
 
         // Successfully loaded model and initialized context!
-        _activeGenLayers.store(layers);
-        _log.info(QString("Generation model successfully loaded (%1 GPU layers active)").arg(layers));
+        int totalModelLayers = llama_model_n_layer(_genModel);
+        int effectiveLayers = (layers >= CoreConstants::OffloadAllLayers) ? totalModelLayers : std::min(layers, totalModelLayers);
+        _activeGenLayers.store(effectiveLayers);
+        _log.info(QString("Generation model successfully loaded (%1/%2 GPU layers active)")
+                      .arg(effectiveLayers).arg(totalModelLayers));
         _monitor.setEnginePhase(EnginePhase::Idle);
         resetIdleTimer();
         return true;
     }
 
-    _activeGenLayers.store(-1);
+    _activeGenLayers.store(CoreConstants::ModelNotLoaded);
     _log.error(QString("Failed to load generation model across all hardware tiers: %1")
                    .arg(QString::fromStdString(_genPath)));
     _monitor.setEnginePhase(EnginePhase::Idle);
@@ -468,7 +467,7 @@ bool LlamaEngine::loadGenModel()
 void LlamaEngine::unloadGenModel()
 {
     QMutexLocker lock(&_genMutex);
-    _activeGenLayers.store(-1);
+    _activeGenLayers.store(CoreConstants::ModelNotLoaded);
     if (_genCtx) {
         llama_free(_genCtx);
         _genCtx = Q_NULLPTR;

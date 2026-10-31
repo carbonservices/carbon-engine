@@ -34,11 +34,22 @@ if(WIN32)
     # Install deployed Qt runtime DLLs, plugins, resources, and complete QML tree into bin
     install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
         DESTINATION ${CMAKE_INSTALL_BINDIR}
+        PATTERN "*d.dll" EXCLUDE
+        PATTERN "*d.exe" EXCLUDE
+        PATTERN "*debug*" EXCLUDE
+        PATTERN "carbon-engine*" EXCLUDE
+        PATTERN "carbon-tray*" EXCLUDE
         PATTERN "*.pdb" EXCLUDE
         PATTERN "*.ilk" EXCLUDE
         PATTERN "*.exp" EXCLUDE
         PATTERN "*.lib" EXCLUDE
         PATTERN "*.obj" EXCLUDE
+        PATTERN "*.iobj" EXCLUDE
+        PATTERN "*.ipdb" EXCLUDE
+        PATTERN "*.idb" EXCLUDE
+        PATTERN "*.log" EXCLUDE
+        PATTERN "*.part" EXCLUDE
+        PATTERN "*.sqlite*" EXCLUDE
         PATTERN "template.html" EXCLUDE
         PATTERN "qmltooling" EXCLUDE
     )
@@ -46,12 +57,11 @@ if(WIN32)
     install(FILES "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
         DESTINATION templates
     )
-    install(FILES "${CMAKE_SOURCE_DIR}/src/apps/qml-client/logo.png"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-    install(FILES "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
+    if(EXISTS "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata")
+        install(FILES "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata"
+            DESTINATION ${CMAKE_INSTALL_BINDIR}/tessdata
+        )
+    endif()
 else()
     set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:$ORIGIN/../lib:$ORIGIN")
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -72,6 +82,11 @@ else()
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/linux/carbon-esg.png"
         DESTINATION share/icons/hicolor/256x256/apps
     )
+    if(EXISTS "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata")
+        install(FILES "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata"
+            DESTINATION share/tessdata
+        )
+    endif()
 
     # Bundle Qt 6 runtime libraries, plugins, QML modules, and resources for self-contained Linux deployment
     get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
@@ -123,17 +138,6 @@ else()
     endif()
 endif()
 
-if(EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
-    install(FILES "${CMAKE_SOURCE_DIR}/eng.traineddata"
-        DESTINATION share/tessdata
-    )
-    if(WIN32)
-        install(FILES "${CMAKE_SOURCE_DIR}/eng.traineddata"
-            DESTINATION ${CMAKE_INSTALL_BINDIR}/tessdata
-        )
-    endif()
-endif()
-
 
 # 3. CPack Configuration
 set(CPACK_PACKAGE_NAME "CarbonESG")
@@ -158,28 +162,36 @@ if(WIN32)
     set(CPACK_NSIS_CONTACT "carbon.esgreports@gmail.com")
     set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico")
     set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/src/apps/server/app.ico")
+    set(CPACK_PACKAGE_ICON "${CMAKE_CURRENT_LIST_DIR}/windows/header.bmp")
+    set(CPACK_NSIS_MUI_HEADERIMAGE "${CMAKE_CURRENT_LIST_DIR}/windows/header.bmp")
+    set(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP "${CMAKE_CURRENT_LIST_DIR}/windows/banner.bmp")
+    set(CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP "${CMAKE_CURRENT_LIST_DIR}/windows/banner.bmp")
     set(CPACK_NSIS_MODIFY_PATH ON)
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
     set(CPACK_NSIS_DEFINES "RequestExecutionLevel admin")
     set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
+    set(CPACK_NSIS_BRANDING_TEXT "Carbon Services - ESG Statutory Reporting")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
-      ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --install-service'
-      ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --start-service'
-      WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
-      Exec '\"$INSTDIR\\\\bin\\\\carbon-tray.exe\"'
+      ExecWait '\\\"$INSTDIR\\\\bin\\\\carbon-engine.exe\\\" --stop-service'
+      ExecWait '\\\"$INSTDIR\\\\bin\\\\carbon-engine.exe\\\" --uninstall-service'
+      WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray' '\\\"$INSTDIR\\\\bin\\\\carbon-tray.exe\\\" --minimized'
+      Exec '\\\"$INSTDIR\\\\bin\\\\carbon-tray.exe\\\"'
     ")
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+      ExecWait 'taskkill /IM carbon-tray.exe'
+      ExecWait 'taskkill /IM carbon-engine-client.exe'
+      ExecWait 'taskkill /IM carbon-engine.exe'
       ExecWait 'taskkill /F /IM carbon-tray.exe /T'
       ExecWait 'taskkill /F /IM carbon-engine-client.exe /T'
-      ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --stop-service'
-      ExecWait '\"$INSTDIR\\\\bin\\\\carbon-engine.exe\" --uninstall-service'
       ExecWait 'taskkill /F /IM carbon-engine.exe /T'
+      ExecWait '\\\"$INSTDIR\\\\bin\\\\carbon-engine.exe\\\" --stop-service'
+      ExecWait '\\\"$INSTDIR\\\\bin\\\\carbon-engine.exe\\\" --uninstall-service'
       DeleteRegValue HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' 'CarbonEngineTray'
     ")
     set(CPACK_PACKAGE_EXECUTABLES
-        "carbon-engine-client" "Carbon ESG"
+        "carbon-tray" "Carbon ESG"
     )
-    set(CPACK_CREATE_DESKTOP_LINKS "carbon-engine-client")
+    set(CPACK_CREATE_DESKTOP_LINKS "carbon-tray")
 else()
     set(CPACK_GENERATOR "DEB")
     set(CPACK_PACKAGE_FILE_NAME "CarbonESG-${CARBON_ENGINE_VERSION}-Linux-x64-${CARBON_WORKLOAD_TAG}")
@@ -197,4 +209,3 @@ set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION FALSE)
 set(CPACK_WARN_ON_ABSOLUTE_INSTALL_DESTINATION TRUE)
 
 include(CPack)
-

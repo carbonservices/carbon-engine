@@ -6,7 +6,7 @@
 
 // Renders a job's accepted report_sections into the final BRSR HTML via template.html + Inja.
 // This is the only place HTML rendering happens; it is a cheap re-render of already-locked
-// data, so unlike the old handleReport there is nothing to cache.
+// data, so there is nothing to cache.
 class ReportExporter {
 public:
     ReportExporter(Database& db, const BRSRSchemaCatalog& catalog);

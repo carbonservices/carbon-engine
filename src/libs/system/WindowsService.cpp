@@ -8,7 +8,6 @@
 #include <winsvc.h>
 #include <iostream>
 #include <QCoreApplication>
-#include <QThread>
 
 static std::function<int(int, char**)> g_runDaemonFunc;
 static SERVICE_STATUS_HANDLE g_statusHandle = NULL;

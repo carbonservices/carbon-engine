@@ -19,7 +19,7 @@
         &lt;mxCell id=&quot;n_chunker&quot; value=&quot;Sliding-Window Chunking&amp;lt;br&amp;gt;- 1,500 chars/chunk&amp;lt;br&amp;gt;- 300 char overlap window&amp;lt;br&amp;gt;- 1-based page attribution&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;280&quot; y=&quot;240&quot; width=&quot;200&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;n_job_queue&quot; value=&quot;JobQueue (src/libs/queue)&amp;lt;br&amp;gt;- Async background worker&amp;lt;br&amp;gt;- SQLite backed job status&amp;lt;br&amp;gt;- Non-blocking network I/O&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;n_job_queue&quot; value=&quot;JobQueue (src/apps/server/queue)&amp;lt;br&amp;gt;- Async background worker&amp;lt;br&amp;gt;- SQLite backed job status&amp;lt;br&amp;gt;- Non-blocking network I/O&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontSize=11;align=left;spacingLeft=8;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;70&quot; y=&quot;240&quot; width=&quot;180&quot; height=&quot;70&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_chunks_out&quot; value=&quot;Structured Chunks&amp;lt;br&amp;gt;[chunk_id, doc_id, page_num, text]&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#1d4ed8;fontColor=#1e3a8a;fontStyle=1;fontSize=11;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
@@ -28,19 +28,19 @@
         &lt;mxCell id=&quot;n_embed_worker&quot; value=&quot;LlamaEngine Embedding Worker&amp;lt;br&amp;gt;- BGE-Small-EN-v1.5 (GGUF)&amp;lt;br&amp;gt;- 384-dimensional dense vectors&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;fontSize=11;align=center;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;150&quot; y=&quot;425&quot; width=&quot;250&quot; height=&quot;65&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;c_storage&quot; value=&quot;2. Storage &amp;amp; Vector Indexing (src/libs/db &amp;amp; src/libs/vector)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#5b21b6;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;c_storage&quot; value=&quot;2. Storage &amp;amp; Vector Indexing (src/libs/common/db &amp;amp; src/libs/offline-processing/vector)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#8b5cf6;strokeWidth=2;fontColor=#5b21b6;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;530&quot; y=&quot;90&quot; width=&quot;470&quot; height=&quot;430&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_sqlite_db&quot; value=&quot;SQLite WAL Storage (Database.cpp)&amp;lt;br&amp;gt;- PRAGMA journal_mode = WAL&amp;lt;br&amp;gt;- PRAGMA foreign_keys = ON&amp;lt;br&amp;gt;- Tables: ingestion_jobs, job_documents,&amp;lt;br&amp;gt;  document_chunks, report_sections&amp;lt;br&amp;gt;- Embeddings stored as binary BLOBs&amp;lt;br&amp;gt;- ON DELETE CASCADE for report isolation&quot; style=&quot;shape=cylinder;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontStyle=1;fontSize=11;align=left;spacingLeft=15;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;560&quot; y=&quot;140&quot; width=&quot;410&quot; height=&quot;110&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;n_faiss_registry&quot; value=&quot;VectorIndexRegistry (src/libs/vector)&amp;lt;br&amp;gt;- Job-Scoped Partitioning (No cross-doc contamination)&amp;lt;br&amp;gt;- FAISS HNSW Index per job (IndexHNSWFlat)&amp;lt;br&amp;gt;- Intel MKL AVX2 Hardware Acceleration&amp;lt;br&amp;gt;- Sub-second index rebuild from SQLite BLOBs on boot&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9333ea;fontColor=#581c87;fontSize=11;align=left;spacingLeft=12;fontStyle=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;n_faiss_registry&quot; value=&quot;VectorIndexRegistry (src/libs/offline-processing/vector)&amp;lt;br&amp;gt;- Job-Scoped Partitioning (No cross-doc contamination)&amp;lt;br&amp;gt;- FAISS HNSW Index per job (IndexHNSWFlat)&amp;lt;br&amp;gt;- Intel MKL AVX2 Hardware Acceleration&amp;lt;br&amp;gt;- Sub-second index rebuild from SQLite BLOBs on boot&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#9333ea;fontColor=#581c87;fontSize=11;align=left;spacingLeft=12;fontStyle=1;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;560&quot; y=&quot;280&quot; width=&quot;410&quot; height=&quot;100&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_retrieval_engine&quot; value=&quot;Two-Tier Scoped Retrieval&amp;lt;br&amp;gt;1. Locality Window Check (Chunk ID ± 2 on same page)&amp;lt;br&amp;gt;2. FAISS Vector Search (k=6 similarity candidates)&amp;lt;br&amp;gt;3. Single-batch SQL deduplicated fetch&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontColor=#4c1d95;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;560&quot; y=&quot;410&quot; width=&quot;410&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;c_extract&quot; value=&quot;3. Targeted Statutory Extraction &amp;amp; Inference (src/libs/report &amp;amp; inference)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#10b981;strokeWidth=2;fontColor=#047857;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;c_extract&quot; value=&quot;3. Targeted Statutory Extraction &amp;amp; Inference (src/libs/common/report &amp;amp; offline-processing/inference)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#10b981;strokeWidth=2;fontColor=#047857;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;1030&quot; y=&quot;90&quot; width=&quot;490&quot; height=&quot;430&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_factstore&quot; value=&quot;FactStore (FactStore.cpp)&amp;lt;br&amp;gt;- In-memory corporate anchor memoization&amp;lt;br&amp;gt;- Caches: FY, CIN, Turnover, Headcount, Net Worth&amp;lt;br&amp;gt;- Eliminates redundant LLM calls across principles&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#064e3b;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
@@ -49,16 +49,16 @@
         &lt;mxCell id=&quot;n_brsr_schema&quot; value=&quot;BrsrSchema Catalog (BrsrSchema.cpp)&amp;lt;br&amp;gt;- 12 Canonical SEBI Statutory Groups (A, B, P1-P9, Core)&amp;lt;br&amp;gt;- Targeted RAG Queries per section&amp;lt;br&amp;gt;- ~150 Field definitions &amp;amp; 48 loop/table schemas&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#10b981;fontColor=#064e3b;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;1060&quot; y=&quot;230&quot; width=&quot;430&quot; height=&quot;75&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;n_llama_gen&quot; value=&quot;LlamaEngine (Qwen 2.5 7B Instruct GGUF)&amp;lt;br&amp;gt;- llama.cpp backend (GGML_CUDA or CPU AVX2)&amp;lt;br&amp;gt;- Middle-out context budget guard (preserves schema)&amp;lt;br&amp;gt;- KV Cache reuse across section generation&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;n_llama_gen&quot; value=&quot;LlamaEngine (Gemma 2 2B Instruct GGUF)&amp;lt;br&amp;gt;- llama.cpp backend (GGML_CUDA or CPU AVX2)&amp;lt;br&amp;gt;- Middle-out context budget guard (preserves schema)&amp;lt;br&amp;gt;- KV Cache reuse across section generation&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontColor=#78350f;fontStyle=1;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;1060&quot; y=&quot;320&quot; width=&quot;430&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_json_repair&quot; value=&quot;Resilient Multi-Pass JSON Parser&amp;lt;br&amp;gt;- autoRepairJson: cleans &amp;#x27;: ,&amp;#x27;, &amp;#x27;: -&amp;#x27;, &amp;#x27;: N/A&amp;#x27;, unclosed braces&amp;lt;br&amp;gt;- parseOrRecoverJson: regex fallback field salvager&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontColor=#064e3b;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;1060&quot; y=&quot;420&quot; width=&quot;430&quot; height=&quot;75&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;c_api&quot; value=&quot;4. Server Daemon &amp;amp; REST API (src/apps/server &amp;amp; src/libs/api)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#f59e0b;strokeWidth=2;fontColor=#b45309;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;c_api&quot; value=&quot;4. Server Daemon &amp;amp; REST API (src/apps/server &amp;amp; src/apps/server/api)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#f59e0b;strokeWidth=2;fontColor=#b45309;fontStyle=1;fontSize=13;verticalAlign=top;align=left;spacingLeft=15;spacingTop=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;40&quot; y=&quot;545&quot; width=&quot;710&quot; height=&quot;240&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;n_http_server&quot; value=&quot;HTTPServer (src/libs/api/HTTPServer.cpp)&amp;lt;br&amp;gt;Qt HttpServer Daemon listening on http://localhost:8080&amp;lt;br&amp;gt;Endpoints:&amp;lt;br&amp;gt;- POST /api/ingest (Batch staging &amp;amp; enqueuing)&amp;lt;br&amp;gt;- GET  /api/jobs (Ingestion progress polling)&amp;lt;br&amp;gt;- POST /api/extraction/start, GET /api/extraction/status&amp;lt;br&amp;gt;- GET/PUT /api/extraction/sections (Review &amp;amp; edit)&amp;lt;br&amp;gt;- POST /api/extraction/accept (Lock report)&amp;lt;br&amp;gt;- POST /api/report/export (Inja HTML render)&amp;lt;br&amp;gt;- POST /api/chat (Job-scoped RAG assistant)&amp;lt;br&amp;gt;- GET  /api/system (Live hardware metrics)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#78350f;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;n_http_server&quot; value=&quot;HTTPServer (src/apps/server/api/HTTPServer.cpp)&amp;lt;br&amp;gt;Qt HttpServer Daemon listening on http://localhost:8080&amp;lt;br&amp;gt;Endpoints:&amp;lt;br&amp;gt;- POST /api/ingest (Batch staging &amp;amp; enqueuing)&amp;lt;br&amp;gt;- GET  /api/jobs (Ingestion progress polling)&amp;lt;br&amp;gt;- POST /api/extraction/start, GET /api/extraction/status&amp;lt;br&amp;gt;- GET/PUT /api/extraction/sections (Review &amp;amp; edit)&amp;lt;br&amp;gt;- POST /api/extraction/accept (Lock report)&amp;lt;br&amp;gt;- POST /api/report/export (Inja HTML render)&amp;lt;br&amp;gt;- GET  /api/reports, DELETE /api/reports&amp;lt;br&amp;gt;- GET  /api/system (Live hardware metrics)&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#78350f;fontSize=11;align=left;spacingLeft=12;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;70&quot; y=&quot;585&quot; width=&quot;420&quot; height=&quot;185&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;n_sys_mon&quot; value=&quot;SystemMonitor (src/libs/system)&amp;lt;br&amp;gt;- Physical RAM &amp;amp; CPU % load&amp;lt;br&amp;gt;- VRAM &amp;amp; GPU availability&amp;lt;br&amp;gt;- Inference tokens/second&amp;lt;br&amp;gt;- Live SQLite database disk size&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontColor=#7c2d12;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
@@ -174,7 +174,7 @@
   <text x="292" y="184" fill="#1e293b" font-size="11">• Tesseract OCR Fallback</text>
   <text x="292" y="200" fill="#1e293b" font-size="11">• UTF-8 Normalization</text>
   <rect x="70" y="240" width="180" height="70" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
-  <text x="82" y="260" fill="#0f172a" font-size="12" font-weight="bold">JobQueue (src/libs/queue)</text>
+  <text x="82" y="260" fill="#0f172a" font-size="12" font-weight="bold">JobQueue (src/apps/server/queue)</text>
   <text x="82" y="278" fill="#1e293b" font-size="11">• Async background worker</text>
   <text x="82" y="294" fill="#1e293b" font-size="11">• SQLite job status</text>
   <text x="82" y="310" fill="#1e293b" font-size="11">• Non-blocking network I/O</text>
@@ -191,7 +191,7 @@
   <text x="162" y="463" fill="#1e293b" font-size="11">• BGE-Small-EN-v1.5 (GGUF)</text>
   <text x="162" y="479" fill="#1e293b" font-size="11">• 384-dim dense vectors</text>
   <rect x="530" y="90" width="470" height="430" rx="6" fill="#f8fafc" stroke="#8b5cf6" stroke-width="2"/>
-  <text x="542" y="110" fill="#5b21b6" font-size="12" font-weight="bold">2. Storage &amp; Vector Indexing (src/libs/db &amp; vector)</text>
+  <text x="542" y="110" fill="#5b21b6" font-size="12" font-weight="bold">2. Storage &amp; Vector Indexing (src/libs/common/db &amp; offline-processing/vector)</text>
   <rect x="560" y="140" width="410" height="110" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
   <text x="572" y="160" fill="#0f172a" font-size="12" font-weight="bold">SQLite WAL Storage (Database.cpp)</text>
   <text x="572" y="178" fill="#1e293b" font-size="11">• PRAGMA journal_mode = WAL &amp; foreign_keys = ON</text>
@@ -200,7 +200,7 @@
   <text x="572" y="226" fill="#1e293b" font-size="11">• Embeddings stored as binary BLOBs</text>
   <text x="572" y="242" fill="#1e293b" font-size="11">• Full ON DELETE CASCADE for report isolation</text>
   <rect x="560" y="280" width="410" height="100" rx="6" fill="#f3e8ff" stroke="#9333ea" stroke-width="2"/>
-  <text x="572" y="300" fill="#0f172a" font-size="12" font-weight="bold">VectorIndexRegistry (src/libs/vector)</text>
+  <text x="572" y="300" fill="#0f172a" font-size="12" font-weight="bold">VectorIndexRegistry (src/libs/offline-processing/vector)</text>
   <text x="572" y="318" fill="#1e293b" font-size="11">• Job-Scoped Partitioning (No cross-doc leaks)</text>
   <text x="572" y="334" fill="#1e293b" font-size="11">• FAISS HNSW Index per job (IndexHNSWFlat)</text>
   <text x="572" y="350" fill="#1e293b" font-size="11">• Intel MKL AVX2 Hardware Acceleration</text>
@@ -223,7 +223,7 @@
   <text x="1072" y="284" fill="#1e293b" font-size="11">• Targeted RAG Queries per section</text>
   <text x="1072" y="300" fill="#1e293b" font-size="11">• ~150 Field definitions &amp; 48 loop/table schemas</text>
   <rect x="1060" y="320" width="430" height="80" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
-  <text x="1072" y="340" fill="#0f172a" font-size="12" font-weight="bold">LlamaEngine (Qwen 2.5 7B Instruct)</text>
+  <text x="1072" y="340" fill="#0f172a" font-size="12" font-weight="bold">LlamaEngine (Gemma 2 2B Instruct)</text>
   <text x="1072" y="358" fill="#1e293b" font-size="11">• llama.cpp backend (GGML_CUDA or CPU AVX2)</text>
   <text x="1072" y="374" fill="#1e293b" font-size="11">• Middle-out context budget guard (preserves schema)</text>
   <text x="1072" y="390" fill="#1e293b" font-size="11">• KV Cache reuse across section generation</text>
@@ -241,7 +241,7 @@
   <text x="82" y="671" fill="#1e293b" font-size="11">GET/PUT /api/extraction/sections (Review &amp; edit)</text>
   <text x="82" y="687" fill="#1e293b" font-size="11">POST /api/extraction/accept (Lock report)</text>
   <text x="82" y="703" fill="#1e293b" font-size="11">POST /api/report/export (Inja HTML render)</text>
-  <text x="82" y="719" fill="#1e293b" font-size="11">POST /api/chat (Job-scoped RAG assistant)</text>
+  <text x="82" y="719" fill="#1e293b" font-size="11">GET/DEL /api/reports (Report history)</text>
   <text x="82" y="735" fill="#1e293b" font-size="11">GET  /api/system (Live hardware metrics)</text>
   <rect x="510" y="585" width="220" height="185" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
   <text x="522" y="605" fill="#0f172a" font-size="12" font-weight="bold">SystemMonitor</text>

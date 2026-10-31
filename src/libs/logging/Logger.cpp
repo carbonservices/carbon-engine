@@ -2,7 +2,6 @@
 
 #include <map>
 #include <memory>
-#include <QCoreApplication>
 #include <QDate>
 #include <QDateTime>
 #include <QDir>
@@ -10,58 +9,26 @@
 #include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QTextStream>
 
 static QString s_customLogDir;
 static QMutex s_logDirMutex;
 
-static bool testWritableDir(const QString& dirPath) {
-    if (dirPath.isEmpty() || !QDir().mkpath(dirPath)) {
-        return false;
-    }
-    QFileInfo probe(dirPath + "/.write-test");
-    QFile test(probe.filePath());
-    if (test.open(QIODevice::WriteOnly)) {
-        test.close();
-        test.remove();
-        return true;
-    }
-    return false;
-}
-
 QString resolveLogDirectory() {
     QMutexLocker locker(&s_logDirMutex);
-    if (!s_customLogDir.isEmpty() && testWritableDir(s_customLogDir)) {
+    if (!s_customLogDir.isEmpty()) {
+        QDir().mkpath(s_customLogDir);
         return s_customLogDir;
     }
 
-    // 1. Check user configured setting in QSettings
-    QSettings settings("Carbon Services", "Carbon ESG");
-    QString configured = settings.value("paths/logsDir").toString();
-    if (!configured.isEmpty() && testWritableDir(configured)) {
-        return configured;
-    }
-
-    // 2. Default Documents directory: <Documents>/Carbon ESG/logs
     QString docsLocation = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-    if (docsLocation.isEmpty()) docsLocation = QDir::homePath() + "/Documents";
+    if (docsLocation.isEmpty()) {
+        docsLocation = QDir::homePath() + "/Documents";
+    }
     QString docsLogDir = QDir::cleanPath(docsLocation + "/Carbon ESG/logs");
-    if (testWritableDir(docsLogDir)) {
-        return docsLogDir;
-    }
-
-    // 3. Fallback: app-relative directory (e.g. dev build)
-    const QString appRelative = QFileInfo(QCoreApplication::applicationDirPath() + "/log").absoluteFilePath();
-    if (testWritableDir(appRelative)) {
-        return appRelative;
-    }
-
-    // 4. Last resort: per-app system temp directory
-    const QString fallback = QDir::cleanPath(QDir::tempPath() + "/CarbonServices/CarbonEngine/log");
-    QDir().mkpath(fallback);
-    return fallback;
+    QDir().mkpath(docsLogDir);
+    return docsLogDir;
 }
 
 // One append-only file handle per module/date, shared by every Logger
@@ -71,8 +38,9 @@ class FileLogSink {
 public:
     explicit FileLogSink(const QString& filePath) : _file(filePath) {
         QDir().mkpath(QFileInfo(filePath).absolutePath());
-        _file.open(QIODevice::Append | QIODevice::Text);
-        _stream = std::make_unique<QTextStream>(&_file);
+        if (_file.open(QIODevice::Append | QIODevice::Text)) {
+            _stream = std::make_unique<QTextStream>(&_file);
+        }
     }
 
     ~FileLogSink() {
@@ -140,7 +108,6 @@ Logger::Logger(const QString& moduleName) : _moduleName(moduleName) {}
 void Logger::debug(const QString& message) const { log(LogLevel::Debug, message); }
 void Logger::info(const QString& message) const { log(LogLevel::Info, message); }
 void Logger::warn(const QString& message) const { log(LogLevel::Warning, message); }
-void Logger::warning(const QString& message) const { log(LogLevel::Warning, message); }
 void Logger::error(const QString& message) const { log(LogLevel::Error, message); }
 void Logger::critical(const QString& message) const { log(LogLevel::Critical, message); }
 

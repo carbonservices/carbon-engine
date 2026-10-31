@@ -8,6 +8,9 @@
 #include <QQmlEngine>
 #include <QTimer>
 #include <QString>
+#include <QPointer>
+
+class QNetworkReply;
 
 class SystemStatusPoller : public ApiClientBase
 {
@@ -102,6 +105,7 @@ private:
     QString _gpuName = "";
     bool _gpuPresent = false;
 
+    QPointer<QNetworkReply> _activeReply;
     Logger _log{"QmlClient.SystemStatusPoller"};
 };
 

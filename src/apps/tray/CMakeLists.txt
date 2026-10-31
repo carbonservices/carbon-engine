@@ -16,7 +16,6 @@ target_include_directories(carbon-tray PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(carbon-tray PRIVATE
     carbon-engine-common
     carbon-engine-system
-    carbon-engine-logging
     Qt6::Core
     Qt6::Widgets
 )

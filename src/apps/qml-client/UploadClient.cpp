@@ -29,17 +29,9 @@ void UploadClient::uploadDocuments(const QVariantList &filePaths)
         {
             pathStr = url.toLocalFile();
         }
-        else if (pathStr.startsWith("file:///"))
+        else if (pathStr.startsWith("file://", Qt::CaseInsensitive))
         {
-#ifdef _WIN32
-            pathStr = pathStr.mid(8);
-#else
-            pathStr = pathStr.mid(7);
-#endif
-        }
-        else if (pathStr.startsWith("file://"))
-        {
-            pathStr = pathStr.mid(7);
+            pathStr = QUrl(pathStr).toLocalFile();
         }
 
         pathStr = QDir::toNativeSeparators(pathStr);
@@ -79,7 +71,7 @@ void UploadClient::onUploadFinished()
     }
 
     auto doc = QJsonDocument::fromJson(reply->readAll());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
     if (jobId < 0) {
         QString err = doc.object().value("error").toString("Server failed to assign valid job ID");
         _log.error(QString("Upload failed to produce valid job_id: %1").arg(err));

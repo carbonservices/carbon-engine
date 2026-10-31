@@ -1,8 +1,19 @@
 #include "DocumentProcessor.h"
+#include "logging/Logger.h"
 #include <fpdf_text.h>
 #include <fpdf_edit.h>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QImage>
+#include <QXmlStreamReader>
+#include "ingestion/ZipReader.h"
 #include <QString>
 #include <QtGlobal>
+#include <QAtomicInt>
+#include <QMutex>
+#include <QMutexLocker>
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
@@ -27,9 +38,106 @@ std::string NativeTextExtractor::extract(FPDF_PAGE /*page*/, FPDF_TEXTPAGE textP
     return text.toStdString();
 }
 
+static QString resolveTessdataPath()
+{
+    static Logger s_log("DocumentProcessor");
+    const QString appDir = QCoreApplication::applicationDirPath();
+
+    // ─────────────────────────────────────────────────────────────
+    // 1. Source Build Mode: Cloned project folder directory structure
+    // ─────────────────────────────────────────────────────────────
+#ifdef CARBON_PROJECT_SOURCE_DIR
+    const QString compileTimeSource = QDir::cleanPath(QStringLiteral(CARBON_PROJECT_SOURCE_DIR));
+    if (QFile::exists(compileTimeSource + "/CMakeLists.txt") &&
+        QFile::exists(compileTimeSource + "/tessdata/eng.traineddata")) {
+        const QString path = compileTimeSource + "/tessdata";
+        s_log.info(QString("Tessdata resolved from source repository: %1").arg(path));
+        return path;
+    }
+#endif
+
+    // Upward directory traversal to detect cloned repository root
+    QDir searchDir(appDir);
+    for (int depth = 0; depth < 5; ++depth) {
+        if (searchDir.exists("CMakeLists.txt") && searchDir.exists("src")) {
+            const QString candidate = searchDir.filePath("tessdata");
+            if (QFile::exists(candidate + "/eng.traineddata")) {
+                s_log.info(QString("Tessdata resolved from cloned project root: %1").arg(candidate));
+                return candidate;
+            }
+        }
+        if (!searchDir.cdUp()) {
+            break;
+        }
+    }
+
+    // Build directory output copy (<build_dir>/bin/tessdata)
+    if (QFile::exists(appDir + "/tessdata/eng.traineddata")) {
+        s_log.info(QString("Tessdata resolved from build directory: %1/tessdata").arg(appDir));
+        return appDir + "/tessdata";
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2. Installed Application Mode: Deterministic install locations
+    // ─────────────────────────────────────────────────────────────
+#ifdef _WIN32
+    // Windows NSIS Install Layout:
+    //   $INSTDIR\bin\carbon-engine.exe
+    //   $INSTDIR\bin\tessdata\eng.traineddata
+    if (QFile::exists(appDir + "/tessdata/eng.traineddata")) {
+        s_log.info(QString("Tessdata resolved from Windows install path: %1/tessdata").arg(appDir));
+        return appDir + "/tessdata";
+    }
+    // Secondary install layout ($INSTDIR\share\tessdata)
+    if (QFile::exists(appDir + "/../share/tessdata/eng.traineddata")) {
+        QString path = QDir::cleanPath(appDir + "/../share/tessdata");
+        s_log.info(QString("Tessdata resolved from Windows share path: %1").arg(path));
+        return path;
+    }
+    // Root install layout ($INSTDIR\tessdata)
+    if (QFile::exists(appDir + "/../tessdata/eng.traineddata")) {
+        QString path = QDir::cleanPath(appDir + "/../tessdata");
+        s_log.info(QString("Tessdata resolved from Windows root path: %1").arg(path));
+        return path;
+    }
+#else
+    // Linux Debian Install Layout:
+    //   /usr/bin/carbon-engine -> /usr/share/tessdata/eng.traineddata
+    //   /opt/carbon-esg/bin/carbon-engine -> /opt/carbon-esg/share/tessdata/eng.traineddata
+    if (QFile::exists(appDir + "/../share/tessdata/eng.traineddata")) {
+        QString path = QDir::cleanPath(appDir + "/../share/tessdata");
+        s_log.info(QString("Tessdata resolved from Linux install share: %1").arg(path));
+        return path;
+    }
+    if (QFile::exists("/usr/share/tessdata/eng.traineddata")) {
+        s_log.info("Tessdata resolved from system /usr/share/tessdata");
+        return "/usr/share/tessdata";
+    }
+    if (QFile::exists("/usr/share/tesseract-ocr/5/tessdata/eng.traineddata")) {
+        s_log.info("Tessdata resolved from distro /usr/share/tesseract-ocr/5/tessdata");
+        return "/usr/share/tesseract-ocr/5/tessdata";
+    }
+    if (QFile::exists("/usr/share/tesseract-ocr/4.00/tessdata/eng.traineddata")) {
+        s_log.info("Tessdata resolved from distro /usr/share/tesseract-ocr/4.00/tessdata");
+        return "/usr/share/tesseract-ocr/4.00/tessdata";
+    }
+    if (QFile::exists(appDir + "/tessdata/eng.traineddata")) {
+        s_log.info(QString("Tessdata resolved from application directory: %1/tessdata").arg(appDir));
+        return appDir + "/tessdata";
+    }
+#endif
+
+    s_log.error("Fatal: Unable to resolve tessdata directory in source or install locations!");
+    return QString();
+}
+
 OcrTextExtractor::OcrTextExtractor()
 {
-    _tess.Init(Q_NULLPTR, "eng", tesseract::OEM_LSTM_ONLY);
+    QString tessPath = resolveTessdataPath();
+    QByteArray tessPathBytes = tessPath.toUtf8();
+    const char* tessDataPrefix = tessPathBytes.isEmpty() ? Q_NULLPTR : tessPathBytes.constData();
+
+    _tess.Init(tessDataPrefix, "eng", tesseract::OEM_LSTM_ONLY);
     _tess.SetPageSegMode(tesseract::PSM_AUTO);
 }
 
@@ -92,16 +200,114 @@ std::string OcrTextExtractor::extract(FPDF_PAGE page, FPDF_TEXTPAGE /*textPage*/
     return result;
 }
 
+std::string OcrTextExtractor::extractFromImage(const std::string& imagePath)
+{
+    QImage img(QString::fromStdString(imagePath));
+    if (img.isNull()) {
+        return "";
+    }
+
+    QImage argb = img.convertToFormat(QImage::Format_RGBA8888);
+    _tess.SetImage(reinterpret_cast<const unsigned char*>(argb.bits()),
+                   argb.width(), argb.height(), 4, static_cast<int>(argb.bytesPerLine()));
+    char* ocrText = _tess.GetUTF8Text();
+    std::string result(ocrText ? ocrText : "");
+    delete[] ocrText;
+    return result;
+}
+
+static QAtomicInt s_pdfiumRefCount = 0;
+static QMutex s_pdfiumMutex;
+
 DocumentProcessor::DocumentProcessor()
 {
-    FPDF_InitLibrary();
+    {
+        QMutexLocker locker(&s_pdfiumMutex);
+        if (s_pdfiumRefCount.fetchAndAddRelaxed(1) == 0) {
+            FPDF_InitLibrary();
+        }
+    }
     _extractors.push_back(std::make_unique<NativeTextExtractor>());
     _extractors.push_back(std::make_unique<OcrTextExtractor>());
 }
 
 DocumentProcessor::~DocumentProcessor()
 {
-    FPDF_DestroyLibrary();
+    QMutexLocker locker(&s_pdfiumMutex);
+    if (!s_pdfiumRefCount.deref()) {
+        FPDF_DestroyLibrary();
+    }
+}
+
+std::vector<DocumentChunk> DocumentProcessor::chunkText(int pageNumber, const std::string& extractedText)
+{
+    std::vector<DocumentChunk> chunks;
+    if (extractedText.empty()) {
+        return chunks;
+    }
+
+    constexpr size_t maxChars = 1500;
+    constexpr size_t overlap = 300;
+    size_t start = 0;
+
+    while (start < extractedText.length())
+    {
+        size_t end = start + maxChars;
+        if (end < extractedText.length())
+        {
+            size_t lookbackMin = (end > 200 + start) ? (end - 200) : start;
+            size_t lastNewline = extractedText.rfind('\n', end);
+            if (lastNewline != std::string::npos && lastNewline > lookbackMin)
+            {
+                end = lastNewline;
+            }
+            else
+            {
+                size_t lastWhitespace = extractedText.find_last_of(" \n\r\t", end);
+                if (lastWhitespace != std::string::npos && lastWhitespace > start)
+                {
+                    end = lastWhitespace;
+                }
+            }
+        }
+        else
+        {
+            end = extractedText.length();
+        }
+
+        std::string rawChunk = extractedText.substr(start, end - start);
+        size_t firstNonWs = rawChunk.find_first_not_of(" \t\n\r");
+        if (firstNonWs != std::string::npos)
+        {
+            size_t lastNonWs = rawChunk.find_last_not_of(" \t\n\r");
+            std::string cleanChunk = rawChunk.substr(firstNonWs, lastNonWs - firstNonWs + 1);
+            if (cleanChunk.length() >= 20)
+            {
+                chunks.push_back({pageNumber, std::move(cleanChunk)});
+            }
+        }
+
+        if (end >= extractedText.length())
+        {
+            break;
+        }
+
+        size_t nextStart = (end > overlap + start) ? (end - overlap) : end;
+        while (nextStart < end && !std::isspace(static_cast<unsigned char>(extractedText[nextStart])))
+        {
+            nextStart++;
+        }
+        while (nextStart < extractedText.length() && std::isspace(static_cast<unsigned char>(extractedText[nextStart])))
+        {
+            nextStart++;
+        }
+        if (nextStart <= start)
+        {
+            nextStart = end;
+        }
+        start = nextStart;
+    }
+    return chunks;
 }
 
 std::vector<DocumentChunk> DocumentProcessor::processPdf(const std::string &pdfPath)
@@ -137,70 +343,8 @@ std::vector<DocumentChunk> DocumentProcessor::processPdf(const std::string &pdfP
 
         if (!extractedText.empty())
         {
-            constexpr size_t maxChars = 1500;
-            constexpr size_t overlap = 300;
-            size_t start = 0;
-
-            while (start < extractedText.length())
-            {
-                size_t end = start + maxChars;
-                if (end < extractedText.length())
-                {
-                    // Two-tier boundary split:
-                    // 1. Prioritize a newline in the last 200 chars to keep table rows & paragraphs intact
-                    size_t lookbackMin = (end > 200 + start) ? (end - 200) : start;
-                    size_t lastNewline = extractedText.rfind('\n', end);
-                    if (lastNewline != std::string::npos && lastNewline > lookbackMin)
-                    {
-                        end = lastNewline;
-                    }
-                    else
-                    {
-                        // 2. Fall back to any whitespace separator
-                        size_t lastWhitespace = extractedText.find_last_of(" \n\r\t", end);
-                        if (lastWhitespace != std::string::npos && lastWhitespace > start)
-                        {
-                            end = lastWhitespace;
-                        }
-                    }
-                }
-                else
-                {
-                    end = extractedText.length();
-                }
-
-                std::string rawChunk = extractedText.substr(start, end - start);
-                size_t firstNonWs = rawChunk.find_first_not_of(" \t\n\r");
-                if (firstNonWs != std::string::npos)
-                {
-                    size_t lastNonWs = rawChunk.find_last_not_of(" \t\n\r");
-                    std::string cleanChunk = rawChunk.substr(firstNonWs, lastNonWs - firstNonWs + 1);
-                    if (cleanChunk.length() >= 20)
-                    {
-                        chunks.push_back({i + 1, std::move(cleanChunk)});
-                    }
-                }
-
-                if (end >= extractedText.length())
-                {
-                    break;
-                }
-
-                size_t nextStart = (end > overlap + start) ? (end - overlap) : end;
-                while (nextStart < end && !std::isspace(static_cast<unsigned char>(extractedText[nextStart])))
-                {
-                    nextStart++;
-                }
-                while (nextStart < extractedText.length() && std::isspace(static_cast<unsigned char>(extractedText[nextStart])))
-                {
-                    nextStart++;
-                }
-                if (nextStart <= start)
-                {
-                    nextStart = end;
-                }
-                start = nextStart;
-            }
+            auto pageChunks = chunkText(i + 1, extractedText);
+            chunks.insert(chunks.end(), pageChunks.begin(), pageChunks.end());
         }
 
         FPDFText_ClosePage(textPage);
@@ -209,4 +353,148 @@ std::vector<DocumentChunk> DocumentProcessor::processPdf(const std::string &pdfP
 
     FPDF_CloseDocument(doc);
     return chunks;
+}
+
+std::vector<DocumentChunk> DocumentProcessor::processText(const std::string &txtPath)
+{
+    QFile file(QString::fromStdString(txtPath));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    QString text = QString::fromUtf8(file.readAll());
+    return chunkText(1, text.toStdString());
+}
+
+std::vector<DocumentChunk> DocumentProcessor::processImage(const std::string &imgPath)
+{
+    if (!_imageOcr) {
+        _imageOcr = std::make_unique<OcrTextExtractor>();
+    }
+    std::string text = _imageOcr->extractFromImage(imgPath);
+    if (text.empty()) {
+        return {};
+    }
+    return chunkText(1, text);
+}
+
+std::vector<DocumentChunk> DocumentProcessor::processExcel(const std::string &xlsxPath)
+{
+    QString qPath = QString::fromStdString(xlsxPath);
+    ZipReader zip(qPath);
+    if (!zip.isOpen()) {
+        return {};
+    }
+
+    // 1. Read shared strings
+    QVector<QString> sharedStrings;
+    QByteArray ssData = zip.extractFile("xl/sharedStrings.xml");
+    if (!ssData.isEmpty()) {
+        QXmlStreamReader xml(ssData);
+        QString currentString;
+        bool inText = false;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (xml.isStartElement()) {
+                if (xml.name() == QLatin1String("t")) {
+                    inText = true;
+                }
+            } else if (xml.isCharacters() && inText) {
+                currentString += xml.text().toString();
+            } else if (xml.isEndElement()) {
+                if (xml.name() == QLatin1String("t")) {
+                    inText = false;
+                } else if (xml.name() == QLatin1String("si")) {
+                    sharedStrings.append(currentString.trimmed());
+                    currentString.clear();
+                }
+            }
+        }
+    }
+
+    // 2. Iterate worksheets
+    std::vector<DocumentChunk> allChunks;
+    int sheetNum = 1;
+
+    for (const auto &filePath : zip.fileList()) {
+        if (filePath.startsWith("xl/worksheets/sheet") && filePath.endsWith(".xml")) {
+            QByteArray sheetData = zip.extractFile(filePath);
+            if (sheetData.isEmpty()) continue;
+
+            QXmlStreamReader xml(sheetData);
+            QString sheetText;
+            QString currentRow;
+            QString currentCellType;
+            QString currentCellValue;
+            bool inValue = false;
+            bool inInlineText = false;
+
+            while (!xml.atEnd()) {
+                xml.readNext();
+                if (xml.isStartElement()) {
+                    if (xml.name() == QLatin1String("row")) {
+                        currentRow.clear();
+                    } else if (xml.name() == QLatin1String("c")) {
+                        currentCellType = xml.attributes().value("t").toString();
+                        currentCellValue.clear();
+                    } else if (xml.name() == QLatin1String("v")) {
+                        inValue = true;
+                    } else if (xml.name() == QLatin1String("t")) {
+                        inInlineText = true;
+                    }
+                } else if (xml.isCharacters()) {
+                    if (inValue || inInlineText) {
+                        currentCellValue += xml.text().toString();
+                    }
+                } else if (xml.isEndElement()) {
+                    if (xml.name() == QLatin1String("v")) {
+                        inValue = false;
+                    } else if (xml.name() == QLatin1String("t")) {
+                        inInlineText = false;
+                    } else if (xml.name() == QLatin1String("c")) {
+                        QString cellText = currentCellValue.trimmed();
+                        if (currentCellType == "s") {
+                            int idx = cellText.toInt();
+                            if (idx >= 0 && idx < sharedStrings.size()) {
+                                cellText = sharedStrings[idx];
+                            }
+                        }
+                        if (!cellText.isEmpty()) {
+                            if (!currentRow.isEmpty()) {
+                                currentRow += " | ";
+                            }
+                            currentRow += cellText;
+                        }
+                    } else if (xml.name() == QLatin1String("row")) {
+                        if (!currentRow.trimmed().isEmpty()) {
+                            sheetText += currentRow.trimmed() + "\n";
+                        }
+                    }
+                }
+            }
+
+            if (!sheetText.isEmpty()) {
+                auto chunks = chunkText(sheetNum, sheetText.toStdString());
+                allChunks.insert(allChunks.end(), chunks.begin(), chunks.end());
+            }
+            sheetNum++;
+        }
+    }
+    return allChunks;
+}
+
+std::vector<DocumentChunk> DocumentProcessor::processDocument(const std::string &filePath)
+{
+    QFileInfo fi(QString::fromStdString(filePath));
+    QString ext = fi.suffix().toLower();
+
+    if (ext == "pdf") {
+        return processPdf(filePath);
+    } else if (ext == "xlsx") {
+        return processExcel(filePath);
+    } else if (ext == "txt" || ext == "csv" || ext == "tsv" || ext == "md" || ext == "json") {
+        return processText(filePath);
+    } else if (ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tiff") {
+        return processImage(filePath);
+    }
+    return processPdf(filePath);
 }

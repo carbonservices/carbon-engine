@@ -13,7 +13,8 @@ cmake/
 # models
 models/
 !models/.gitkeep
-eng.traineddata
+tessdata/*.traineddata
+!tessdata/.gitkeep
 
 # database files
 ce-database*

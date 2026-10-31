@@ -29,19 +29,19 @@
           &lt;mxGeometry x=&quot;490&quot; y=&quot;30&quot; width=&quot;440&quot; height=&quot;380&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         
-        &lt;mxCell id=&quot;srv_ingest&quot; value=&quot;Ingestion (src/libs/ingestion)&amp;#xa;PDFium parser + Tesseract OCR&amp;#xa;1500-char sliding chunking&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#3730a3;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;srv_ingest&quot; value=&quot;Ingestion (src/libs/offline-processing/ingestion)&amp;#xa;PDFium parser + Tesseract OCR&amp;#xa;1500-char sliding chunking&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#818cf8;fontColor=#3730a3;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;510&quot; y=&quot;80&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;srv_infer&quot; value=&quot;Inference (src/libs/inference)&amp;#xa;llama.cpp (CUDA / AVX2)&amp;#xa;BGE-Small &amp;amp; Qwen 2.5 7B&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#92400e;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;srv_infer&quot; value=&quot;Inference (src/libs/offline-processing/inference)&amp;#xa;llama.cpp (CUDA / AVX2)&amp;#xa;BGE-Small &amp;amp; Gemma 2 2B&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#92400e;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;720&quot; y=&quot;80&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;srv_vec&quot; value=&quot;Vector Search (src/libs/vector)&amp;#xa;FAISS HNSW per-job partitions&amp;#xa;Intel MKL accelerated index&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fae8ff;strokeColor=#c084fc;fontColor=#6b21a8;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;srv_vec&quot; value=&quot;Vector Search (src/libs/offline-processing/vector)&amp;#xa;FAISS HNSW per-job partitions&amp;#xa;Intel MKL accelerated index&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fae8ff;strokeColor=#c084fc;fontColor=#6b21a8;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;510&quot; y=&quot;180&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;srv_report&quot; value=&quot;Report (src/libs/report)&amp;#xa;SEBI BRSR schemas &amp;amp; recovery&amp;#xa;Inja HTML/PDF exporter&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#f472b6;fontColor=#9d174d;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;srv_report&quot; value=&quot;Report (src/libs/common/report)&amp;#xa;SEBI BRSR schemas &amp;amp; recovery&amp;#xa;Inja HTML/PDF exporter&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#f472b6;fontColor=#9d174d;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;720&quot; y=&quot;180&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
-        &lt;mxCell id=&quot;srv_db&quot; value=&quot;Database (src/libs/db)&amp;#xa;SQLite WAL embedded store&amp;#xa;Embedding BLOB durability&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#34d399;fontColor=#065f46;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
+        &lt;mxCell id=&quot;srv_db&quot; value=&quot;Database (src/libs/common/db)&amp;#xa;SQLite WAL embedded store&amp;#xa;Embedding BLOB durability&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#34d399;fontColor=#065f46;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
           &lt;mxGeometry x=&quot;510&quot; y=&quot;280&quot; width=&quot;190&quot; height=&quot;80&quot; as=&quot;geometry&quot;/&gt;
         &lt;/mxCell&gt;
         &lt;mxCell id=&quot;srv_sys&quot; value=&quot;System (src/libs/system)&amp;#xa;Hardware metrics telemetry&amp;#xa;CPU, RAM, GPU VRAM, t/s&quot; style=&quot;rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#94a3b8;fontColor=#334155;fontSize=11;align=left;spacingLeft=10;&quot; vertex=&quot;1&quot; parent=&quot;1&quot;&gt;
@@ -107,33 +107,33 @@
   <!-- Core Libraries Grid -->
   <!-- Row 1: Ingestion & Inference -->
   <rect x="510" y="80" width="195" height="80" rx="6" fill="#eef2ff" stroke="#818cf8" stroke-width="1"/>
-  <text x="520" y="102" fill="#3730a3" font-size="11.5" font-weight="bold">Ingestion (src/libs/ingestion)</text>
+  <text x="520" y="102" fill="#3730a3" font-size="11.5" font-weight="bold">Ingestion (src/libs/offline-processing/ingestion)</text>
   <text x="520" y="122" fill="#4f46e5" font-size="10">• PDFium native parser</text>
   <text x="520" y="137" fill="#4f46e5" font-size="10">• Tesseract + Leptonica OCR</text>
   <text x="520" y="152" fill="#4f46e5" font-size="10">• 1,500c sliding chunking</text>
 
   <rect x="720" y="80" width="195" height="80" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
-  <text x="730" y="102" fill="#92400e" font-size="11.5" font-weight="bold">Inference (src/libs/inference)</text>
+  <text x="730" y="102" fill="#92400e" font-size="11.5" font-weight="bold">Inference (src/libs/offline-processing/inference)</text>
   <text x="730" y="122" fill="#b45309" font-size="10">• llama.cpp (CUDA / AVX2)</text>
   <text x="730" y="137" fill="#b45309" font-size="10">• BGE-Small (384-dim embed)</text>
-  <text x="730" y="152" fill="#b45309" font-size="10">• Qwen 2.5 7B Instruct (GGUF)</text>
+  <text x="730" y="152" fill="#b45309" font-size="10">• Gemma 2 2B Instruct (GGUF)</text>
 
   <!-- Row 2: Vector Search & Report -->
   <rect x="510" y="180" width="195" height="80" rx="6" fill="#fae8ff" stroke="#c084fc" stroke-width="1"/>
-  <text x="520" y="202" fill="#6b21a8" font-size="11.5" font-weight="bold">Vector Search (src/libs/vector)</text>
+  <text x="520" y="202" fill="#6b21a8" font-size="11.5" font-weight="bold">Vector Search (src/libs/offline-processing/vector)</text>
   <text x="520" y="222" fill="#7e22ce" font-size="10">• FAISS HNSW indexes</text>
   <text x="520" y="237" fill="#7e22ce" font-size="10">• Job-scoped partitioning</text>
   <text x="520" y="252" fill="#7e22ce" font-size="10">• Intel MKL acceleration</text>
 
   <rect x="720" y="180" width="195" height="80" rx="6" fill="#fce7f3" stroke="#f472b6" stroke-width="1"/>
-  <text x="730" y="202" fill="#9d174d" font-size="11.5" font-weight="bold">Report (src/libs/report)</text>
+  <text x="730" y="202" fill="#9d174d" font-size="11.5" font-weight="bold">Report (src/libs/common/report)</text>
   <text x="730" y="222" fill="#be185d" font-size="10">• SEBI BRSR taxonomy</text>
   <text x="730" y="237" fill="#be185d" font-size="10">• Self-healing JSON recovery</text>
   <text x="730" y="252" fill="#be185d" font-size="10">• Inja HTML/PDF exporter</text>
 
   <!-- Row 3: Database & System -->
   <rect x="510" y="280" width="195" height="80" rx="6" fill="#ecfdf5" stroke="#34d399" stroke-width="1" />
-  <text x="520" y="302" fill="#065f46" font-size="11.5" font-weight="bold">Database (src/libs/db)</text>
+  <text x="520" y="302" fill="#065f46" font-size="11.5" font-weight="bold">Database (src/libs/common/db)</text>
   <text x="520" y="322" fill="#047857" font-size="10">• SQLite WAL journal mode</text>
   <text x="520" y="337" fill="#047857" font-size="10">• Embedding BLOB durability</text>
   <text x="520" y="352" fill="#047857" font-size="10">• Foreign key cascades</text>

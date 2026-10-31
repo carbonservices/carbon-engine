@@ -1,6 +1,16 @@
 #pragma once
 
+#include <cstdint>
 #include <QString>
+
+struct CoreConstants {
+    static constexpr int InvalidJobId = -1;
+    static constexpr int NoActiveJobId = -1;
+    static constexpr int64_t NoSourceChunkId = -1;
+    static constexpr int ModelNotLoaded = -1;
+    static constexpr int StepUninitialized = -1;
+    static constexpr int OffloadAllLayers = 99; // Sentinel convention passed to llama.cpp to offload 100% of available layers
+};
 
 struct JobStatus {
     static constexpr const char* Pending = "PENDING";
@@ -32,8 +42,8 @@ struct EngineMode {
 
 struct Models {
     static constexpr const char* LocalGemmaName = "gemma-2-2b-it";
-    static constexpr const char* LocalGemmaFile = "models/gemma-2-2b-it-q4_k_m.gguf";
-    static constexpr const char* LocalBgeEmbeddingFile = "models/bge-small-en-v1.5-f16.gguf";
+    static constexpr const char* LocalGemmaFile = "gemma-2-2b-it-q4_k_m.gguf";
+    static constexpr const char* LocalBgeEmbeddingFile = "bge-small-en-v1.5-f16.gguf";
 };
 
 struct ApiRoutes {
@@ -82,10 +92,14 @@ struct AppInfo {
     static constexpr const char* WorkloadTag = "Non-GPU";
 #endif
 
+#if defined(CARBON_ENGINE_CUDA) && !defined(CARBON_ENGINE_NON_GPU)
+    static constexpr bool IsGpuBuild = true;
+#else
+    static constexpr bool IsGpuBuild = false;
+#endif
+
     static constexpr const char* OrganizationName = "Carbon Services";
     static constexpr const char* OrganizationDomain = "carbonesg.online";
-    static constexpr const char* SupportEmail = "carbon.esgreports@gmail.com";
-    static constexpr const char* WebsiteUrl = "https://carbonesg.online";
     static constexpr const char* ServerAppName = "Carbon Engine";
     static constexpr const char* ClientAppName = "Carbon ESG";
     static constexpr const char* WorkspaceAppName = "Carbon ESG Workspace";

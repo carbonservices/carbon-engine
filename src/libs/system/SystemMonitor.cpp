@@ -31,7 +31,6 @@ static quint64 fileTimeToUll(const FILETIME& ft)
 
 // Qt
 #include <QMutexLocker>
-#include <QThread>
 #include <algorithm>
 
 // ─────────────────────────────────────────────────────────────
@@ -184,28 +183,8 @@ void SystemMonitor::sample()
     QMutexLocker lock(&_mutex);
 
 #ifdef _WIN32
-    // ── Process CPU ───────────────────────────────────────────
-    {
-        FILETIME c, e, k, u;
-        if (GetProcessTimes(GetCurrentProcess(), &c, &e, &k, &u)) {
-            quint64 curK = fileTimeToUll(k);
-            quint64 curU = fileTimeToUll(u);
-            quint64 dK   = (curK >= _prevProcKernel) ? (curK - _prevProcKernel) : 0ULL;
-            quint64 dU   = (curU >= _prevProcUser)   ? (curU - _prevProcUser)   : 0ULL;
-            _prevProcKernel = curK;
-            _prevProcUser   = curU;
-            // Each 100-ns tick == 1 unit; interval is kSampleIntervalMs ms.
-            // Normalize across all logical cores so process CPU usage is 0-100%.
-            int numCores = (std::max)(1, QThread::idealThreadCount());
-            quint64 intervalTicks = static_cast<quint64>(kSampleIntervalMs) * 10000ULL * static_cast<quint64>(numCores);
-            double rawPct = (intervalTicks > 0)
-                ? (static_cast<double>(dK + dU) / static_cast<double>(intervalTicks)) * 100.0
-                : 0.0;
-            _cpuPctProcess = (std::min)(100.0, (std::max)(0.0, rawPct));
-        }
-    }
-
     // ── System CPU ────────────────────────────────────────────
+    quint64 sysTotalTicks = 0;
     {
         FILETIME idle, kernel, user;
         if (GetSystemTimes(&idle, &kernel, &user)) {
@@ -222,11 +201,31 @@ void SystemMonitor::sample()
             // Guard against unsigned underflow if dKernel < dIdle.
             quint64 kernelBusy = (dKernel >= dIdle) ? (dKernel - dIdle) : 0ULL;
             quint64 total = kernelBusy + dUser;
-            quint64 denom = kernelBusy + dUser + dIdle;
-            double rawSys = (denom > 0)
-                ? (static_cast<double>(total) / static_cast<double>(denom)) * 100.0
+            sysTotalTicks = dKernel + dUser;
+            double rawSys = (sysTotalTicks > 0)
+                ? (static_cast<double>(total) / static_cast<double>(sysTotalTicks)) * 100.0
                 : 0.0;
             _cpuPctSystem = (std::min)(100.0, (std::max)(0.0, rawSys));
+        }
+    }
+
+    // ── Process CPU ───────────────────────────────────────────
+    {
+        FILETIME c, e, k, u;
+        if (GetProcessTimes(GetCurrentProcess(), &c, &e, &k, &u)) {
+            quint64 curK = fileTimeToUll(k);
+            quint64 curU = fileTimeToUll(u);
+            quint64 dK   = (curK >= _prevProcKernel) ? (curK - _prevProcKernel) : 0ULL;
+            quint64 dU   = (curU >= _prevProcUser)   ? (curU - _prevProcUser)   : 0ULL;
+            _prevProcKernel = curK;
+            _prevProcUser   = curU;
+
+            // Normalize process CPU against the exact total system CPU capacity across all cores.
+            // This ensures process CPU is mathematically consistent with system CPU load.
+            double rawPct = (sysTotalTicks > 0)
+                ? (static_cast<double>(dK + dU) / static_cast<double>(sysTotalTicks)) * 100.0
+                : 0.0;
+            _cpuPctProcess = (std::min)(_cpuPctSystem, (std::max)(0.0, rawPct));
         }
     }
 
@@ -252,6 +251,27 @@ void SystemMonitor::sample()
         }
     }
 #elif defined(__linux__)
+    // ── System CPU via /proc/stat ──
+    unsigned long dTotal = 0;
+    std::ifstream sysStat("/proc/stat");
+    if (sysStat.is_open()) {
+        std::string cpuLabel;
+        unsigned long user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0;
+        if (sysStat >> cpuLabel >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal) {
+            unsigned long idleTime = idle + iowait;
+            unsigned long nonIdleTime = user + nice + system + irq + softirq + steal;
+            unsigned long total = idleTime + nonIdleTime;
+            dTotal = (_prevSysKernel > 0 && total >= _prevSysKernel) ? (total - _prevSysKernel) : 0;
+            unsigned long dIdle = (_prevSysIdle > 0 && idleTime >= _prevSysIdle) ? (idleTime - _prevSysIdle) : 0;
+            _prevSysKernel = total;
+            _prevSysIdle = idleTime;
+            if (dTotal > 0) {
+                double rawSys = (static_cast<double>(dTotal - dIdle) / static_cast<double>(dTotal)) * 100.0;
+                _cpuPctSystem = (std::min)(100.0, (std::max)(0.0, rawSys));
+            }
+        }
+    }
+
     // ── Process CPU & Memory via /proc/self/stat and /proc/self/status ──
     std::ifstream statFile("/proc/self/stat");
     if (statFile.is_open()) {
@@ -264,14 +284,13 @@ void SystemMonitor::sample()
             long ppid, pgrp, session, tty_nr, tpgid;
             unsigned long flags, minflt, cminflt, majflt, cmajflt, utime = 0, stime = 0;
             if (rest >> state >> ppid >> pgrp >> session >> tty_nr >> tpgid >> flags >> minflt >> cminflt >> majflt >> cmajflt >> utime >> stime) {
-                long clk = sysconf(_SC_CLK_TCK);
-                if (clk <= 0) clk = 100;
                 unsigned long totalProc = utime + stime;
                 unsigned long dProc = (_prevProcUser > 0 && totalProc >= _prevProcUser) ? (totalProc - _prevProcUser) : 0;
                 _prevProcUser = totalProc;
-                int numCores = (std::max)(1, QThread::idealThreadCount());
-                double rawPct = (static_cast<double>(dProc) / static_cast<double>(clk * numCores)) * 100.0;
-                _cpuPctProcess = (std::min)(100.0, (std::max)(0.0, rawPct));
+                double rawPct = (dTotal > 0)
+                    ? (static_cast<double>(dProc) / static_cast<double>(dTotal)) * 100.0
+                    : 0.0;
+                _cpuPctProcess = (std::min)(_cpuPctSystem, (std::max)(0.0, rawPct));
             }
         }
     }
@@ -286,26 +305,6 @@ void SystemMonitor::sample()
                 iss >> rssKb;
                 _memUsedMbProcess = rssKb / 1024ULL;
                 break;
-            }
-        }
-    }
-
-    // ── System CPU via /proc/stat ──
-    std::ifstream sysStat("/proc/stat");
-    if (sysStat.is_open()) {
-        std::string cpuLabel;
-        unsigned long user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0;
-        if (sysStat >> cpuLabel >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal) {
-            unsigned long idleTime = idle + iowait;
-            unsigned long nonIdleTime = user + nice + system + irq + softirq + steal;
-            unsigned long total = idleTime + nonIdleTime;
-            unsigned long dTotal = (_prevSysKernel > 0 && total >= _prevSysKernel) ? (total - _prevSysKernel) : 0;
-            unsigned long dIdle = (_prevSysIdle > 0 && idleTime >= _prevSysIdle) ? (idleTime - _prevSysIdle) : 0;
-            _prevSysKernel = total;
-            _prevSysIdle = idleTime;
-            if (dTotal > 0) {
-                double rawSys = (static_cast<double>(dTotal - dIdle) / static_cast<double>(dTotal)) * 100.0;
-                _cpuPctSystem = (std::min)(100.0, (std::max)(0.0, rawSys));
             }
         }
     }

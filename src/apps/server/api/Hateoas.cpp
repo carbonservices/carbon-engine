@@ -262,7 +262,7 @@ QJsonArray Hateoas::enrichReportsList(const QJsonArray& reports)
             continue;
         }
         QJsonObject obj = val.toObject();
-        int jobId = obj.value("job_id").toInt(-1);
+        int jobId = obj.value("job_id").toInt(CoreConstants::InvalidJobId);
         QString jobStatus = obj.value("status").toString();
         QString extStatus = obj.value("extraction_status").toString();
         bool isLocked = obj.value("report_locked").toBool();

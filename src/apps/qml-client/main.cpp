@@ -1,4 +1,6 @@
+#include <QFile>
 #include <QGuiApplication>
+#include <QProcess>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -38,22 +40,40 @@ static void qtMessageHandler(QtMsgType type, const QMessageLogContext &context, 
     }
 }
 
+#ifdef _WIN32
+#include <string>
+
+struct WindowFinderContext {
+    HWND foundHwnd;
+};
+
+static BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam)
+{
+    WindowFinderContext* ctx = reinterpret_cast<WindowFinderContext*>(lParam);
+    WCHAR title[256];
+    int len = GetWindowTextW(hwnd, title, 256);
+    if (len > 0) {
+        std::wstring wtitle(title);
+        if (wtitle.find(L"Carbon ESG") != std::wstring::npos) {
+            ctx->foundHwnd = hwnd;
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     SingleInstanceGuard guard(AppInfo::ClientMutexName);
     if (!guard.isPrimary())
     {
 #ifdef _WIN32
-        HWND hwnd = FindWindowW(NULL, L"Carbon ESG (Non-GPU Workload)");
-        if (!hwnd) {
-            hwnd = FindWindowW(NULL, L"Carbon ESG (GPU Accelerated)");
-        }
-        if (!hwnd) {
-            hwnd = FindWindowW(NULL, L"Carbon ESG");
-        }
-        if (hwnd) {
-            ShowWindow(hwnd, SW_RESTORE);
-            SetForegroundWindow(hwnd);
+        WindowFinderContext ctx{NULL};
+        EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(&ctx));
+        if (ctx.foundHwnd) {
+            ShowWindow(ctx.foundHwnd, SW_RESTORE);
+            SetForegroundWindow(ctx.foundHwnd);
         }
 #endif
         return 0;
@@ -72,6 +92,17 @@ int main(int argc, char *argv[])
 
     QQuickStyle::setStyle("Basic");
 
+    // Auto-launch background engine if not already running (ensures client connects cleanly on Linux and direct Windows launch)
+    if (!SingleInstanceGuard::isRunning(AppInfo::DaemonMutexName)) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QString serverPath = appDir + "/" + AppInfo::ServerExecutableName;
+        if (QFile::exists(serverPath)) {
+            QProcess::startDetached(serverPath, {}, appDir);
+        } else {
+            QProcess::startDetached(AppInfo::ServerExecutableName, {}, appDir);
+        }
+    }
+
     QIcon appIcon(":/CarbonEngineClient/logo.png");
     if (appIcon.isNull())
     {
@@ -87,7 +118,6 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("backendModelDownloader", &modelDownloader);
-    engine.rootContext()->setContextProperty("modelDownloader", &modelDownloader);
     engine.loadFromModule("CarbonEngineClient", "Main");
 
     if (engine.rootObjects().isEmpty())

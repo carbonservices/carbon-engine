@@ -1,65 +1,46 @@
 # Security Policy
 
-## Overview
+Security commitments, reporting protocols, and threat boundaries for **Carbon Engine**.
 
-Carbon Engine is built for enterprise ESG and statutory compliance reporting, where annual reports and sustainability binders frequently contain Unpublished Price Sensitive Information (UPSI). A core design commitment of Carbon Engine is that it operates in an air-gapped environment with **zero network telemetry** and **100% on-device inference**.
+## 1. Supported Versions
 
-We take all security considerations seriously, including parser safety, local memory boundaries, database durability, and potential prompt injection risks in statutory parsing pipelines.
+| Version Branch | Status | Maintenance Details |
+|---|---|---|
+| **1.x (Current master)** | Supported | Active security patches, dependency fixes, and vulnerability remediation |
+| **< 1.0** | Unsupported | Legacy development checkpoints; no security patches |
 
----
+## 2. Reporting a Vulnerability
 
-## Supported Versions
+Please report all security vulnerabilities privately. Do not open public GitHub issues for sensitive security defects.
 
-We provide security patches and updates for the following versions:
+| Channel | Method | Use Case |
+|---|---|---|
+| **GitHub Advisory (Preferred)** | Open **Security** tab → Click **Report a vulnerability** | Encrypted private vulnerability disclosure |
+| **Direct Email** | `carbon.esgreports@gmail.com` | Alternative private communication channel |
 
-| Version | Supported |
-|---|---|
-| 1.x (Current master) | :white_check_mark: |
-| < 1.0 | :x: |
+### Response Timelines
 
----
+| Milestone | SLA Window | Commitment |
+|---|---|---|
+| **Initial Acknowledgment** | ≤ 48 hours | Confirmation of receipt and assigned maintainer contact |
+| **Triage & Reproduction** | ≤ 5 business days | Technical assessment and confirmation of severity |
+| **Remediation & Patch** | Mutually agreed | Security patch verification and coordinated advisory release |
 
-## Reporting a Security Vulnerability
+### Required Vulnerability Information
+* **Vulnerability Description**: Summary of flaw and potential impact.
+* **Proof of Concept**: Step-by-step reproduction instructions or test document triggering the issue.
+* **Environment Profile**: Operating system, architecture, compiler version, and GPU driver profile.
+* **Logs & Traces**: Sanitized crash dump, call stack, or stderr log excerpt.
 
-If you discover a security vulnerability in Carbon Engine, please **do not report it via a public GitHub issue**. Publicly disclosing an issue before a patch is ready puts sensitive user workflows at risk.
+## 3. Security Commitments & Attack Surface Scope
 
-### Private Reporting Channels
+| Scope Area | Security Policy | Threat Mitigation |
+|---|---|---|
+| **Air-Gapped Telemetry** | Zero outbound network calls | Strictly local LLM inference and local vector storage; UPSI data leakage prevented |
+| **File Parser Safety** | Bounds checks on untrusted buffers | Sandboxed memory management across PDFium, Tesseract, and Leptonica parsers |
+| **Model Ingestion (GGUF)**| Strict tensor verification | Model weights loaded via llama.cpp with buffer validation against malformed GGUF files |
+| **Database Durability** | Parameterized SQL queries only | Zero dynamic SQL concatenation; SQLite WAL mode with atomic commits |
+| **Process Enforcement** | Enforced launcher boundaries | Windows daemon execution restricted to tray supervisor or registered Windows Service |
 
-Please report security concerns privately through one of the following methods:
-1. **GitHub Private Vulnerability Reporting**: Go to the **Security** tab of this repository and click **"Report a vulnerability"**.
-2. **Email**: Send detailed vulnerability reports to `carbon.esgreports@gmail.com`.
-
-### What to Include in Your Report
-
-To help us triage and resolve the issue quickly, please provide:
-- A clear description of the vulnerability and its potential impact.
-- Step-by-step reproduction instructions or a minimal proof of concept (PoC).
-- Setup constraints and environment details (Operating System, CPU/GPU profile, compiler version, Qt version).
-- Any relevant logs, stack traces, or sanitization reports.
-- If you have an idea for a remediation or patch, feel free to include it!
-
-### Response Timeline
-
-- **Initial Acknowledgement**: Within 48 hours of receipt.
-- **Triage & Assessment**: Within 5 business days, confirming whether the finding is reproducible.
-- **Fix & Disclosure Coordination**: We will coordinate with you to verify the fix and agree upon a public release and advisory timeline.
-
----
-
-## Security Commitments & Scope
-
-### 1. Air-Gapped Operation & Zero Telemetry
-Carbon Engine must never make unsolicited outbound network requests. All LLM inference and vector operations are local. Any pull request introducing external network requests without explicit, opt-in user control will be rejected.
-
-### 2. File Parsing & Native Buffer Safety
-The engine processes untrusted PDF documents and images using native C++ dependencies (PDFium, Tesseract, Leptonica, libjpeg-turbo, libpng). We welcome security reviews and fuzz testing on:
-- Malformed PDF structure parsing.
-- Memory corruption or buffer overflows in OCR pre-processing.
-- Integer overflows during image decompression.
-
-### 3. Local Model Ingestion (GGUF)
-Models are loaded via `llama.cpp`. Malformed GGUF files or tampered tensor weights that cause arbitrary code execution or invalid memory writes fall under high-priority security concerns.
-
-### 4. Database Integrity
-The SQLite database stores extracted disclosures and document chunk embeddings. Queries must always use parameterized SQL statements to eliminate injection vectors.
-
+* **Zero Cloud Exposure**: Any Pull Request introducing remote analytics, external fonts, or telemetry without explicit opt-in is rejected.
+* **Data Confinement**: Document embeddings, text chunks, and disclosure facts remain strictly on the local filesystem.

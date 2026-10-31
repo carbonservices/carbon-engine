@@ -29,18 +29,53 @@ static bool tryParseNumber(const nlohmann::json& value, double& outNumber)
     return false;
 }
 
+static bool isHarmonizedMissing(const nlohmann::json& val)
+{
+    if (val.is_null()) {
+        return true;
+    }
+    if (val.is_string()) {
+        std::string s = val.get<std::string>();
+        size_t start = s.find_first_not_of(" \t\r\n");
+        if (start == std::string::npos) {
+            return true;
+        }
+        size_t end = s.find_last_not_of(" \t\r\n");
+        std::string trimmed = s.substr(start, end - start + 1);
+        if (trimmed.empty() || trimmed == "null" || trimmed == "NULL" ||
+            trimmed == "<Not provided>" || trimmed == "<not provided>" ||
+            trimmed == "N/A" || trimmed == "n/a" || trimmed == "NA" ||
+            trimmed == "-" || trimmed == "--" ||
+            trimmed == "None" || trimmed == "none" ||
+            trimmed.rfind("Not specified in the provided context", 0) == 0 ||
+            trimmed == "Not Reported" || trimmed == "not reported" ||
+            trimmed == "Not Available" || trimmed == "not available" ||
+            trimmed == "Not applicable" || trimmed == "Not Applicable" ||
+            trimmed == "Not disclosed" || trimmed == "not disclosed") {
+            return true;
+        }
+        return false;
+    }
+    if (val.is_array()) {
+        if (val.empty()) {
+            return true;
+        }
+        for (const auto& elem : val) {
+            if (!elem.is_null() && (!elem.is_object() || !elem.empty())) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 static void checkMissingAndRangeIssues(const QString& groupId, const nlohmann::json& data, QVector<ValidationIssue>& issues)
 {
     for (auto& [key, value] : data.items()) {
         QString fieldName = QString::fromStdString(key);
 
-        bool isMissing = value.is_null();
-        if (!isMissing && value.is_string()) {
-            std::string s = value.get<std::string>();
-            isMissing = (s.empty() || s == "N/A" || s == "<Not provided>" || s == "null");
-        } else if (!isMissing && value.is_array()) {
-            isMissing = value.empty();
-        }
+        bool isMissing = isHarmonizedMissing(value);
 
         if (isMissing) {
             ValidationIssue issue;

@@ -149,14 +149,11 @@ void ReportClient::onFetchDocumentsFinished()
 bool ReportClient::saveHtmlToFile(const QString &filePath, const QString &content)
 {
     QString localPath = filePath;
-    if (localPath.startsWith("file:///")) {
-#ifdef _WIN32
-        localPath = localPath.mid(8);
-#else
-        localPath = localPath.mid(7);
-#endif
-    } else if (localPath.startsWith("file://")) {
-        localPath = localPath.mid(7);
+    QUrl url(localPath);
+    if (url.isLocalFile()) {
+        localPath = url.toLocalFile();
+    } else if (localPath.startsWith("file://", Qt::CaseInsensitive)) {
+        localPath = QUrl(localPath).toLocalFile();
     }
 
     QFile file(localPath);

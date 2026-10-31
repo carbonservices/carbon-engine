@@ -7,22 +7,22 @@ import "BRSRMetadata.js" as BrsrMeta
 Rectangle {
     id: root
     Layout.fillHeight: true
-    Layout.preferredWidth: root.sidebarExpanded ? 260 : 44
+    Layout.preferredWidth: root.sidebarExpanded ? root.expandedWidth : 44
+    Layout.minimumWidth: root.sidebarExpanded ? 180 : 44
+    Layout.maximumWidth: root.sidebarExpanded ? 420 : 44
     color: Theme.bgSidebar
     radius: 4
     border.color: Theme.borderCol
     border.width: 1
     clip: true
 
+    property real expandedWidth: (typeof appWindow !== "undefined" && appWindow.leftSidebarWidth) ? appWindow.leftSidebarWidth : 260
     property bool sidebarExpanded: (typeof appWindow !== "undefined") ? appWindow.sidebarExpanded : true
     property var historyModel: (typeof reportsHistoryModel !== "undefined") ? reportsHistoryModel : null
     property int currentJobId: (typeof appWindow !== "undefined") ? appWindow.currentJobId : -1
-    property bool isExtracting: (typeof appWindow !== "undefined") ? appWindow.isExtracting : false
-    property bool batchConfirmed: (typeof appWindow !== "undefined") ? appWindow.batchConfirmed : false
 
     signal toggleExpanded()
     signal reportSelected(int jobId)
-    signal cancelJobRequested(int jobId)
     signal deleteReportRequested(int jobId)
     signal refreshReportsRequested()
 
@@ -69,8 +69,11 @@ Rectangle {
                 font.pixelSize: 11
                 color: Theme.textMuted
                 visible: root.sidebarExpanded
+                elide: Text.ElideRight
                 anchors.left: arrowBtn.right
                 anchors.leftMargin: 8
+                anchors.right: refreshBtn.left
+                anchors.rightMargin: 4
                 anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -110,6 +113,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.sidebarExpanded
+            clip: true
 
             ListView {
                 id: historyList
@@ -148,6 +152,7 @@ Rectangle {
                         anchors.leftMargin: (root.currentJobId === model.jobId) ? 10 : 8
                         anchors.rightMargin: 4
                         spacing: 2
+                        clip: true
 
                         Label {
                             Layout.fillWidth: true
@@ -159,11 +164,16 @@ Rectangle {
                         }
 
                         RowLayout {
+                            Layout.fillWidth: true
                             spacing: 6
+                            clip: true
+
                             Label {
                                 text: (model.docCount > 0 ? (model.docCount + " doc" + (model.docCount > 1 ? "s" : "") + " • ") : "") + (model.date || "")
                                 font.pixelSize: 10
                                 color: Theme.textMuted
+                                elide: Text.ElideRight
+                                Layout.maximumWidth: parent ? parent.width * 0.6 : 100
                             }
                             Label {
                                 text: {
@@ -175,6 +185,7 @@ Rectangle {
                                 }
                                 font.pixelSize: 9
                                 font.bold: true
+                                elide: Text.ElideRight
                                 color: {
                                     if (model.extractionStatus === "ACCEPTED" || model.reportLocked) return Theme.successColor
                                     if (model.status === BrsrMeta.JobStatus.Completed) return Theme.successColor

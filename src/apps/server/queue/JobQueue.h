@@ -39,7 +39,7 @@ private:
     VectorIndexRegistry& _indexRegistry;
     QTimer _timer;
     std::atomic<bool> _isProcessing{false};
-    std::atomic<int> _currentProcessingJobId{-1};
+    std::atomic<int> _currentProcessingJobId{CoreConstants::NoActiveJobId};
     std::atomic<bool> _cancelRequested{false};
 
     Logger _log{"JobQueue"};

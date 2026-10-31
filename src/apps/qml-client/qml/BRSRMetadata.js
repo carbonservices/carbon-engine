@@ -631,7 +631,8 @@ var DocumentStatus = {
     Queued: "QUEUED",
     Processing: "PROCESSING",
     Ingested: "INGESTED",
-    Failed: "FAILED"
+    Failed: "FAILED",
+    Cancelled: "CANCELLED"
 };
 
 function applyServerSchema(schemaObj) {

@@ -30,6 +30,7 @@ public:
 
     bool canHandle(FPDF_TEXTPAGE textPage) const override;
     std::string extract(FPDF_PAGE page, FPDF_TEXTPAGE textPage) override;
+    std::string extractFromImage(const std::string& imagePath);
 
 private:
     tesseract::TessBaseAPI _tess;
@@ -41,7 +42,14 @@ public:
     ~DocumentProcessor();
 
     std::vector<DocumentChunk> processPdf(const std::string& pdfPath);
+    std::vector<DocumentChunk> processText(const std::string& txtPath);
+    std::vector<DocumentChunk> processImage(const std::string& imgPath);
+    std::vector<DocumentChunk> processExcel(const std::string& xlsxPath);
+    std::vector<DocumentChunk> processDocument(const std::string& filePath);
+
+    static std::vector<DocumentChunk> chunkText(int pageNumber, const std::string& text);
 
 private:
     std::vector<std::unique_ptr<PageTextExtractor>> _extractors;
+    std::unique_ptr<OcrTextExtractor> _imageOcr;
 };

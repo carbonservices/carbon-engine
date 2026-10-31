@@ -1,6 +1,7 @@
 #include "TrayManager.h"
 #include "constants/CommonConstants.h"
 #include "model/ModelDownloader.h"
+#include "system/SingleInstanceGuard.h"
 #include "system/WindowsService.h"
 
 #include <QApplication>
@@ -9,7 +10,6 @@
 #include <QIcon>
 #include <QProcess>
 #include <QStyle>
-#include <QThread>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -77,8 +77,11 @@ TrayManager::TrayManager(QObject* parent)
     // Auto-start backend application if not already running
     ensureBackendStarted();
 
-    // Auto-launch client UI
-    openClient();
+    // Auto-launch client UI unless started with --minimized flag (e.g. OS auto-start)
+    bool startMinimized = QCoreApplication::arguments().contains("--minimized");
+    if (!startMinimized) {
+        openClient();
+    }
 }
 
 TrayManager::~TrayManager()
@@ -91,26 +94,7 @@ bool TrayManager::isBackendRunning() const
     if (WindowsService::isServiceRunning()) {
         return true;
     }
-#ifdef _WIN32
-    std::wstring globalMutex = (L"Global\\" + QString(AppInfo::DaemonMutexName)).toStdWString();
-    HANDLE hGlobal = OpenMutexW(SYNCHRONIZE, FALSE, globalMutex.c_str());
-    if (hGlobal) {
-        CloseHandle(hGlobal);
-        return true;
-    } else if (GetLastError() == ERROR_ACCESS_DENIED) {
-        return true;
-    }
-
-    std::wstring localMutex = (L"Local\\" + QString(AppInfo::DaemonMutexName)).toStdWString();
-    HANDLE hLocal = OpenMutexW(SYNCHRONIZE, FALSE, localMutex.c_str());
-    if (hLocal) {
-        CloseHandle(hLocal);
-        return true;
-    } else if (GetLastError() == ERROR_ACCESS_DENIED) {
-        return true;
-    }
-#endif
-    return false;
+    return SingleInstanceGuard::isRunning(AppInfo::DaemonMutexName);
 }
 
 bool TrayManager::isServiceMode() const
@@ -189,7 +173,7 @@ void TrayManager::startBackend()
         QString appDir = QCoreApplication::applicationDirPath();
         QString serverPath = appDir + "/" + AppInfo::ServerExecutableName;
         if (QFile::exists(serverPath)) {
-            bool ok = QProcess::startDetached(serverPath, {}, appDir);
+            bool ok = QProcess::startDetached(serverPath, {"--tray-managed"}, appDir);
             m_trayIcon->showMessage(
                 AppInfo::ServerAppName,
                 ok ? "Started background engine process." : QString("Failed to launch %1.").arg(AppInfo::ServerExecutableName),
@@ -250,8 +234,7 @@ void TrayManager::stopBackend()
 void TrayManager::restartBackend()
 {
     stopBackend();
-    QThread::msleep(800);
-    startBackend();
+    QTimer::singleShot(800, this, &TrayManager::startBackend);
 }
 
 void TrayManager::exitApplication()

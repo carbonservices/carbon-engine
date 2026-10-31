@@ -48,7 +48,9 @@ public:
     {
 #ifdef _WIN32
         if (_mutex) {
-            ReleaseMutex(_mutex);
+            if (_isPrimary) {
+                ReleaseMutex(_mutex);
+            }
             CloseHandle(_mutex);
             _mutex = NULL;
         }
@@ -63,6 +65,34 @@ public:
     SingleInstanceGuard& operator=(const SingleInstanceGuard&) = delete;
 
     bool isPrimary() const { return _isPrimary; }
+
+    static bool isRunning(const QString& name)
+    {
+#ifdef _WIN32
+        std::wstring wideGlobal = (L"Global\\" + name).toStdWString();
+        HANDLE hGlobal = OpenMutexW(SYNCHRONIZE, FALSE, wideGlobal.c_str());
+        if (hGlobal) {
+            CloseHandle(hGlobal);
+            return true;
+        } else if (GetLastError() == ERROR_ACCESS_DENIED) {
+            return true;
+        }
+
+        std::wstring wideLocal = (L"Local\\" + name).toStdWString();
+        HANDLE hLocal = OpenMutexW(SYNCHRONIZE, FALSE, wideLocal.c_str());
+        if (hLocal) {
+            CloseHandle(hLocal);
+            return true;
+        } else if (GetLastError() == ERROR_ACCESS_DENIED) {
+            return true;
+        }
+        return false;
+#else
+        QString lockPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/" + name + ".lock";
+        QLockFile lockFile(lockPath);
+        return lockFile.isLocked();
+#endif
+    }
 
 private:
     bool _isPrimary{false};

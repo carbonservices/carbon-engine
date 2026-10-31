@@ -2,7 +2,7 @@
 #include <QMutexLocker>
 
 VectorIndex::VectorIndex(int dimension)
-    : _dim(dimension), _hnsw(dimension, 32), _index(&_hnsw) {}
+    : _hnsw(dimension, 32), _index(&_hnsw) {}
 
 void VectorIndex::add(int64_t id, const std::vector<float>& embedding) {
     QMutexLocker locker(&_mutex);
@@ -28,14 +28,10 @@ std::vector<int64_t> VectorIndex::search(const std::vector<float>& query, int k)
 
     std::vector<int64_t> results;
     for (int i = 0; i < k; ++i) {
-        if (indices[i] != -1) {
+        if (indices[i] >= 0) {
             results.push_back(indices[i]);
         }
     }
     return results;
 }
 
-int VectorIndex::count() const {
-    QMutexLocker locker(&_mutex);
-    return static_cast<int>(_index.ntotal);
-}

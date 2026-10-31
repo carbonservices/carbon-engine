@@ -15,8 +15,9 @@ static QVariantList parseMissingMetrics(const QJsonObject& root)
     for (const auto& item : missingArr) {
         QJsonObject secObj = item.toObject();
         QString label = secObj.value("group_label").toString();
-        QStringList missingKeys;
-        for (const auto& k : secObj.value("missing_keys").toArray()) {
+        QJsonArray keysJsonArr = secObj.value("missing_keys").toArray();
+        QVariantList missingKeys;
+        for (const auto& k : keysJsonArr) {
             missingKeys.append(k.toString());
         }
         if (!missingKeys.isEmpty()) {
@@ -36,9 +37,10 @@ ExtractionStatusPoller::ExtractionStatusPoller(QObject *parent) : ApiClientBase(
 
 void ExtractionStatusPoller::startPolling(int jobId)
 {
+    stopPolling();
     _jobId = jobId;
     _reportedMissingSections.clear();
-    _lastStep = -1;
+    _lastStep = CoreConstants::StepUninitialized;
     _lastGroup.clear();
     _log.info(QString("Started polling extraction for job %1").arg(jobId));
     poll();
@@ -49,12 +51,23 @@ void ExtractionStatusPoller::stopPolling()
 {
     _log.info(QString("Stopped polling extraction for job %1").arg(_jobId));
     _timer.stop();
-    _jobId = -1;
+    _jobId = CoreConstants::InvalidJobId;
+    if (_activeReply) {
+        _activeReply->abort();
+        _activeReply->deleteLater();
+        _activeReply = nullptr;
+    }
 }
 
 void ExtractionStatusPoller::fetchStatusOnly(int jobId)
 {
     if (jobId < 0) return;
+    if (_fetchReply) {
+        _fetchReply->abort();
+        _fetchReply->deleteLater();
+        _fetchReply = nullptr;
+    }
+
     QUrl url = endpoint(ApiRoutes::ExtractionStatus);
     QUrlQuery query;
     query.addQueryItem("job_id", QString::number(jobId));
@@ -62,6 +75,7 @@ void ExtractionStatusPoller::fetchStatusOnly(int jobId)
 
     QNetworkReply *reply = network().get(QNetworkRequest(url));
     reply->setProperty("polledJobId", jobId);
+    _fetchReply = reply;
     connect(reply, &QNetworkReply::finished, this, &ExtractionStatusPoller::onFetchStatusFinished);
 }
 
@@ -69,11 +83,16 @@ void ExtractionStatusPoller::onFetchStatusFinished()
 {
     auto *reply = qobject_cast<QNetworkReply*>(sender());
     if (!reply) return;
+    if (_fetchReply == reply) {
+        _fetchReply = nullptr;
+    }
     reply->deleteLater();
     int polledJobId = reply->property("polledJobId").toInt();
 
     if (reply->error() != QNetworkReply::NoError) {
-        _log.error(QString("Fetch status failed for job %1: %2").arg(polledJobId).arg(reply->errorString()));
+        if (reply->error() != QNetworkReply::OperationCanceledError) {
+            _log.error(QString("Fetch status failed for job %1: %2").arg(polledJobId).arg(reply->errorString()));
+        }
         return;
     }
 
@@ -87,7 +106,7 @@ void ExtractionStatusPoller::onFetchStatusFinished()
 void ExtractionStatusPoller::poll()
 {
     int polledJobId = _jobId;
-    if (polledJobId < 0) {
+    if (polledJobId < 0 || _activeReply) {
         return;
     }
 
@@ -98,6 +117,7 @@ void ExtractionStatusPoller::poll()
 
     QNetworkReply *reply = network().get(QNetworkRequest(url));
     reply->setProperty("polledJobId", polledJobId);
+    _activeReply = reply;
     connect(reply, &QNetworkReply::finished, this, &ExtractionStatusPoller::onPollFinished);
 }
 
@@ -105,6 +125,9 @@ void ExtractionStatusPoller::onPollFinished()
 {
     auto *reply = qobject_cast<QNetworkReply*>(sender());
     if (!reply) return;
+    if (_activeReply == reply) {
+        _activeReply = nullptr;
+    }
     reply->deleteLater();
     int polledJobId = reply->property("polledJobId").toInt();
 
@@ -113,7 +136,9 @@ void ExtractionStatusPoller::onPollFinished()
     }
     if (reply->error() != QNetworkReply::NoError)
     {
-        _log.error(QString("Extraction poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
+        if (reply->error() != QNetworkReply::OperationCanceledError) {
+            _log.error(QString("Extraction poll failed for job %1: %2").arg(_jobId).arg(reply->errorString()));
+        }
         return;
     }
 
@@ -136,31 +161,33 @@ void ExtractionStatusPoller::onPollFinished()
     for (const auto& item : fullList) {
         QVariantMap m = item.toMap();
         QString label = m.value("group").toString();
-        QStringList missingKeys = m.value("missing").toStringList();
+        QVariantList missingKeysList = m.value("missing").toList();
+        QStringList missingKeysStrings;
+        for (const auto& k : missingKeysList) {
+            missingKeysStrings.append(k.toString());
+        }
         if (!_reportedMissingSections.contains(label)) {
             _reportedMissingSections.insert(label);
-            emit missingMetricsReceived(label, missingKeys);
+            emit missingMetricsReceived(label, missingKeysStrings);
         }
     }
     emit missingMetricsUpdated(fullList);
 
-    _log.info(QString("Job %1 extraction status: %2 (step %3/%4: %5, missing %6 sections)").arg(polledJobId).arg(status).arg(step).arg(total).arg(currentGroup).arg(fullList.size()));
+    _log.info(QString("Job %1 extraction status: %2 (step %3/%4: %5, missing %6 sections)")
+        .arg(polledJobId).arg(status).arg(step).arg(total).arg(currentGroup).arg(fullList.size()));
 
     if (status == ExtractionStatus::ReadyForReview ||
         status == ExtractionStatus::Completed ||
         status == ExtractionStatus::Accepted)
     {
         _timer.stop();
+        _jobId = CoreConstants::InvalidJobId;
         emit completed();
     }
     else if (status == ExtractionStatus::Failed)
     {
         _timer.stop();
+        _jobId = CoreConstants::InvalidJobId;
         emit failed("Extraction failed");
-    }
-    else if (status == ExtractionStatus::Cancelled)
-    {
-        _timer.stop();
-        emit cancelled();
     }
 }

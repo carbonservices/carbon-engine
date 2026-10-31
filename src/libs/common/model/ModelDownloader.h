@@ -17,6 +17,7 @@ struct ModelDownloadItem {
     QString displayName;
     QString url;
     qint64 estimatedBytes;
+    QString sha256;
 };
 
 class ModelDownloader : public QObject {

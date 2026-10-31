@@ -2,7 +2,6 @@
 #include "Hateoas.h"
 #include "ServerConfig.h"
 #include "constants/CommonConstants.h"
-#include "report/ReportValidator.h"
 
 // Qt
 #include <QJsonObject>
@@ -16,6 +15,7 @@
 #include <QHttpHeaders>
 #include <QFile>
 #include <QCoreApplication>
+#include <QtConcurrent/QtConcurrent>
 
 static QHttpServerResponse jsonError(QHttpServerResponder::StatusCode code, const QString &message)
 {
@@ -119,8 +119,7 @@ HttpServer::HttpServer(Database &db, LlamaEngine &llama,
 bool HttpServer::listen(quint16 port)
 {
     auto *tcpServer = new QTcpServer(this);
-    bool bindAll = (qEnvironmentVariableIntValue("CARBON_ENGINE_BIND_ALL") == 1);
-    QHostAddress bindAddr = bindAll ? QHostAddress::Any : QHostAddress::LocalHost;
+    QHostAddress bindAddr = QHostAddress::LocalHost;
     if (!tcpServer->listen(bindAddr, port))
     {
         _log.error(QString("Failed to bind to port %1 on %2").arg(port).arg(bindAddr.toString()));
@@ -228,6 +227,13 @@ QFuture<QHttpServerResponse> HttpServer::handleJobStatus(const QHttpServerReques
 QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerRequest& /*request*/)
 {
     QJsonObject obj = _monitor.getSystemSnapshot();
+    bool isGpuBuild = _llama.isGpuSupported();
+    if (!isGpuBuild) {
+        obj["gpu_present"] = false;
+        obj["gpu_pct"] = QJsonValue(QJsonValue::Null);
+        obj["vram_used_mb"] = 0;
+        obj["vram_total_mb"] = 0;
+    }
     obj["gpu_offload_mode"]     = _llama.offloadModeString();
     obj["gpu_layers_offloaded"] = _llama.activeGenGpuLayers();
     obj["job_queue_depth"]      = _db.getPendingJobCount();
@@ -274,18 +280,21 @@ QFuture<QHttpServerResponse> HttpServer::handleSystemStatus(const QHttpServerReq
 QFuture<QHttpServerResponse> HttpServer::handleGetSettings(const QHttpServerRequest& /*request*/)
 {
     QJsonObject obj;
+    bool isGpuBuild = _llama.isGpuSupported();
     bool forceCpu = _llama.isForceCpu();
-    bool forceGpu = _llama.isForceGpu();
+    bool forceGpu = isGpuBuild ? _llama.isForceGpu() : false;
     bool systemSpecsPrecedence = (!forceCpu && !forceGpu);
 
     obj["force_cpu"] = forceCpu;
     obj["force_gpu"] = forceGpu;
     obj["system_specs_precedence"] = systemSpecsPrecedence;
     obj["active_mode"] = _llama.activeInferenceModeString();
-    obj["gpu_present"] = _monitor.gpuPresent();
-    obj["gpu_name"] = _monitor.gpuDeviceName();
-    obj["vram_total_mb"] = static_cast<qint64>(_monitor.vramTotalMb());
+    obj["gpu_present"] = isGpuBuild ? _monitor.gpuPresent() : false;
+    obj["gpu_supported"] = isGpuBuild;
+    obj["gpu_name"] = isGpuBuild ? _monitor.gpuDeviceName() : QString();
+    obj["vram_total_mb"] = isGpuBuild ? static_cast<qint64>(_monitor.vramTotalMb()) : 0;
     obj["workload_title"] = QString::fromUtf8(AppInfo::WorkloadTitle);
+    obj["workload_tag"] = QString::fromUtf8(AppInfo::WorkloadTag);
     obj["_links"] = Hateoas::settingsLinks();
 
     return QtFuture::makeReadyFuture(QHttpServerResponse(obj));
@@ -314,7 +323,7 @@ QFuture<QHttpServerResponse> HttpServer::handlePostSettings(const QHttpServerReq
 QFuture<QHttpServerResponse> HttpServer::handleExtractionStart(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
 
     if (jobId < 0) {
         return QtFuture::makeReadyFuture(jsonError(
@@ -353,7 +362,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
     bool ok = false;
     int jobId = request.query().queryItemValue("job_id").toInt(&ok);
 
-    if (!ok || jobId < 0) {
+    if (!ok || jobId <= 0 || jobId == CoreConstants::InvalidJobId) {
         _log.error("Extraction status request missing job_id query parameter");
         return QtFuture::makeReadyFuture(jsonError(
             QHttpServerResponder::StatusCode::BadRequest,
@@ -375,7 +384,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
 
     auto progress = _extractionService.currentProgress();
     QJsonArray missingArr;
-    if (_extractionService.activeJobId() == jobId || progress.currentStep > 0) {
+    if (_extractionService.activeJobId() == jobId || (progress.jobId == jobId && progress.currentStep > 0)) {
         resp["current_step"] = progress.currentStep;
         resp["total_steps"] = progress.totalSteps;
         resp["current_group"] = progress.currentGroupId;
@@ -404,8 +413,25 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
             QJsonObject dataObj = QJsonDocument::fromJson(sec.dataJson.toUtf8()).object();
             QStringList missing;
             for (const QString& key : grp->allFieldKeys()) {
-                if (!dataObj.contains(key) || dataObj.value(key).isNull() || dataObj.value(key).toString().trimmed().isEmpty()) {
+                if (!dataObj.contains(key) || dataObj.value(key).isNull()) {
                     missing.append(key);
+                } else if (dataObj.value(key).isString()) {
+                    QString s = dataObj.value(key).toString().trimmed();
+                    if (s.isEmpty() || s == "null" || s.compare("N/A", Qt::CaseInsensitive) == 0 ||
+                        s == "-" || s == "--" || s.compare("None", Qt::CaseInsensitive) == 0 ||
+                        s.compare("<Not provided>", Qt::CaseInsensitive) == 0 ||
+                        s.startsWith("Not specified in the provided context", Qt::CaseInsensitive) ||
+                        s.compare("Not Reported", Qt::CaseInsensitive) == 0 ||
+                        s.compare("Not Available", Qt::CaseInsensitive) == 0 ||
+                        s.compare("Not Applicable", Qt::CaseInsensitive) == 0 ||
+                        s.compare("Not Disclosed", Qt::CaseInsensitive) == 0) {
+                        missing.append(key);
+                    }
+                } else if (dataObj.value(key).isArray()) {
+                    QJsonArray arr = dataObj.value(key).toArray();
+                    if (arr.isEmpty()) {
+                        missing.append(key);
+                    }
                 }
             }
             if (!missing.isEmpty()) {
@@ -430,7 +456,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionStatus(const QHttpServe
 QFuture<QHttpServerResponse> HttpServer::handleExtractionCancel(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
     if (jobId < 0) {
         return QtFuture::makeReadyFuture(jsonError(
             QHttpServerResponder::StatusCode::BadRequest, "Missing valid 'job_id' parameter"));
@@ -451,7 +477,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionCancel(const QHttpServe
 QFuture<QHttpServerResponse> HttpServer::handleJobCancel(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
     if (jobId < 0) {
         return QtFuture::makeReadyFuture(jsonError(
             QHttpServerResponder::StatusCode::BadRequest, "Missing valid 'job_id' parameter"));
@@ -497,7 +523,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionSections(const QHttpSer
 QFuture<QHttpServerResponse> HttpServer::handleExtractionSectionUpdate(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
     QString groupId = doc.object().value("group_id").toString();
     QJsonObject data = doc.object().value("data").toObject();
 
@@ -527,7 +553,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionSectionUpdate(const QHt
 QFuture<QHttpServerResponse> HttpServer::handleExtractionAccept(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
 
     if (jobId < 0) {
         return QtFuture::makeReadyFuture(jsonError(
@@ -551,7 +577,7 @@ QFuture<QHttpServerResponse> HttpServer::handleExtractionAccept(const QHttpServe
 QFuture<QHttpServerResponse> HttpServer::handleReportExport(const QHttpServerRequest &request)
 {
     auto doc = QJsonDocument::fromJson(request.body());
-    int jobId = doc.object().value("job_id").toInt(-1);
+    int jobId = doc.object().value("job_id").toInt(CoreConstants::InvalidJobId);
     bool allowDraft = doc.object().value("draft").toBool(true);
 
     if (jobId < 0) {
@@ -582,40 +608,53 @@ QFuture<QHttpServerResponse> HttpServer::handleReportsList(const QHttpServerRequ
     return QtFuture::makeReadyFuture(QHttpServerResponse(enrichedList));
 }
 
+struct ReportDeleteTask {
+    Database* db;
+    JobQueue* jobQueue;
+    ReportExtractionService* extractionService;
+    VectorIndexRegistry* indexRegistry;
+    int jobId;
+
+    QHttpServerResponse operator()() const {
+        jobQueue->cancelJob(jobId);
+        extractionService->cancelJob(jobId);
+
+        int waitCount = 0;
+        while ((jobQueue->currentJobId() == jobId || extractionService->activeJobId() == jobId) && waitCount < 15) {
+            QThread::msleep(80);
+            waitCount++;
+        }
+        extractionService->factStore().clearForJob(jobId);
+
+        bool deleted = db->deleteJob(jobId);
+        if (!deleted) {
+            return jsonError(
+                QHttpServerResponder::StatusCode::InternalServerError,
+                QString("Failed to delete job %1 from database").arg(jobId));
+        }
+        indexRegistry->remove(jobId);
+        QJsonObject resp;
+        resp["status"] = "DELETED";
+        resp["job_id"] = jobId;
+        resp["_links"] = Hateoas::reportDeleteLinks(jobId);
+        return QHttpServerResponse(resp);
+    }
+};
+
 QFuture<QHttpServerResponse> HttpServer::handleReportDelete(const QHttpServerRequest &request)
 {
     bool ok = false;
     int jobId = request.query().queryItemValue("job_id").toInt(&ok);
-    if (!ok || jobId < 0) {
+    if (!ok || jobId <= 0 || jobId == CoreConstants::InvalidJobId) {
         _log.error("Report delete request missing valid job_id");
         return QtFuture::makeReadyFuture(jsonError(
             QHttpServerResponder::StatusCode::BadRequest,
             "Missing or invalid 'job_id' query parameter"));
     }
 
-    // Cancel active ingestion or extraction before deletion
-    _jobQueue.cancelJob(jobId);
-    _extractionService.cancelJob(jobId);
-    int waitCount = 0;
-    while ((_jobQueue.currentJobId() == jobId || _extractionService.activeJobId() == jobId) && waitCount < 10) {
-        QThread::msleep(100);
-        waitCount++;
-    }
-    _extractionService.factStore().clearForJob(jobId);
-
-    bool deleted = _db.deleteJob(jobId);
-    if (!deleted) {
-        return QtFuture::makeReadyFuture(jsonError(
-            QHttpServerResponder::StatusCode::InternalServerError,
-            QString("Failed to delete job %1 from database").arg(jobId)));
-    }
-    _indexRegistry.remove(jobId);
-    _log.info(QString("Successfully deleted report / job %1").arg(jobId));
-    QJsonObject resp;
-    resp["status"] = "DELETED";
-    resp["job_id"] = jobId;
-    resp["_links"] = Hateoas::reportDeleteLinks(jobId);
-    return QtFuture::makeReadyFuture(QHttpServerResponse(resp));
+    _log.info(QString("Asynchronously deleting report / job %1 off-thread").arg(jobId));
+    ReportDeleteTask task{&_db, &_jobQueue, &_extractionService, &_indexRegistry, jobId};
+    return QtConcurrent::run(QThreadPool::globalInstance(), task);
 }
 
 QFuture<QHttpServerResponse> HttpServer::handleJobDocuments(const QHttpServerRequest &request)

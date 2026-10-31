@@ -33,6 +33,7 @@ endif()
 
 project(carbon-engine VERSION ${CARBON_ENGINE_VERSION} LANGUAGES C CXX)
 add_compile_definitions(CARBON_ENGINE_VERSION="${CARBON_ENGINE_VERSION}")
+add_compile_definitions(CARBON_PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -56,9 +57,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${BUILD_ROOT}/lib")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}/cmake" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}/cmake")
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core WebEngineQuick WebChannel Positioning HttpServer Sql Concurrent Quick QuickControls2 Network Widgets)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core Gui WebEngineQuick HttpServer Sql Concurrent Quick QuickControls2 Network Widgets)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 qt_standard_project_setup()
 
@@ -100,8 +101,11 @@ set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
 set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
 
-find_package(CUDAToolkit QUIET)
-if(CUDAToolkit_FOUND)
+option(CARBON_ENABLE_CUDA "Enable CUDA GPU acceleration" ON)
+if(CARBON_ENABLE_CUDA)
+    find_package(CUDAToolkit QUIET)
+endif()
+if(CARBON_ENABLE_CUDA AND CUDAToolkit_FOUND)
     message(STATUS "CUDA Toolkit found (${CUDAToolkit_VERSION}). Enabling GGML_CUDA hardware acceleration.")
     set(GGML_CUDA ON CACHE BOOL "" FORCE)
     set(CARBON_WORKLOAD_TAG "CUDA" CACHE STRING "" FORCE)
@@ -247,16 +251,16 @@ foreach(_dep_bin
     endif()
 endforeach()
 
-if(NOT EXISTS "${CMAKE_SOURCE_DIR}/eng.traineddata")
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata")
     message(STATUS "Downloading Tesseract English language model...")
     file(DOWNLOAD 
         "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata"
-        "${CMAKE_SOURCE_DIR}/eng.traineddata"
+        "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata"
         SHOW_PROGRESS
     )
 endif()
 
-option(CARBON_ENGINE_DOWNLOAD_MODELS "" ON)
+option(CARBON_ENGINE_DOWNLOAD_MODELS "" OFF)
 if(CARBON_ENGINE_DOWNLOAD_MODELS)
     file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/models")
 

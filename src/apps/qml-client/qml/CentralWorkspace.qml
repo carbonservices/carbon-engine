@@ -9,7 +9,7 @@ import "BRSRMetadata.js" as BrsrMeta
 Rectangle {
     Layout.fillWidth: true
     Layout.fillHeight: true
-    Layout.minimumWidth: 450
+    Layout.minimumWidth: 360
     color: Theme.bgBase
     radius: 4
     border.color: Theme.borderCol
@@ -35,6 +35,8 @@ Rectangle {
                             : (appWindow.activeReportTitle !== "" ? appWindow.activeReportTitle : "No Report Selected")
                         font.pixelSize: 15
                         font.bold: true
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 320
                         color: (appWindow.isExtracting || appWindow.activeReportTitle !== "") ? Theme.textBright : Theme.textMuted
                     }
                     Rectangle {
@@ -781,7 +783,7 @@ Rectangle {
                                         Item { Layout.fillWidth: true }
 
                                         Label {
-                                            text: modelData.missing.length + " field(s) missing"
+                                            text: (modelData.missing ? modelData.missing.length : 0) + " field(s) missing"
                                             font.pixelSize: 11
                                             color: Theme.warningColor
                                         }

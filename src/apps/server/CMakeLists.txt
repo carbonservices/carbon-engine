@@ -28,6 +28,7 @@ target_link_libraries(carbon-engine PRIVATE
     Qt6::Core
     Qt6::HttpServer
     Qt6::Network
+    Qt6::Concurrent
 )
 
 if(WIN32)
@@ -40,6 +41,11 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
             $<TARGET_FILE_DIR:carbon-engine>/../templates/template.html
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:carbon-engine>/tessdata
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata"
+            $<TARGET_FILE_DIR:carbon-engine>/tessdata/eng.traineddata
     )
 else()
     add_custom_command(TARGET carbon-engine POST_BUILD
@@ -51,6 +57,11 @@ else()
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/src/libs/common/templates/template.html"
             $<TARGET_FILE_DIR:carbon-engine>/../templates/template.html
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            $<TARGET_FILE_DIR:carbon-engine>/tessdata
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/tessdata/eng.traineddata"
+            $<TARGET_FILE_DIR:carbon-engine>/tessdata/eng.traineddata
     )
     set_target_properties(carbon-engine PROPERTIES
         INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"

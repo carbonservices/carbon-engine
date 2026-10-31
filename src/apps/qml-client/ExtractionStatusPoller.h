@@ -8,6 +8,9 @@
 #include <QTimer>
 #include <QSet>
 #include <QStringList>
+#include <QPointer>
+
+class QNetworkReply;
 
 class ExtractionStatusPoller : public ApiClientBase
 {
@@ -38,9 +41,11 @@ private:
     static constexpr int PollIntervalMs = 1000;
 
     QTimer _timer;
-    int _jobId = -1;
+    int _jobId = CoreConstants::InvalidJobId;
+    QPointer<QNetworkReply> _activeReply;
+    QPointer<QNetworkReply> _fetchReply;
     QSet<QString> _reportedMissingSections;
-    int _lastStep{-1};
+    int _lastStep{CoreConstants::StepUninitialized};
     QString _lastGroup;
     Logger _log{"QmlClient.ExtractionStatusPoller"};
 };

@@ -7,7 +7,7 @@
 #include "db/Database.h"
 
 // In-memory thread-safe cache for accumulating extracted metrics and tracking topic coordinates.
-// Replaces ChunkRelevanceTracker and grounds downstream field prompts with proven facts.
+// Thread-safe cache that grounds downstream field prompts with proven facts.
 class FactStore {
 public:
     explicit FactStore(Database* db = nullptr);
@@ -16,7 +16,7 @@ public:
     void loadForJob(int jobId);
 
     // Records a verified fact, persisting it to SQLite if Database* is present.
-    void put(int jobId, const QString& key, const QString& value, int64_t chunkId = -1, int pageNumber = 0);
+    void put(int jobId, const QString& key, const QString& value, int64_t chunkId = CoreConstants::NoSourceChunkId, int pageNumber = 0);
 
     // Retrieves a specific fact if present.
     bool get(int jobId, const QString& key, FactEntry& out) const;

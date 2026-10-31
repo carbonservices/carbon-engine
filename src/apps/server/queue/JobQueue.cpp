@@ -59,7 +59,7 @@ void JobQueue::pollNextJob()
     if (_isProcessing.exchange(true))
         return;
 
-    int jobId = -1;
+    int jobId = CoreConstants::InvalidJobId;
     QVector<JobDocument> documents;
     if (!_db.getNextPendingJob(jobId, documents))
     {
@@ -105,7 +105,7 @@ void JobQueue::executeJob(int jobId, const QVector<JobDocument>& documents)
 
                 _db.updateDocumentStatus(document.id, "PROCESSING");
                 try {
-                    auto chunks = _proc.processPdf(document.filePath.toStdString());
+                    auto chunks = _proc.processDocument(document.filePath.toStdString());
                     for (const auto& chunk : chunks) {
                         if (_cancelRequested.load()) {
                             break;
@@ -210,7 +210,7 @@ void JobQueue::executeJob(int jobId, const QVector<JobDocument>& documents)
             _log.error(QString("Job %1 FAILED: Unknown internal exception").arg(jobId));
         }
 
-        _currentProcessingJobId.store(-1);
+        _currentProcessingJobId.store(CoreConstants::NoActiveJobId);
         _cancelRequested.store(false);
         _isProcessing = false;
 

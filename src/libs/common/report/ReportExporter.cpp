@@ -266,6 +266,14 @@ QString ReportExporter::exportJob(int jobId, bool allowDraft)
     }
 
     QString tmplPath = QDir(QCoreApplication::applicationDirPath() + "/../templates").filePath("template.html");
+#ifdef CARBON_PROJECT_SOURCE_DIR
+    if (!QFile::exists(tmplPath)) {
+        QString srcTmpl = QStringLiteral(CARBON_PROJECT_SOURCE_DIR) + "/src/libs/common/templates/template.html";
+        if (QFile::exists(srcTmpl)) {
+            tmplPath = srcTmpl;
+        }
+    }
+#endif
 #ifdef __linux__
     if (!QFile::exists(tmplPath)) {
         tmplPath = "/usr/share/carbon-esg/templates/template.html";

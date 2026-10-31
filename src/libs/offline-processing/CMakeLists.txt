@@ -1,6 +1,8 @@
 add_library(carbon-engine-offline STATIC
     ingestion/DocumentProcessor.h
     ingestion/DocumentProcessor.cpp
+    ingestion/ZipReader.h
+    ingestion/ZipReader.cpp
     inference/LlamaEngine.h
     inference/LlamaEngine.cpp
     vector/VectorIndex.h
@@ -18,6 +20,7 @@ target_include_directories(carbon-engine-offline PUBLIC
     ${tesseract_BINARY_DIR}/include
     ${leptonica_SOURCE_DIR}/src
     ${leptonica_BINARY_DIR}/src
+    ${ZLIB_INCLUDE_DIRS}
 )
 
 target_link_libraries(carbon-engine-offline PUBLIC
@@ -25,10 +28,11 @@ target_link_libraries(carbon-engine-offline PUBLIC
     carbon-engine-system
     carbon-engine-logging
     Qt6::Core
-    Qt6::Concurrent
+    Qt6::Gui
     llama
     faiss
     ${PDFIUM_LIBRARIES}
     libtesseract
+    ZLIB::ZLIB
 )
 

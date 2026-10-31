@@ -32,6 +32,8 @@ QJsonObject ReportService::getExtractionSections(int jobId) const
 
     QVector<ValidationIssue> issues = ReportValidator::validateIssues(sections);
     QJsonArray issuesJson;
+    QStringList warnings;
+    warnings.reserve(issues.size());
     for (const ValidationIssue& issue : issues) {
         QJsonObject iObj;
         iObj["group_id"] = issue.groupId;
@@ -39,8 +41,8 @@ QJsonObject ReportService::getExtractionSections(int jobId) const
         iObj["message"] = issue.message;
         iObj["severity"] = issue.severity;
         issuesJson.append(iObj);
+        warnings.append(QString("%1: %2").arg(issue.groupId, issue.message));
     }
-    QStringList warnings = ReportValidator::validate(sections);
 
     return QJsonObject{
         {"sections", sectionsJson},

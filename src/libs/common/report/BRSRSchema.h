@@ -14,7 +14,7 @@ struct TableColumnDef {
 
 // One addressable cluster of related template fields: a single RAG query plus a single
 // LLM extraction call populate exactly the fields listed here. Keeping each group's field
-// count small is what makes per-group extraction reliable on a 7B CPU-only model, unlike
+// count small is what makes per-group extraction reliable on local language models (such as Gemma 2 2B), unlike
 // asking for the whole ~300-field template in one call.
 struct FieldGroup {
     QString id;

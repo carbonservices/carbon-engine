@@ -5,12 +5,12 @@
 #include <QStringList>
 #include <QSqlDatabase>
 #include <QVector>
-#include <QThread>
 #include <QMutex>
 #include <QHash>
 #include <vector>
 #include <functional>
 #include "logging/Logger.h"
+#include "constants/CommonConstants.h"
 
 // One file staged within a job's batch, in the order it was submitted.
 struct JobDocument {
@@ -34,7 +34,7 @@ struct DocumentInfo {
 struct FactEntry {
     QString key;
     QString value;
-    int64_t sourceChunkId{-1};
+    int64_t sourceChunkId{CoreConstants::NoSourceChunkId};
     int pageNumber{0};
 };
 
@@ -82,17 +82,15 @@ public:
     bool updateJobStatus(int jobId, const QString& status, const QString& error = "");
     bool updateDocumentStatus(int documentId, const QString& status);
     
-    // Phase 3 & 5: insertChunk persisting embeddings as BLOBs, returning chunk ID
-    int64_t insertChunk(int jobId, int documentId, int pageNum, const QString& chunkText,
-                        const std::vector<float>& embedding, const QString& embeddingModel = "bge-small-en-v1.5");
     QVector<int64_t> insertChunksBatch(int jobId, const std::vector<ChunkRecord>& chunks,
                                        const QString& embeddingModel = "bge-small-en-v1.5");
     
     bool loadEmbeddingsForJob(int jobId, const std::function<void(int64_t id, const std::vector<float>& vec)>& consumer);
     QMap<int64_t, QString> getChunksByIds(const std::vector<int64_t>& ids);
+    QVector<int64_t> getDocumentNeighborChunkIds(int jobId, const QVector<int64_t>& anchorIds);
 
     // Provenance & FactStore persistence
-    bool upsertFact(int jobId, const QString& key, const QString& value, int64_t chunkId = -1, int pageNumber = 0);
+    bool upsertFact(int jobId, const QString& key, const QString& value, int64_t chunkId = CoreConstants::NoSourceChunkId, int pageNumber = 0);
     QHash<QString, FactEntry> getFactsForJob(int jobId);
 
     // Real system & storage telemetry

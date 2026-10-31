@@ -1,11 +1,8 @@
 #ifndef SERVER_CONFIG_H
 #define SERVER_CONFIG_H
 
-#include <QCoreApplication>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
-#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QString>
 
@@ -14,29 +11,19 @@
 const int kEmbeddingDim = ServerDefaults::DefaultEmbeddingDim;
 const quint16 kDefaultPort = ServerDefaults::DefaultPort;
 
-inline QString resolveModelPath(const QString &name, const QString &fallback)
+inline QString resolveModelPath(const QString &fileName)
 {
-    QString envVal = QProcessEnvironment::systemEnvironment().value(name);
-    if (!envVal.isEmpty()) {
-        return envVal;
-    }
+    QString baseName = QFileInfo(fileName).fileName();
     QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/models";
-    return QDir(docDir).filePath(QFileInfo(fallback).fileName());
+    QDir().mkpath(docDir);
+    return QDir(docDir).filePath(baseName);
 }
 
 inline QString resolveDatabasePath()
 {
-    QString envVal = QProcessEnvironment::systemEnvironment().value("CARBON_ENGINE_DB_PATH");
-    if (!envVal.isEmpty()) {
-        return envVal;
-    }
     QString docDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/Carbon ESG/data";
     QDir().mkpath(docDir);
     return docDir + "/ce-database.sqlite";
-}
-
-inline QString defaultGenModel() {
-    return Models::LocalGemmaFile;
 }
 
 inline const QString& getDatabaseFilePath()
@@ -47,12 +34,12 @@ inline const QString& getDatabaseFilePath()
 
 inline QString getGenerationModelPath()
 {
-    return resolveModelPath("CARBON_ENGINE_GEN_MODEL", defaultGenModel());
+    return resolveModelPath(Models::LocalGemmaFile);
 }
 
 inline QString getEmbeddingModelPath()
 {
-    return resolveModelPath("CARBON_ENGINE_EMBD_MODEL", Models::LocalBgeEmbeddingFile);
+    return resolveModelPath(Models::LocalBgeEmbeddingFile);
 }
 
 #define kDatabaseFilePath getDatabaseFilePath()

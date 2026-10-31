@@ -10,6 +10,7 @@
 #include "llama.h"
 #include "logging/Logger.h"
 #include "system/SystemMonitor.h"
+#include "constants/CommonConstants.h"
 
 struct GenerationOptions {
     float   temperature   = 0.7f;
@@ -55,6 +56,7 @@ public:
 
     QString activeInferenceModeString() const;
     QString offloadModeString() const;
+    bool isGpuSupported() const;
 
     std::vector<float> generateEmbedding(const std::string& text);
     std::vector<std::vector<float>> generateEmbeddingsBatch(const std::vector<std::string>& texts);
@@ -88,7 +90,7 @@ private:
 
     QTimer*           _idleTimer = Q_NULLPTR;
     std::atomic<bool> _isInferencing{false};
-    std::atomic<int>  _activeGenLayers{-1};
+    std::atomic<int>  _activeGenLayers{CoreConstants::ModelNotLoaded};
     std::atomic<int>  _activeEmbdLayers{0};
     std::atomic<bool> _forceCpu{false};
     std::atomic<bool> _forceGpu{false};

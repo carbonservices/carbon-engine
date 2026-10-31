@@ -29,6 +29,8 @@ ApplicationWindow {
     }
 
     property bool sidebarExpanded: true
+    property real leftSidebarWidth: 260
+    property real rightPanelWidth: 320
     property string activeReportTitle: ""
     property string activeReportContent: ""
     property int currentJobId: -1
@@ -140,9 +142,7 @@ ApplicationWindow {
         reportClient.fetchReports()
     }
 
-    function openSettingsModal() {
-        settingsModal.open()
-    }
+
 
     function cancelJobById(jobId) {
         if (jobId <= 0) return
@@ -249,6 +249,7 @@ ApplicationWindow {
             }
         }
         onCompleted: {
+            poller.stopPolling()
             appendStatus("Ingestion complete. Vector embeddings persisted to local SQLite ('document_chunks') and indexed.")
             appendStatus("Backend advancing automatically to statutory extraction...")
             batchConfirmed = false
@@ -336,7 +337,6 @@ ApplicationWindow {
 
     readonly property var modelDownloader: backendModelDownloader
     property alias systemPoller: systemPoller
-    property alias extractionPoller: extractionPoller
     property bool lastKnownConnected: false
 
     ExtractionStatusPoller {
@@ -355,15 +355,11 @@ ApplicationWindow {
             appWindow.missingMetricsSummary = list
         }
         onMissingMetricsReceived: function(groupLabel, missingKeys) {
-            var updated = []
-            for (var i = 0; i < missingMetricsSummary.length; ++i) {
-                updated.push(missingMetricsSummary[i])
-            }
-            updated.push({ "group": groupLabel, "missing": missingKeys })
-            appWindow.missingMetricsSummary = updated
-            appendStatus("[Notice] " + groupLabel + ": Missing from context (" + missingKeys.join(", ") + ") - manual entry needed")
+            var keyStr = (missingKeys && missingKeys.join) ? missingKeys.join(", ") : missingKeys
+            appendStatus("[Notice] " + groupLabel + ": Missing from context (" + keyStr + ") - manual entry needed")
         }
         onCompleted: {
+            extractionPoller.stopPolling()
             appWindow.isExtracting = false
             var totalStr = extractionTotal > 0 ? (extractionTotal + "/" + extractionTotal + " sections") : (extractionStep + " sections");
             appendStatus("Extraction complete (" + totalStr + " processed locally). Opening review screen...")
@@ -476,7 +472,7 @@ ApplicationWindow {
     FileDialog {
         id: addDocDialog
         title: "Select Documents for Ingestion"
-        nameFilters: ["PDF Documents (*.pdf)"]
+        nameFilters: ["All Supported Documents (*.pdf *.xlsx *.txt *.png *.jpg *.jpeg)", "PDF Documents (*.pdf)", "Excel Spreadsheets (*.xlsx)", "Text Documents (*.txt)", "Image Documents (*.png *.jpg *.jpeg)"]
         fileMode: FileDialog.OpenFiles
         onAccepted: {
             var files = []
@@ -661,10 +657,16 @@ ApplicationWindow {
 
             // Theme Toggle
             Button {
-                text: Theme.isDarkMode ? "🌙 Dark" : "☀️ Light"
+                id: themeToggleBtn
+                text: Theme.isDarkMode ? "🌙" : "☀️"
                 flat: true
+                hoverEnabled: true
                 Layout.alignment: Qt.AlignVCenter
                 Layout.preferredHeight: 26
+                Layout.preferredWidth: 32
+                ToolTip.visible: hovered
+                ToolTip.text: Theme.isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"
+                ToolTip.delay: 300
                 background: Rectangle {
                     color: parent.hovered ? Theme.bgHover : (parent.pressed ? Theme.bgActive : "transparent")
                     border.color: parent.hovered ? Theme.borderSubtle : "transparent"
@@ -673,8 +675,7 @@ ApplicationWindow {
                 }
                 contentItem: Text {
                     text: parent.text
-                    color: Theme.textMain
-                    font.pixelSize: 11
+                    font.pixelSize: 13
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -761,26 +762,19 @@ ApplicationWindow {
     RowLayout {
         anchors.fill: parent
         anchors.margins: 12
-        spacing: 12
+        spacing: 0
         clip: true
 
         LeftSidebar {
             id: leftSidebar
             sidebarExpanded: appWindow.sidebarExpanded
+            expandedWidth: appWindow.leftSidebarWidth
             historyModel: reportsHistoryModel
             currentJobId: appWindow.currentJobId
-            isExtracting: appWindow.isExtracting
-            batchConfirmed: appWindow.batchConfirmed
+
             onToggleExpanded: appWindow.sidebarExpanded = !appWindow.sidebarExpanded
             onReportSelected: function(jobId) {
                 appWindow.selectReport(jobId)
-            }
-            onCancelJobRequested: function(jobId) {
-                if (jobId === appWindow.currentJobId) {
-                    appWindow.cancelActiveJob()
-                } else {
-                    appWindow.cancelJobById(jobId)
-                }
             }
             onDeleteReportRequested: function(jobId) {
                 reportClient.deleteReport(jobId)
@@ -788,12 +782,98 @@ ApplicationWindow {
             onRefreshReportsRequested: reportClient.fetchReports()
         }
 
+        // Left Splitter Handle
+        Rectangle {
+            id: leftSplitterHandle
+            Layout.fillHeight: true
+            Layout.preferredWidth: appWindow.sidebarExpanded ? 8 : 0
+            visible: appWindow.sidebarExpanded
+            color: "transparent"
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 2
+                height: 36
+                radius: 1
+                color: leftSplitterMouse.containsMouse || leftSplitterMouse.pressed ? Theme.brandAccent : Theme.borderSubtle
+            }
+
+            MouseArea {
+                id: leftSplitterMouse
+                anchors.fill: parent
+                anchors.leftMargin: -3
+                anchors.rightMargin: -3
+                hoverEnabled: true
+                cursorShape: Qt.SplitHCursor
+
+                property real dragStartGlobalX: 0
+                property real dragStartWidth: 0
+
+                onPressed: function(mouse) {
+                    var pt = mapToItem(appWindow.contentItem, mouse.x, 0)
+                    dragStartGlobalX = pt.x
+                    dragStartWidth = appWindow.leftSidebarWidth
+                }
+                onPositionChanged: function(mouse) {
+                    if (pressed) {
+                        var pt = mapToItem(appWindow.contentItem, mouse.x, 0)
+                        var delta = pt.x - dragStartGlobalX
+                        var newW = Math.max(180, Math.min(420, dragStartWidth + delta))
+                        appWindow.leftSidebarWidth = newW
+                    }
+                }
+            }
+        }
+
         CentralWorkspace {
             id: centralWorkspace
         }
 
+        // Right Splitter Handle
+        Rectangle {
+            id: rightSplitterHandle
+            Layout.fillHeight: true
+            Layout.preferredWidth: 8
+            color: "transparent"
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 2
+                height: 36
+                radius: 1
+                color: rightSplitterMouse.containsMouse || rightSplitterMouse.pressed ? Theme.brandAccent : Theme.borderSubtle
+            }
+
+            MouseArea {
+                id: rightSplitterMouse
+                anchors.fill: parent
+                anchors.leftMargin: -3
+                anchors.rightMargin: -3
+                hoverEnabled: true
+                cursorShape: Qt.SplitHCursor
+
+                property real dragStartGlobalX: 0
+                property real dragStartWidth: 0
+
+                onPressed: function(mouse) {
+                    var pt = mapToItem(appWindow.contentItem, mouse.x, 0)
+                    dragStartGlobalX = pt.x
+                    dragStartWidth = appWindow.rightPanelWidth
+                }
+                onPositionChanged: function(mouse) {
+                    if (pressed) {
+                        var pt = mapToItem(appWindow.contentItem, mouse.x, 0)
+                        var delta = dragStartGlobalX - pt.x // Dragging left increases width
+                        var newW = Math.max(250, Math.min(500, dragStartWidth + delta))
+                        appWindow.rightPanelWidth = newW
+                    }
+                }
+            }
+        }
+
         RightPanel {
             id: rightPanel
+            panelWidth: appWindow.rightPanelWidth
         }
     }
 

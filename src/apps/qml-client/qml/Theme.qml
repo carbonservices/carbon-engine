@@ -7,6 +7,7 @@ QtObject {
     property bool isDarkMode: true
 
     readonly property color bgBase: isDarkMode ? "#1e1e1e" : "#ffffff"
+    readonly property color bgMain: bgBase
     readonly property color bgSidebar: isDarkMode ? "#252526" : "#f3f3f3"
     readonly property color bgCard: isDarkMode ? "#252526" : "#ffffff"
     readonly property color bgHeader: isDarkMode ? "#181818" : "#f8f8f8"
@@ -30,6 +31,7 @@ QtObject {
     readonly property color badgePillBlueBg: isDarkMode ? "#1e3a5f" : "#dbeafe"
     readonly property color badgePillBlueBorder: isDarkMode ? "#3b82f6" : "#60a5fa"
     readonly property color badgePillBlueText: isDarkMode ? "#93c5fd" : "#1e40af"
+    readonly property color badgeSuccessBg: isDarkMode ? "#064e3b" : "#d1fae5"
     readonly property color badgeWarningBg: isDarkMode ? "#302400" : "#fef3c7"
     readonly property color badgeWarningDarkBg: isDarkMode ? "#291b00" : "#fef9c3"
     readonly property color badgeWarningBorder: isDarkMode ? "#b45309" : "#d97706"

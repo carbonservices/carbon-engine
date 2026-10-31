@@ -4,8 +4,12 @@ import QtQuick.Layouts
 import CarbonEngineClient
 
 Rectangle {
+    id: root
     Layout.fillWidth: true
-    Layout.preferredHeight: 350
+    property real panelHeight: 330
+    Layout.preferredHeight: panelHeight
+    Layout.minimumHeight: 180
+    Layout.maximumHeight: 460
     color: Theme.bgSidebar
     radius: 4
     border.color: Theme.borderCol
@@ -19,7 +23,16 @@ Rectangle {
         property string value: ""
         property color valueColor: Theme.textBright
         Layout.fillWidth: true
-        Label { text: label; color: Theme.textMuted; font.pixelSize: 11 }
+        spacing: 4
+        clip: true
+
+        Label {
+            text: label
+            color: Theme.textMuted
+            font.pixelSize: 11
+            elide: Text.ElideRight
+            Layout.maximumWidth: Math.max(70, parent ? parent.width * 0.42 : 110)
+        }
         Item { Layout.fillWidth: true }
         Label {
             id: valLabel
@@ -28,7 +41,7 @@ Rectangle {
             font.pixelSize: 11
             font.family: "Consolas, monospace"
             elide: Text.ElideRight
-            Layout.maximumWidth: 200
+            Layout.maximumWidth: Math.max(90, parent ? parent.width * 0.55 : 140)
             ToolTip.visible: valMouse.containsMouse && valLabel.truncated
             ToolTip.text: value
             ToolTip.delay: 300
@@ -47,11 +60,13 @@ Rectangle {
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 6
             Label {
                 text: "SYSTEM STATUS"
                 font.bold: true
                 font.pixelSize: 11
                 color: Theme.textMuted
+                elide: Text.ElideRight
             }
             Item { Layout.fillWidth: true }
 
@@ -62,56 +77,65 @@ Rectangle {
                 color: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.successColor
             }
         }
+
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.borderCol }
 
-        ColumnLayout {
+        ScrollView {
+            id: statusScrollView
             Layout.fillWidth: true
-            spacing: 5
+            Layout.fillHeight: true
+            contentWidth: availableWidth
+            clip: true
 
-            StatusRow {
-                label: "Mode"
-                value: (!poller || !poller.isConnected) ? "Disconnected" : "Local Daemon"
-                valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
-            }
-            StatusRow {
-                label: "Workload"
-                value: poller ? poller.workloadTitle : "Non-GPU Workload"
-                valueColor: Theme.brandAccent
-            }
-            StatusRow {
-                label: "Inference Mode"
-                value: poller ? poller.activeInferenceMode : "Auto (System Specs)"
-                valueColor: (poller && !poller.systemSpecsPrecedence) ? Theme.warningColor : Theme.brandAccent
-            }
-            StatusRow {
-                label: "Model"
-                value: {
-                    if (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady) {
-                        return "Not Downloaded"
-                    }
-                    return poller ? poller.activeModel : "—"
+            ColumnLayout {
+                width: statusScrollView.availableWidth
+                spacing: 5
+
+                StatusRow {
+                    label: "Mode"
+                    value: (!poller || !poller.isConnected) ? "Disconnected" : "Local Daemon"
+                    valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
                 }
-                valueColor: (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady)
-                    ? Theme.warningColor
-                    : ((!poller || !poller.isConnected) ? Theme.textMuted : Theme.textBright)
+                StatusRow {
+                    label: "Workload"
+                    value: poller ? poller.workloadTitle : "Non-GPU Workload"
+                    valueColor: Theme.brandAccent
+                }
+                StatusRow {
+                    label: "Inference Mode"
+                    value: poller ? poller.activeInferenceMode : "Auto (System Specs)"
+                    valueColor: (poller && !poller.systemSpecsPrecedence) ? Theme.warningColor : Theme.brandAccent
+                }
+                StatusRow {
+                    label: "Model"
+                    value: {
+                        if (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady) {
+                            return "Not Downloaded"
+                        }
+                        return poller ? poller.activeModel : "—"
+                    }
+                    valueColor: (typeof appWindow !== "undefined" && appWindow.modelDownloader && !appWindow.modelDownloader.modelsReady)
+                        ? Theme.warningColor
+                        : ((!poller || !poller.isConnected) ? Theme.textMuted : Theme.textBright)
+                }
+                StatusRow { label: "Job queue"; value: poller ? poller.jobQueue : "—" }
+                StatusRow { label: "CPU"; value: poller ? poller.cpuLoad : "—" }
+                StatusRow { label: "Memory"; value: poller ? poller.memoryUsage : "—" }
+                StatusRow { label: "GPU Load"; value: poller ? poller.gpuLoad : "—" }
+                StatusRow { label: "GPU VRAM"; value: poller ? poller.vramUsage : "—" }
+                StatusRow { label: "Offload"; value: poller ? poller.gpuOffload : "—" }
+                StatusRow {
+                    label: "Status"
+                    value: poller ? poller.engineStatus : "—"
+                    valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : ((poller && poller.engineStatus !== "Idle" && poller.engineStatus !== "Unknown") ? Theme.brandAccent : Theme.textBright)
+                }
+                StatusRow {
+                    label: "Database"
+                    value: poller ? poller.databaseStatus : "—"
+                    valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
+                }
+                StatusRow { label: "Tokens"; value: poller ? poller.tokenRate : "—" }
             }
-            StatusRow { label: "Job queue"; value: poller ? poller.jobQueue : "—" }
-            StatusRow { label: "CPU"; value: poller ? poller.cpuLoad : "—" }
-            StatusRow { label: "Memory"; value: poller ? poller.memoryUsage : "—" }
-            StatusRow { label: "GPU Load"; value: poller ? poller.gpuLoad : "—" }
-            StatusRow { label: "GPU VRAM"; value: poller ? poller.vramUsage : "—" }
-            StatusRow { label: "Offload"; value: poller ? poller.gpuOffload : "—" }
-            StatusRow {
-                label: "Status"
-                value: poller ? poller.engineStatus : "—"
-                valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : ((poller && poller.engineStatus !== "Idle" && poller.engineStatus !== "Unknown") ? Theme.brandAccent : Theme.textBright)
-            }
-            StatusRow {
-                label: "Database"
-                value: poller ? poller.databaseStatus : "—"
-                valueColor: (!poller || !poller.isConnected) ? Theme.dangerColor : Theme.textBright
-            }
-            StatusRow { label: "Tokens"; value: poller ? poller.tokenRate : "—" }
         }
     }
 }
