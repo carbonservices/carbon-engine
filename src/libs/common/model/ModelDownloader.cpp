@@ -5,6 +5,8 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
+#include <QSslConfiguration>
+#include <QSslSocket>
 #include <QStandardPaths>
 
 static const ModelDownloadItem kStandardModels[] = {
@@ -29,7 +31,39 @@ ModelDownloader::ModelDownloader(QObject* parent)
     , _log("ModelDownloader")
 {
     _nam = new QNetworkAccessManager(this);
+    initializeTlsBackend();
     checkModels();
+}
+
+void ModelDownloader::initializeTlsBackend()
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    if (!QCoreApplication::libraryPaths().contains(appDir)) {
+        QCoreApplication::addLibraryPath(appDir);
+    }
+    const QString pluginsDir = appDir + "/plugins";
+    if (QDir(pluginsDir).exists() && !QCoreApplication::libraryPaths().contains(pluginsDir)) {
+        QCoreApplication::addLibraryPath(pluginsDir);
+    }
+
+    const QStringList backends = QSslSocket::availableBackends();
+    _log.info(QString("Available TLS backends: [%1]").arg(backends.join(", ")));
+
+#ifdef Q_OS_WIN
+    if (backends.contains("schannel", Qt::CaseInsensitive)) {
+        if (QSslSocket::setActiveBackend("schannel")) {
+            _log.info("Activated native Windows Schannel TLS backend.");
+        } else {
+            _log.warn("Failed to activate native Windows Schannel TLS backend.");
+        }
+    }
+#endif
+
+    const bool hasSsl = QSslSocket::supportsSsl();
+    _log.info(QString("TLS Status: supportsSsl=%1, activeBackend=%2, sslLibraryBuildVersion=%3")
+                  .arg(hasSsl ? "true" : "false")
+                  .arg(QSslSocket::activeBackend())
+                  .arg(QSslSocket::sslLibraryBuildVersionString()));
 }
 
 ModelDownloader::~ModelDownloader()
@@ -110,6 +144,17 @@ void ModelDownloader::buildQueue()
 void ModelDownloader::startDownload()
 {
     if (_isDownloading) {
+        return;
+    }
+
+    if (!QSslSocket::supportsSsl()) {
+        initializeTlsBackend();
+    }
+
+    if (!QSslSocket::supportsSsl()) {
+        QString err = "TLS initialization failed: No functional TLS backend is available. Please ensure Qt TLS plugins (qschannelbackend.dll) are installed.";
+        _log.error(err);
+        setError(err);
         return;
     }
 
@@ -360,6 +405,11 @@ void ModelDownloader::onNetworkError(QNetworkReply::NetworkError code)
     }
 
     QString errStr = _currentReply ? _currentReply->errorString() : "Unknown network error";
+    if (code == QNetworkReply::SslHandshakeFailedError || code == 99 /* ProtocolFailure / TLS initialization */) {
+        if (!QSslSocket::supportsSsl()) {
+            errStr += " (No functional TLS backend found; please verify qschannelbackend.dll in bin/tls)";
+        }
+    }
     setError(QString("Download failed: %1 (Code %2)").arg(errStr).arg(code));
 }
 

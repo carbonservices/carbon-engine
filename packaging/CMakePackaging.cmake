@@ -31,6 +31,29 @@ if(WIN32)
         )
     endif()
 
+    # Explicitly install Qt TLS plugins into bin/tls for reliable HTTPS downloads
+    get_target_property(_qmake_executable Qt6::qmake IMPORTED_LOCATION)
+    if(_qmake_executable)
+        get_filename_component(_qt_bin_dir "${_qmake_executable}" DIRECTORY)
+        get_filename_component(_qt_root "${_qt_bin_dir}" DIRECTORY)
+        if(EXISTS "${_qt_root}/plugins/tls")
+            if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+                install(DIRECTORY "${_qt_root}/plugins/tls/"
+                    DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
+                    FILES_MATCHING
+                    PATTERN "*d.dll"
+                )
+            else()
+                install(DIRECTORY "${_qt_root}/plugins/tls/"
+                    DESTINATION ${CMAKE_INSTALL_BINDIR}/tls
+                    FILES_MATCHING
+                    PATTERN "*.dll"
+                    PATTERN "*d.dll" EXCLUDE
+                )
+            endif()
+        endif()
+    endif()
+
     # Install deployed Qt runtime DLLs, plugins, resources, and complete QML tree into bin
     install(DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
         DESTINATION ${CMAKE_INSTALL_BINDIR}

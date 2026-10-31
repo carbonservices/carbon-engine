@@ -80,6 +80,7 @@ private:
     void setError(const QString& msg);
     void updateSpeed();
     void buildQueue();
+    void initializeTlsBackend();
 
     QNetworkAccessManager* _nam = nullptr;
     QNetworkReply* _currentReply = nullptr;

@@ -18,4 +18,5 @@ target_link_libraries(carbon-tray PRIVATE
     carbon-engine-system
     Qt6::Core
     Qt6::Widgets
+    Qt6::Network
 )
